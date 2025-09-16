@@ -133,6 +133,7 @@ export interface CashTransaction {
     amount: number;
     currency: string;
     createdBy: string; // admin_uid
+    relatedDocId?: string; // id of payment or salary doc
 }
 
 export interface Message {

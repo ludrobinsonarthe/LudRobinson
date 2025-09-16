@@ -19,7 +19,7 @@ import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import PaymentFormDialog from '@/components/payment-form-dialog';
@@ -79,8 +79,26 @@ export default function TuitionManagementPage() {
     
     const handleUpdateStatus = async (payment: Payment, status: 'validated' | 'rejected') => {
         try {
+            const batch = writeBatch(db);
             const paymentRef = doc(db, "payments", payment.id);
-            await updateDoc(paymentRef, { status });
+            batch.update(paymentRef, { status });
+
+            if(status === 'validated') {
+                const transactionRef = doc(collection(db, 'cash_transactions'));
+                batch.set(transactionRef, {
+                    id: transactionRef.id,
+                    date: new Date().toISOString(),
+                    type: 'income',
+                    category: 'tuition',
+                    description: `Frais de scolarité - ${getStudentName(payment.studentId)} - ${payment.month} ${payment.year}`,
+                    amount: payment.amountPaid,
+                    currency: payment.currency,
+                    createdBy: 'admin', // This should be the current admin's UID
+                    relatedDocId: payment.id,
+                });
+            }
+
+            await batch.commit();
             toast({ title: "Statut mis à jour", description: `Le paiement a été marqué comme ${status === 'validated' ? 'validé' : 'rejeté'}.` });
         } catch (error) {
             console.error("Error updating status:", error);
@@ -223,4 +241,3 @@ export default function TuitionManagementPage() {
         </div>
     );
 }
-
