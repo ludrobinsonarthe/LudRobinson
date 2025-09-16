@@ -90,52 +90,66 @@ function MainSidebar() {
       </SidebarHeader>
       <SidebarContent>
         {isMounted && <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === item.href}
-                tooltip={item.label}
-              >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-
-          {user?.role === 'student' && studentMenuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === item.href}
-                tooltip={item.label}
-              >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-
-          {user?.role === 'admin' && adminManagementItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
+          
+          <SidebarGroup>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            {menuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href}
-                    tooltip={item.label}
+                  asChild
+                  isActive={pathname === item.href}
+                  tooltip={item.label}
                 >
-                    <Link href={item.href}>
+                  <Link href={item.href}>
                     <item.icon />
                     <span>{item.label}</span>
-                    </Link>
+                  </Link>
                 </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+              </SidebarMenuItem>
+            ))}
+          </SidebarGroup>
 
-          <SidebarMenuItem>
+          <SidebarGroup>
+            <SidebarGroupLabel>Étudiant</SidebarGroupLabel>
+             {studentMenuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === item.href}
+                  tooltip={item.label}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            {adminManagementItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                      tooltip={item.label}
+                  >
+                      <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                      </Link>
+                  </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarGroup>
+
+        </SidebarMenu>}
+      </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+           <SidebarMenuItem>
             <SidebarMenuButton
                 asChild
                 isActive={pathname === "/dashboard/profile"}
@@ -147,10 +161,6 @@ function MainSidebar() {
                 </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-        </SidebarMenu>}
-      </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Paramètres">
               <Settings />
