@@ -9,14 +9,16 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Paperclip } from "lucide-react";
+import { Paperclip, Pencil } from "lucide-react";
 import type { Message } from "@/lib/types";
 import { mockUsers } from "@/lib/mock-data";
 import { format, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useUser } from "@/hooks/use-user";
 
 interface AnnouncementCardProps {
   announcement: Message;
+  onEdit: (announcement: Message) => void;
 }
 
 const roleTranslation: { [key: string]: string } = {
@@ -30,8 +32,9 @@ const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
 };
 
-export default function AnnouncementCard({ announcement }: AnnouncementCardProps) {
+export default function AnnouncementCard({ announcement, onEdit }: AnnouncementCardProps) {
   const sender = mockUsers.find(user => user.uid === announcement.senderId);
+  const { user: currentUser } = useUser();
 
   if (!sender) {
     return null;
@@ -47,7 +50,7 @@ export default function AnnouncementCard({ announcement }: AnnouncementCardProps
             <AvatarImage src={sender.photoUrl} alt={`${sender.firstName} ${sender.lastName}`} data-ai-hint="person face" />
             <AvatarFallback>{getInitials(sender.firstName, sender.lastName)}</AvatarFallback>
           </Avatar>
-          <div className="grid gap-1">
+          <div className="grid gap-1 flex-1">
             <div className="flex items-center gap-2">
                 <p className="font-semibold">{`${sender.firstName} ${sender.lastName}`}</p>
                 <Badge variant="secondary">{roleTranslation[sender.role]}</Badge>
@@ -56,6 +59,12 @@ export default function AnnouncementCard({ announcement }: AnnouncementCardProps
               {formattedDate}
             </p>
           </div>
+           {currentUser?.role === 'admin' && (
+            <Button variant="ghost" size="icon" onClick={() => onEdit(announcement)}>
+              <Pencil className="h-4 w-4" />
+              <span className="sr-only">Modifier</span>
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
