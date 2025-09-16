@@ -30,6 +30,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
+import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -44,7 +46,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { users, setUsers } = useUser();
+    const { users, setUsers, loading } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
@@ -101,54 +103,72 @@ export default function StudentsPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = (studentData: Partial<User>, parentData?: Partial<User>) => {
-        if (selectedStudent) {
-            // Edit existing student
-            const updatedUsers = users.map(u => u.uid === selectedStudent.uid ? { ...u, ...studentData } as User : u);
-            setUsers(updatedUsers);
-        } else {
-            // Add new student and potentially a new parent
-            const newStudent: User = {
-                uid: `user${Date.now()}`,
-                createdAt: new Date().toISOString(),
-                status: 'active',
-                role: 'student',
-                ...studentData
-            } as User;
-
-            let newUsers = [...users, newStudent];
-            
-            if (parentData && parentData.email) {
-                 const newParent : User = {
-                    uid: `user${Date.now() + 1}`,
+    const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>) => {
+        try {
+            if (selectedStudent) {
+                // Edit existing student
+                const studentRef = doc(db, "users", selectedStudent.uid);
+                await updateDoc(studentRef, studentData);
+                toast({ title: "Étudiant mis à jour", description: "Les informations de l'étudiant ont été mises à jour." });
+            } else {
+                 // Add new student and potentially a new parent
+                const batch = writeBatch(db);
+                const newStudentId = doc(collection(db, "users")).id;
+                
+                const newStudent: User = {
+                    uid: newStudentId,
                     createdAt: new Date().toISOString(),
                     status: 'active',
-                    role: 'parent',
-                    ...parentData,
-                    parent: { childrenUids: [newStudent.uid] }
-                 } as User;
-                 newStudent.student!.parentUid = newParent.uid;
-                 newUsers.push(newParent);
-            } else if (studentData.student?.parentUid) {
-                // Link to existing parent
-                const parentIndex = newUsers.findIndex(u => u.uid === studentData.student?.parentUid);
-                if(parentIndex !== -1) {
-                    const parent = newUsers[parentIndex];
-                    parent.parent = {
-                        childrenUids: [...(parent.parent?.childrenUids || []), newStudent.uid]
+                    role: 'student',
+                    ...studentData,
+                } as User;
+
+                let newParentId: string | undefined;
+
+                if (parentData && parentData.email) {
+                    newParentId = doc(collection(db, "users")).id;
+                    const newParent : User = {
+                       uid: newParentId,
+                       createdAt: new Date().toISOString(),
+                       status: 'active',
+                       role: 'parent',
+                       ...parentData,
+                       parent: { childrenUids: [newStudent.uid] }
+                    } as User;
+                    newStudent.student!.parentUid = newParent.uid;
+                    batch.set(doc(db, "users", newParentId), newParent);
+
+                } else if (studentData.student?.parentUid) {
+                    const parentRef = doc(db, "users", studentData.student.parentUid);
+                    const parentSnap = await getDoc(parentRef);
+                    if(parentSnap.exists()) {
+                        const parent = parentSnap.data() as User;
+                        const childrenUids = [...(parent.parent?.childrenUids || []), newStudent.uid];
+                        batch.update(parentRef, { "parent.childrenUids": childrenUids });
                     }
-                    newUsers[parentIndex] = parent;
                 }
+                
+                batch.set(doc(db, "users", newStudentId), newStudent);
+                await batch.commit();
+                toast({ title: "Étudiant ajouté", description: "Le nouvel étudiant a été ajouté avec succès." });
             }
-            setUsers(newUsers);
+        } catch (error) {
+            console.error("Error saving student:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'étudiant." });
         }
     }
     
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if(selectedStudent) {
-            setUsers(users.filter(u => u.uid !== selectedStudent.uid));
-            setIsDeleteOpen(false);
-            setSelectedStudent(null);
+            try {
+                await deleteDoc(doc(db, "users", selectedStudent.uid));
+                toast({ title: "Étudiant supprimé", description: "L'étudiant a été supprimé avec succès." });
+                setIsDeleteOpen(false);
+                setSelectedStudent(null);
+            } catch (error) {
+                console.error("Error deleting student: ", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'étudiant." });
+            }
         }
     }
     
@@ -220,7 +240,7 @@ export default function StudentsPage() {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
             try {
                 const bstr = event.target?.result;
                 const wb = XLSX.read(bstr, { type: 'binary' });
@@ -228,41 +248,49 @@ export default function StudentsPage() {
                 const ws = wb.Sheets[wsname];
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
                 
-                // Assuming header is in the first row
                 const headers = data[0] as string[];
-                const importedStudents = (data.slice(1) as string[][]).map(row => {
+                const importedStudentsData = (data.slice(1) as string[][]).map(row => {
                     const studentRow: any = {};
                     headers.forEach((header, index) => {
                         studentRow[header] = row[index];
                     });
-                    
-                    const field = mockFields.find(f => f.name.toLowerCase() === studentRow['Filiere']?.toLowerCase());
+                    return studentRow;
+                });
+
+                const batch = writeBatch(db);
+                let importedCount = 0;
+                
+                for (const studentRow of importedStudentsData) {
+                    const field = mockFields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase());
+                    const newId = doc(collection(db, "users")).id;
 
                     const newUser: User = {
-                        uid: `user${Date.now()}${Math.random()}`,
-                        firstName: studentRow['Prenom'] || '',
+                        uid: newId,
+                        firstName: studentRow['Prénom'] || '',
                         lastName: studentRow['Nom'] || '',
                         email: studentRow['Email'] || '',
                         phone: studentRow['Téléphone'] || '',
                         role: 'student',
                         status: 'active',
                         createdAt: new Date().toISOString(),
-                        photoUrl: `https://picsum.photos/seed/${Date.now()}${Math.random()}/100/100`,
+                        photoUrl: `https://picsum.photos/seed/${newId}/100/100`,
                         student: {
                            matricule: studentRow['Matricule'] || `ISGI-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
                            level: studentRow['Niveau'],
                            fieldId: field?.id,
                            cycle: cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value,
-                           programId: 'prog01', // Default programId
+                           programId: 'prog01', 
                            enrollmentDate: new Date().toISOString(),
                            endDate: ''
                         }
                     };
-                    return newUser;
-                });
+                    batch.set(doc(db, "users", newId), newUser);
+                    importedCount++;
+                }
+                
+                await batch.commit();
 
-                setUsers(prevUsers => [...prevUsers, ...importedStudents]);
-                toast({ title: "Importation réussie", description: `${importedStudents.length} étudiants ont été importés.` });
+                toast({ title: "Importation réussie", description: `${importedCount} étudiants ont été importés.` });
             } catch (error) {
                 console.error("Error importing file:", error);
                 toast({ variant: "destructive", title: "Erreur d'importation", description: "Le fichier est peut-être corrompu ou mal formaté." });
@@ -270,7 +298,6 @@ export default function StudentsPage() {
         };
         reader.readAsBinaryString(file);
         
-        // Reset file input
         if(fileInputRef.current) {
             fileInputRef.current.value = "";
         }
@@ -368,7 +395,13 @@ export default function StudentsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredStudents.length > 0 ? filteredStudents.map(student => (
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center">
+                                        Chargement...
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredStudents.length > 0 ? filteredStudents.map(student => (
                                 <TableRow key={student.uid}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-3">
@@ -440,6 +473,3 @@ export default function StudentsPage() {
     );
 }
 
-    
-
-    

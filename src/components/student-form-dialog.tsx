@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -39,7 +40,7 @@ const studentFormSchema = z.object({
   level: z.string().min(1, "Le niveau est requis."),
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
-  cycle: z.enum(['local', 'international', 'entrepreneur']).optional(),
+  cycle: z.enum(['local', 'international', 'entrepreneur']),
   parentalLink: z.string().optional(),
   
   // Parent/Tutor Info
@@ -162,11 +163,11 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
           });
         }
     }
-  }, [student, form.reset, isOpen]);
+  }, [student, isOpen, form]);
   
    useEffect(() => {
     form.setValue('fieldId', '');
-   }, [selectedSector, form.setValue]);
+   }, [selectedSector, form]);
 
 
   const onSubmit = (data: StudentFormValues) => {
@@ -177,7 +178,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         phone: data.phone,
         photoUrl: data.photoUrl,
         student: {
-            ...student?.student,
+            ...(student?.student || {}),
             matricule: data.matricule,
             cycle: data.cycle,
             level: data.level,
@@ -349,5 +350,3 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
     </Dialog>
   );
 }
-
-    
