@@ -106,6 +106,7 @@ export interface Payment {
   status: 'pending' | 'validated' | 'rejected';
   validatedBy?: string; // admin_uid
   createdAt: string;
+  currency: string;
 }
 
 export interface Message {

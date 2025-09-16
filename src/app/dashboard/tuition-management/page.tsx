@@ -1,0 +1,123 @@
+
+"use client";
+
+import { useState, useMemo } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUser } from "@/hooks/use-user";
+import { Payment } from "@/lib/types";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+
+export default function TuitionManagementPage() {
+    const { users, loading } = useUser();
+    const [payments, setPayments] = useState<Payment[]>([]); // This will come from Firestore
+    
+    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const getStudentName = (studentId: string) => {
+        const student = students.find(s => s.uid === studentId);
+        return student ? `${student.firstName} ${student.lastName}` : 'Inconnu';
+    }
+
+    const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
+        validated: "default",
+        pending: "secondary",
+        rejected: "destructive",
+    }
+    const statusTranslation: { [key: string]: string } = {
+        validated: "Validé",
+        pending: "En attente",
+        rejected: "Rejeté",
+    }
+
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion de la Scolarité</h1>
+                    <p className="text-muted-foreground">
+                        Suivez et gérez les paiements des frais de scolarité.
+                    </p>
+                </div>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Enregistrer un paiement
+                </Button>
+            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Historique des Paiements</CardTitle>
+                    <CardDescription>
+                        Liste de tous les paiements enregistrés dans le système.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Étudiant</TableHead>
+                                <TableHead>Montant Payé</TableHead>
+                                <TableHead>Mois</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Statut</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">
+                                        Chargement...
+                                    </TableCell>
+                                </TableRow>
+                            ) : payments.length > 0 ? payments.map(payment => (
+                                <TableRow key={payment.id}>
+                                    <TableCell className="font-medium">{getStudentName(payment.studentId)}</TableCell>
+                                    <TableCell>{payment.amountPaid} {payment.currency}</TableCell>
+                                    <TableCell>{payment.month}</TableCell>
+                                    <TableCell>{format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={statusVariant[payment.status]}>{statusTranslation[payment.status]}</Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                       <DropdownMenu>
+                                           <DropdownMenuTrigger asChild>
+                                               <Button variant="ghost" size="icon">
+                                                   <MoreHorizontal className="h-4 w-4" />
+                                               </Button>
+                                           </DropdownMenuTrigger>
+                                           <DropdownMenuContent align="end">
+                                               <DropdownMenuItem>Valider</DropdownMenuItem>
+                                               <DropdownMenuItem>Rejeter</DropdownMenuItem>
+                                               <DropdownMenuItem>Voir le reçu</DropdownMenuItem>
+                                           </DropdownMenuContent>
+                                       </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">
+                                        Aucun paiement trouvé.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
