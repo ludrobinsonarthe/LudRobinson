@@ -1,7 +1,12 @@
+
+"use client";
+
 import ChatLayout from "@/components/chat-layout";
-import { mockMessages, mockUsers } from "@/lib/mock-data";
+import { mockMessages } from "@/lib/mock-data";
+import { useUser } from "@/hooks/use-user";
 
 export default function MessagesPage() {
+  const { users } = useUser();
   return (
     <div>
        <div className="mb-6">
@@ -13,7 +18,7 @@ export default function MessagesPage() {
       <ChatLayout
         defaultLayout={[320, 1]}
         messages={mockMessages}
-        users={mockUsers}
+        users={users}
       />
     </div>
   );

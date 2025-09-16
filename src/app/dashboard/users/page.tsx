@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -13,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockUsers } from "@/lib/mock-data";
 import { User, UserRole } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
@@ -22,6 +22,7 @@ import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
+import { useUser } from "@/hooks/use-user";
 
 
 const roleTranslation: { [key in UserRole]: string } = {
@@ -49,7 +50,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const [users, setUsers] = useState<User[]>(mockUsers);
+    const { users, setUsers } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
