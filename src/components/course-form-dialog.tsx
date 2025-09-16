@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Course, User, Sector, Field } from "@/lib/types";
+import type { Course, User, Sector, Field, Cycle } from "@/lib/types";
 import { useEffect, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
@@ -40,6 +40,8 @@ const courseFormSchema = z.object({
   name: z.string().min(3, "Le nom du cours doit comporter au moins 3 caractères."),
   description: z.string().optional(),
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
+  level: z.string().min(1, "Le niveau est requis."),
+  cycle: z.enum(['local', 'international', 'entrepreneur']),
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
   documentFile: z.any().optional(),
@@ -59,7 +61,12 @@ interface CourseFormDialogProps {
 }
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-const timeSlots = Array.from({ length: 12 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`);
+const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
+const cycles: { value: Cycle, label: string }[] = [
+    { value: 'local', label: 'Cycle Local' },
+    { value: 'international', label: 'Cycle International' },
+    { value: 'entrepreneur', label: 'Cycle Entrepreneur' },
+];
 
 
 export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, teachers, sectors, fields }: CourseFormDialogProps) {
@@ -69,6 +76,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         name: '',
         description: '',
         teacherId: '',
+        level: '',
+        cycle: 'local',
         sectorId: '',
         fieldId: '',
         schedule: []
@@ -95,6 +104,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             name: course.name,
             description: course.description,
             teacherId: course.teacherId,
+            level: course.level,
+            cycle: course.cycle,
             sectorId: courseSectorId,
             fieldId: course.fieldId,
             schedule: course.schedule || [],
@@ -104,6 +115,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             name: '',
             description: '',
             teacherId: '',
+            level: '',
+            cycle: 'local',
             sectorId: '',
             fieldId: '',
             schedule: [],
@@ -192,6 +205,25 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                     <FormMessage />
                     </FormItem>
                 )}/>
+                
+                <div className="grid grid-cols-2 gap-4">
+                     <FormField control={form.control} name="level" render={({ field }) => (
+                        <FormItem><FormLabel>Niveau</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Niveau..." /></SelectTrigger></FormControl>
+                            <SelectContent>{levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage /></FormItem>
+                    )}/>
+                     <FormField control={form.control} name="cycle" render={({ field }) => (
+                        <FormItem><FormLabel>Cycle</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Cycle..." /></SelectTrigger></FormControl>
+                            <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage /></FormItem>
+                    )}/>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="sectorId" render={({ field }) => (

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Course, Field, Sector } from "@/lib/types";
+import { Course, Field, Sector, Cycle } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
@@ -22,6 +22,15 @@ import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import CourseFormDialog from "@/components/course-form-dialog";
 import { mockSectors, mockFields } from "@/lib/mock-data";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
+const cycles: { value: Cycle, label: string }[] = [
+    { value: 'local', label: 'Cycle Local' },
+    { value: 'international', label: 'Cycle International' },
+    { value: 'entrepreneur', label: 'Cycle Entrepreneur' },
+];
 
 export default function CourseManagementPage() {
     const { users } = useUser();
@@ -31,6 +40,13 @@ export default function CourseManagementPage() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const { toast } = useToast();
+
+    // Filters state
+    const [nameFilter, setNameFilter] = useState("");
+    const [levelFilter, setLevelFilter] = useState("all");
+    const [sectorFilter, setSectorFilter] = useState("all");
+    const [fieldFilter, setFieldFilter] = useState("all");
+    const [cycleFilter, setCycleFilter] = useState("all");
     
     useEffect(() => {
       const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
@@ -59,6 +75,30 @@ export default function CourseManagementPage() {
         const sector = sectorsById[field.sectorId];
         return { fieldName: field.name, sectorName: sector?.name || 'N/A' };
     }
+    
+    const availableFields = useMemo(() => {
+        if (sectorFilter === 'all') return mockFields;
+        return mockFields.filter(f => f.sectorId === sectorFilter);
+    }, [sectorFilter]);
+
+    useEffect(() => {
+        setFieldFilter("all");
+    }, [sectorFilter]);
+
+    const filteredCourses = useMemo(() => {
+        return courses.filter(course => {
+            const courseField = course.fieldId ? fieldsById[course.fieldId] : null;
+            const courseSectorId = courseField?.sectorId;
+
+            return (
+                (nameFilter === "" || course.name.toLowerCase().includes(nameFilter.toLowerCase())) &&
+                (levelFilter === "all" || course.level === levelFilter) &&
+                (cycleFilter === "all" || course.cycle === cycleFilter) &&
+                (sectorFilter === "all" || courseSectorId === sectorFilter) &&
+                (fieldFilter === "all" || course.fieldId === fieldFilter)
+            );
+        });
+    }, [courses, nameFilter, levelFilter, sectorFilter, fieldFilter, cycleFilter, fieldsById]);
 
     const handleAdd = () => {
         setSelectedCourse(null);
@@ -124,10 +164,54 @@ export default function CourseManagementPage() {
                 <CardHeader>
                     <CardTitle>Liste des cours</CardTitle>
                     <CardDescription>
-                        Recherchez, ajoutez ou modifiez les informations et les horaires des cours.
+                        Filtrez, recherchez, ajoutez ou modifiez les informations et les horaires des cours.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                     <div className="flex flex-wrap items-center gap-4 mb-6">
+                        <Input 
+                            placeholder="Rechercher par nom..."
+                            value={nameFilter}
+                            onChange={(e) => setNameFilter(e.target.value)}
+                            className="max-w-sm"
+                        />
+                        <Select value={levelFilter} onValueChange={setLevelFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filtrer par niveau" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les niveaux</SelectItem>
+                                {levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                         <Select value={cycleFilter} onValueChange={setCycleFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filtrer par cycle" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les cycles</SelectItem>
+                                {cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                         <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filtrer par secteur" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les secteurs</SelectItem>
+                                {mockSectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
+                            <SelectTrigger className="w-[240px]">
+                                <SelectValue placeholder="Filtrer par filière" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Toutes les filières</SelectItem>
+                                {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -145,7 +229,7 @@ export default function CourseManagementPage() {
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
-                            ) : courses.length > 0 ? courses.map(course => {
+                            ) : filteredCourses.length > 0 ? filteredCourses.map(course => {
                                 const { fieldName, sectorName } = getFieldInfo(course.fieldId);
                                 return (
                                 <TableRow key={course.id}>
@@ -177,7 +261,7 @@ export default function CourseManagementPage() {
                             }) : (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-24 text-center">
-                                        Aucun cours trouvé.
+                                        Aucun cours trouvé pour les filtres actuels.
                                     </TableCell>
                                 </TableRow>
                             )}

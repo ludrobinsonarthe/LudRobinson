@@ -81,6 +81,8 @@ export interface Course {
   description: string;
   teacherId: string; // teacher_uid
   fieldId: string;
+  level: string;
+  cycle: Cycle;
   documents?: string[];
   schedule?: {
     day: 'Lundi' | 'Mardi' | 'Mercredi' | 'Jeudi' | 'Vendredi' | 'Samedi';
