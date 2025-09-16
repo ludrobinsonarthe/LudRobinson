@@ -20,6 +20,10 @@ import {
   LogOut,
   Settings,
   Bot,
+  BookOpen,
+  ClipboardList,
+  CalendarDays,
+  Wallet,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -42,10 +46,19 @@ function MainSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
 
+  const studentMenuItems = [
+    { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
+    { href: "/dashboard/grades", label: "Notes", icon: ClipboardList },
+    { href: "/dashboard/schedule", label: "Emploi du temps", icon: CalendarDays },
+    { href: "/dashboard/documents", label: "Documents", icon: FileText },
+    { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
+  ];
+
   const menuItems = [
     { href: "/dashboard", label: "Annonces", icon: Home },
     { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
-    ...(user?.role === 'student' ? [{ href: "/dashboard/documents", label: "Documents", icon: FileText }] : []),
+    ...(user?.role === 'student' ? studentMenuItems : []),
+    ...(user?.role !== 'student' && user?.role !== 'parent' ? [{ href: "/dashboard/documents", label: "Documents", icon: FileText }] : []),
     { href: "/dashboard/profile", label: "Profil", icon: UserIcon },
   ];
 
