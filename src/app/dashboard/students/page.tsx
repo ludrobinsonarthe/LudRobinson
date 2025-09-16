@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -30,7 +29,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, onSnapshot, query } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -47,7 +46,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { users, loading: loadingUsers } = useUser();
+    const { users, loading: loadingUsers, setUsers } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -63,16 +62,18 @@ export default function StudentsPage() {
     const [fieldFilter, setFieldFilter] = useState("all");
     
     useEffect(() => {
-        const q = query(collection(db, "payments"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        async function fetchPayments() {
+            setLoadingPayments(true);
+            const q = query(collection(db, "payments"));
+            const snapshot = await getDocs(q);
             const paymentsFromDb: Payment[] = [];
             snapshot.forEach((doc) => {
                 paymentsFromDb.push({ id: doc.id, ...doc.data() } as Payment);
             });
             setPayments(paymentsFromDb);
             setLoadingPayments(false);
-        });
-        return () => unsubscribe();
+        }
+        fetchPayments();
     }, []);
 
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -151,10 +152,12 @@ export default function StudentsPage() {
                 // Edit existing student
                 const studentRef = doc(db, "users", selectedStudent.uid);
                 await updateDoc(studentRef, finalStudentData);
+                setUsers(prev => prev.map(u => u.uid === selectedStudent.uid ? { ...u, ...finalStudentData } : u));
                 toast({ title: "Étudiant mis à jour", description: "Les informations de l'étudiant ont été mises à jour." });
             } else {
                  // Add new student and potentially a new parent
                 const batch = writeBatch(db);
+                let allNewUsers: User[] = [];
                 
                 const newStudent: User = {
                     uid: studentUid,
@@ -163,6 +166,7 @@ export default function StudentsPage() {
                     role: 'student',
                     ...finalStudentData,
                 } as User;
+                allNewUsers.push(newStudent);
 
                 let newParentId: string | undefined;
 
@@ -178,6 +182,7 @@ export default function StudentsPage() {
                     } as User;
                     newStudent.student!.parentUid = newParent.uid;
                     batch.set(doc(db, "users", newParentId), newParent);
+                    allNewUsers.push(newParent);
 
                 } else if (studentData.student?.parentUid) {
                     const parentRef = doc(db, "users", studentData.student.parentUid);
@@ -186,11 +191,14 @@ export default function StudentsPage() {
                         const parent = parentSnap.data() as User;
                         const childrenUids = [...(parent.parent?.childrenUids || []), newStudent.uid];
                         batch.update(parentRef, { "parent.childrenUids": childrenUids });
+                        // Optimistic update for parent
+                        setUsers(prev => prev.map(u => u.uid === parent.uid ? {...u, parent: {childrenUids}} : u));
                     }
                 }
                 
                 batch.set(doc(db, "users", studentUid), newStudent);
                 await batch.commit();
+                setUsers(prev => [...prev, ...allNewUsers]);
                 toast({ title: "Étudiant ajouté", description: "Le nouvel étudiant a été ajouté avec succès." });
             }
         } catch (error) {
@@ -203,6 +211,7 @@ export default function StudentsPage() {
         if(selectedStudent) {
             try {
                 await deleteDoc(doc(db, "users", selectedStudent.uid));
+                setUsers(prev => prev.filter(u => u.uid !== selectedStudent.uid));
                 toast({ title: "Étudiant supprimé", description: "L'étudiant a été supprimé avec succès." });
                 setIsDeleteOpen(false);
                 setSelectedStudent(null);
@@ -301,6 +310,7 @@ export default function StudentsPage() {
 
                 const batch = writeBatch(db);
                 let importedCount = 0;
+                let newUsersForState: User[] = [];
                 
                 for (const studentRow of importedStudentsData) {
                     const field = mockFields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase());
@@ -327,11 +337,13 @@ export default function StudentsPage() {
                         }
                     };
                     batch.set(doc(db, "users", newId), newUser);
+                    newUsersForState.push(newUser);
                     importedCount++;
                 }
                 
                 await batch.commit();
 
+                setUsers(prev => [...prev, ...newUsersForState]);
                 toast({ title: "Importation réussie", description: `${importedCount} étudiants ont été importés.` });
             } catch (error) {
                 console.error("Error importing file:", error);
@@ -528,6 +540,5 @@ export default function StudentsPage() {
         </div>
     );
 }
-
 
     

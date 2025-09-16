@@ -8,7 +8,7 @@ import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
-import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function DashboardPage() {
@@ -20,38 +20,34 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!currentUser) return;
-        setLoading(true);
-
-        // This logic will need to be adapted based on how classes/groups are stored for users.
-        // For now, we fetch announcements for 'all' and for the user's role.
-        // A more robust implementation would check for class/group IDs associated with the user.
-        const targetReceivers = ['all', currentUser.role];
         
-        // In a real app with classes, you'd add the user's class ID to `targetReceivers`
-        // e.g., if (currentUser.student?.classId) targetReceivers.push(currentUser.student.classId);
+        async function fetchAnnouncements() {
+            setLoading(true);
+            try {
+                const targetReceivers = ['all', currentUser.role];
+                
+                const q = query(
+                    collection(db, "announcements"), 
+                    orderBy("createdAt", "desc")
+                );
 
-        const q = query(
-            collection(db, "announcements"), 
-            orderBy("createdAt", "desc")
-        );
+                const snapshot = await getDocs(q);
+                const allAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+                
+                const filtered = currentUser.role === 'admin' 
+                    ? allAnnouncements
+                    : allAnnouncements.filter(ann => targetReceivers.includes(ann.receiverId));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const allAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-            
-            // Filter client-side as Firestore doesn't support 'OR' queries on different fields easily.
-            // For admins, show all. For others, filter based on receiverId.
-            const filtered = currentUser.role === 'admin' 
-                ? allAnnouncements
-                : allAnnouncements.filter(ann => targetReceivers.includes(ann.receiverId));
+                setAnnouncements(filtered);
+            } catch (error) {
+                console.error("Error fetching announcements: ", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        fetchAnnouncements();
 
-            setAnnouncements(filtered);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching announcements: ", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
     }, [currentUser]);
 
 
@@ -64,6 +60,20 @@ export default function DashboardPage() {
         setEditingAnnouncement(announcement);
         setIsDialogOpen(true);
     };
+    
+    const handleAnnouncementSaved = (announcement: Message) => {
+        const index = announcements.findIndex(a => a.id === announcement.id);
+        if (index > -1) {
+            // Edit
+            const newAnnouncements = [...announcements];
+            newAnnouncements[index] = announcement;
+            setAnnouncements(newAnnouncements);
+        } else {
+            // New
+            setAnnouncements([announcement, ...announcements]);
+        }
+    }
+
 
     return (
         <div className="space-y-6">
@@ -104,7 +114,10 @@ export default function DashboardPage() {
                 isOpen={isDialogOpen}
                 setIsOpen={setIsDialogOpen}
                 announcement={editingAnnouncement}
+                onSave={handleAnnouncementSaved}
             />
         </div>
     );
 }
+
+    

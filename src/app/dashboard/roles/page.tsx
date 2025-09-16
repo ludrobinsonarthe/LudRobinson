@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -24,7 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { db } from "@/lib/firebase";
-import { collection, doc, writeBatch, onSnapshot, query, deleteDoc } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs, query, deleteDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AdminRole, adminPermissions, AdminPermission } from "@/lib/types";
 import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
@@ -67,20 +66,21 @@ export default function RolesPage() {
   });
 
   useEffect(() => {
-    const q = query(collection(db, "admin_roles"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        form.reset({ roles: [] });
-      } else {
-        const rolesFromDb: AdminRole[] = [];
-        snapshot.forEach((doc) => {
-          rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
-        });
-        form.reset({ roles: rolesFromDb });
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    async function fetchRoles() {
+        const q = query(collection(db, "admin_roles"));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+            form.reset({ roles: [] });
+        } else {
+            const rolesFromDb: AdminRole[] = [];
+            snapshot.forEach((doc) => {
+            rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
+            });
+            form.reset({ roles: rolesFromDb });
+        }
+        setLoading(false);
+    }
+    fetchRoles();
   }, [form]);
 
   const onSubmit = async (data: RolesFormValues) => {
@@ -228,3 +228,5 @@ export default function RolesPage() {
     </div>
   );
 }
+
+    

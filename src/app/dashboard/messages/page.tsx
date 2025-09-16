@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import ChatLayout from "@/components/chat-layout";
 import { useUser } from "@/hooks/use-user";
 import { Message } from "@/lib/types";
-import { collection, onSnapshot, query, where, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
@@ -16,32 +16,39 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
 
-    const q = query(
-      collection(db, "messages"),
-      where("type", "==", "private")
-    );
+    async function fetchMessages() {
+        setLoading(true);
+        try {
+            const q = query(
+                collection(db, "messages"),
+                where("type", "==", "private")
+            );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-      
-      const userMessages = allMessages.filter(
-        msg => msg.senderId === user.uid || msg.receiverId === user.uid
-      );
-      
-      // Tri côté client pour éviter la création d'un index composite
-      userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            const snapshot = await getDocs(q);
+            const allMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+            
+            const userMessages = allMessages.filter(
+                msg => msg.senderId === user.uid || msg.receiverId === user.uid
+            );
+            
+            userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-      setMessages(userMessages);
-      setLoading(false);
-    }, (error) => {
-        console.error("Error fetching messages: ", error);
-        setLoading(false);
-    });
+            setMessages(userMessages);
+        } catch(error) {
+            console.error("Error fetching messages: ", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+    
+    fetchMessages();
 
-    return () => unsubscribe();
   }, [user]);
+  
+  const handleNewMessage = (newMessage: Message) => {
+    setMessages(prev => [...prev, newMessage].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+  }
 
   return (
     <div>
@@ -61,8 +68,11 @@ export default function MessagesPage() {
           defaultLayout={[320, 1]}
           messages={messages}
           users={users}
+          onNewMessage={handleNewMessage}
         />
       )}
     </div>
   );
 }
+
+    

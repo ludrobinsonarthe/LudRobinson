@@ -18,7 +18,7 @@ import { MoreHorizontal, PlusCircle, ArrowUpCircle, ArrowDownCircle, Banknote, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import CashTransactionFormDialog from '@/components/cash-transaction-form-dialog';
@@ -34,15 +34,17 @@ export default function CashFlowPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, "cash_transactions"), (snapshot) => {
+        async function fetchTransactions() {
+            setLoading(true);
+            const snapshot = await getDocs(collection(db, "cash_transactions"));
             const transactionsFromDb: CashTransaction[] = [];
             snapshot.forEach((doc) => {
                 transactionsFromDb.push({ id: doc.id, ...doc.data() } as CashTransaction);
             });
             setTransactions(transactionsFromDb.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
             setLoading(false);
-        });
-        return () => unsubscribe();
+        }
+        fetchTransactions();
     }, []);
 
     const { totalIncome, totalExpense, balance } = useMemo(() => {
@@ -72,6 +74,7 @@ export default function CashFlowPage() {
         if(selectedTransaction) {
             try {
                 await deleteDoc(doc(db, "cash_transactions", selectedTransaction.id));
+                setTransactions(prev => prev.filter(t => t.id !== selectedTransaction.id));
                 toast({ title: "Transaction supprimée", description: "L'opération a été supprimée de la caisse." });
                 setIsDeleteOpen(false);
                 setSelectedTransaction(null);
@@ -216,6 +219,7 @@ export default function CashFlowPage() {
             <CashTransactionFormDialog
                 isOpen={isFormOpen}
                 setIsOpen={setIsFormOpen}
+                onAdd={(newTransaction) => setTransactions(prev => [newTransaction, ...prev].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()))}
             />
 
             {selectedTransaction && (
@@ -229,3 +233,5 @@ export default function CashFlowPage() {
         </div>
     );
 }
+
+    

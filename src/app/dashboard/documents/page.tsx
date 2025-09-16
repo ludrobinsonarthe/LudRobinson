@@ -18,7 +18,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from "@/hooks/use-user";
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -53,28 +53,30 @@ export default function DocumentsPage() {
     }, [currentUser, children, selectedChildId]);
     
     useEffect(() => {
-        if (!studentToView || !studentToView.uid) {
-            setLoading(false);
-            setDocuments([]);
-            return;
+        async function fetchDocuments() {
+            if (!studentToView || !studentToView.uid) {
+                setLoading(false);
+                setDocuments([]);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const q = query(collection(db, "documents"), where("studentId", "==", studentToView.uid));
+                const snapshot = await getDocs(q);
+                const userDocuments: OfficialDocument[] = [];
+                snapshot.forEach((doc) => {
+                    userDocuments.push({ id: doc.id, ...doc.data() } as OfficialDocument);
+                });
+                setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
+            } catch (error) {
+                 console.error("Error fetching documents: ", error);
+            } finally {
+                setLoading(false);
+            }
         }
 
-        setLoading(true);
-        const q = query(collection(db, "documents"), where("studentId", "==", studentToView.uid));
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const userDocuments: OfficialDocument[] = [];
-            snapshot.forEach((doc) => {
-                userDocuments.push({ id: doc.id, ...doc.data() } as OfficialDocument);
-            });
-            setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching documents: ", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        fetchDocuments();
     }, [studentToView]);
 
      const handleChildChange = (studentId: string) => {
@@ -171,3 +173,5 @@ export default function DocumentsPage() {
         </div>
     );
 }
+
+    

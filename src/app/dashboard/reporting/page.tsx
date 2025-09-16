@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useUser } from '@/hooks/use-user';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useState, useEffect } from 'react';
 import { Course, CashTransaction, User, Payment } from '@/lib/types';
@@ -21,24 +21,24 @@ export default function ReportingPage() {
     const [loadingData, setLoadingData] = useState(true);
 
     useEffect(() => {
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
-            setCourses(snapshot.docs.map(doc => doc.data() as Course));
-        });
-        const unsubTransactions = onSnapshot(collection(db, 'cash_transactions'), snapshot => {
-            setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction));
-        });
-        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => {
-            setPayments(snapshot.docs.map(doc => doc.data() as Payment));
-        });
+        async function fetchData() {
+            setLoadingData(true);
+            try {
+                const coursesSnap = await getDocs(collection(db, 'courses'));
+                setCourses(coursesSnap.docs.map(doc => doc.data() as Course));
 
-
-        setLoadingData(false);
-
-        return () => {
-            unsubCourses();
-            unsubTransactions();
-            unsubPayments();
-        };
+                const transactionsSnap = await getDocs(collection(db, 'cash_transactions'));
+                setTransactions(transactionsSnap.docs.map(doc => doc.data() as CashTransaction));
+                
+                const paymentsSnap = await getDocs(collection(db, 'payments'));
+                setPayments(paymentsSnap.docs.map(doc => doc.data() as Payment));
+            } catch(error) {
+                console.error("Error fetching reporting data: ", error);
+            } finally {
+                setLoadingData(false);
+            }
+        }
+        fetchData();
     }, []);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -183,3 +183,4 @@ export default function ReportingPage() {
     );
 }
 
+    

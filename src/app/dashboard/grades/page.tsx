@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Grade, Course, User } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -43,42 +43,39 @@ export default function GradesPage() {
     }, [currentUser, children, selectedChildId]);
 
     useEffect(() => {
-        if (!studentToView || !studentToView.uid) {
-            setLoading(false);
-            setGrades([]);
-            return;
+        async function fetchGradesAndCourses() {
+            if (!studentToView || !studentToView.uid) {
+                setLoading(false);
+                setGrades([]);
+                setCourses([]);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const gradesQuery = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
+                const gradesSnapshot = await getDocs(gradesQuery);
+                const studentGrades: Grade[] = [];
+                gradesSnapshot.forEach((doc) => {
+                    studentGrades.push({ id: doc.id, ...doc.data() } as Grade);
+                });
+                setGrades(studentGrades);
+
+                const coursesQuery = query(collection(db, "courses"));
+                const coursesSnapshot = await getDocs(coursesQuery);
+                const allCourses: Course[] = [];
+                coursesSnapshot.forEach((doc) => {
+                    allCourses.push({ id: doc.id, ...doc.data() } as Course);
+                });
+                setCourses(allCourses);
+            } catch (error) {
+                 console.error("Error fetching data: ", error);
+            } finally {
+                setLoading(false);
+            }
         }
 
-        setLoading(true);
-        const gradesQuery = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
-        const unsubscribeGrades = onSnapshot(gradesQuery, (snapshot) => {
-            const studentGrades: Grade[] = [];
-            snapshot.forEach((doc) => {
-                studentGrades.push({ id: doc.id, ...doc.data() } as Grade);
-            });
-            setGrades(studentGrades);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching grades: ", error);
-            setLoading(false);
-        });
-
-        // Fetch all courses to get course names - this is inefficient but works for now.
-        const coursesQuery = query(collection(db, "courses"));
-        const unsubscribeCourses = onSnapshot(coursesQuery, (snapshot) => {
-            const allCourses: Course[] = [];
-            snapshot.forEach((doc) => {
-                allCourses.push({ id: doc.id, ...doc.data() } as Course);
-            });
-            setCourses(allCourses);
-        }, (error) => {
-            console.error("Error fetching courses: ", error);
-        });
-
-        return () => {
-            unsubscribeGrades();
-            unsubscribeCourses();
-        };
+        fetchGradesAndCourses();
     }, [studentToView]);
 
     const coursesWithGrades = useMemo((): CourseWithGrades[] => {
@@ -228,3 +225,5 @@ export default function GradesPage() {
         </div>
     );
 }
+
+    

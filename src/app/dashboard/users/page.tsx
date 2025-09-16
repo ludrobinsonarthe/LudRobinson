@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect }from "react";
@@ -24,7 +23,7 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, query } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, updateDoc, collection, getDocs, query } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -44,7 +43,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { users, loading } = useUser();
+    const { users, loading, setUsers } = useUser();
     const [roles, setRoles] = useState<AdminRole[]>([]);
     const [loadingRoles, setLoadingRoles] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -53,16 +52,18 @@ export default function UsersPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        const q = query(collection(db, "admin_roles"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        async function fetchRoles() {
+            setLoadingRoles(true);
+            const q = query(collection(db, "admin_roles"));
+            const snapshot = await getDocs(q);
             const rolesFromDb: AdminRole[] = [];
             snapshot.forEach((doc) => {
                 rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
             });
             setRoles(rolesFromDb);
             setLoadingRoles(false);
-        });
-        return () => unsubscribe();
+        }
+        fetchRoles();
     }, []);
 
     const admins = useMemo(() => {
@@ -106,12 +107,17 @@ export default function UsersPage() {
                  photoUrl = await getDownloadURL(uploadResult.ref);
             }
             
-            const finalUserData = { ...userData, photoUrl: photoUrl || `https://picsum.photos/seed/${userUid}/100/100` };
+            const finalUserData: User = {
+                ...selectedUser,
+                ...userData,
+                photoUrl: photoUrl || `https://picsum.photos/seed/${userUid}/100/100`,
+            } as User;
 
             if (selectedUser) {
                 // Edit
                 const userRef = doc(db, "users", selectedUser.uid);
                 await updateDoc(userRef, finalUserData);
+                setUsers(prev => prev.map(u => u.uid === selectedUser.uid ? finalUserData : u));
                 toast({ title: "Administrateur mis à jour", description: "Les informations ont été mises à jour." });
             } else {
                 // Add
@@ -123,6 +129,7 @@ export default function UsersPage() {
                     ...finalUserData,
                 } as User;
                 await setDoc(doc(db, "users", userUid), newUser);
+                setUsers(prev => [...prev, newUser]);
                 toast({ title: "Administrateur ajouté", description: "Le nouvel utilisateur a été ajouté." });
             }
         } catch (error) {
@@ -135,6 +142,7 @@ export default function UsersPage() {
         if(selectedUser) {
             try {
                 await deleteDoc(doc(db, "users", selectedUser.uid));
+                setUsers(prev => prev.filter(u => u.uid !== selectedUser.uid));
                 toast({ title: "Utilisateur supprimé", description: "L'utilisateur a été supprimé." });
                 setIsDeleteOpen(false);
                 setSelectedUser(null);
@@ -260,3 +268,5 @@ export default function UsersPage() {
         </div>
     );
 }
+
+    

@@ -43,6 +43,7 @@ type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 interface CashTransactionFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  onAdd: (newTransaction: CashTransaction) => void;
 }
 
 const categories = [
@@ -51,7 +52,7 @@ const categories = [
     { value: 'other', label: "Autre"},
 ]
 
-export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTransactionFormDialogProps) {
+export default function CashTransactionFormDialog({ isOpen, setIsOpen, onAdd }: CashTransactionFormDialogProps) {
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -85,12 +86,14 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
     }
     try {
         const newTransactionId = doc(collection(db, 'cash_transactions')).id;
-        const newTransaction: Omit<CashTransaction, 'id'> = {
+        const newTransaction: CashTransaction = {
+            id: newTransactionId,
             date: new Date().toISOString(),
             createdBy: user.uid,
             ...data
         }
         await setDoc(doc(db, "cash_transactions", newTransactionId), newTransaction);
+        onAdd(newTransaction);
         toast({ title: "Transaction enregistrée", description: "L'opération a été ajoutée à la caisse." });
         setIsOpen(false);
 
@@ -154,3 +157,5 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
     </Dialog>
   );
 }
+
+    

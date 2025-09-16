@@ -19,7 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import CourseFormDialog from "@/components/course-form-dialog";
@@ -51,15 +51,17 @@ export default function CourseManagementPage() {
     const [cycleFilter, setCycleFilter] = useState("all");
     
     useEffect(() => {
-      const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
+      async function fetchCourses() {
+        setLoading(true);
+        const snapshot = await getDocs(collection(db, "courses"));
         const coursesFromDb: Course[] = [];
         snapshot.forEach((doc) => {
           coursesFromDb.push({ id: doc.id, ...doc.data() } as Course);
         });
         setCourses(coursesFromDb);
         setLoading(false);
-      });
-      return () => unsubscribe();
+      }
+      fetchCourses();
     }, []);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
@@ -122,10 +124,13 @@ export default function CourseManagementPage() {
             if (selectedCourse) {
                 const courseRef = doc(db, "courses", selectedCourse.id);
                 await updateDoc(courseRef, courseData);
+                setCourses(prev => prev.map(c => c.id === selectedCourse.id ? { ...c, ...courseData } : c));
                 toast({ title: "Cours mis à jour", description: "Les informations du cours ont été mises à jour." });
             } else {
                 const newCourseId = doc(collection(db, "courses")).id;
-                await setDoc(doc(db, "courses", newCourseId), {id: newCourseId, ...courseData});
+                const newCourse = {id: newCourseId, ...courseData} as Course;
+                await setDoc(doc(db, "courses", newCourseId), newCourse);
+                setCourses(prev => [...prev, newCourse]);
                 toast({ title: "Cours ajouté", description: "Le nouveau cours a été ajouté avec succès." });
             }
         } catch (error) {
@@ -138,6 +143,7 @@ export default function CourseManagementPage() {
         if(selectedCourse) {
             try {
                 await deleteDoc(doc(db, "courses", selectedCourse.id));
+                setCourses(prev => prev.filter(c => c.id !== selectedCourse.id));
                 toast({ title: "Cours supprimé", description: "Le cours a été supprimé avec succès." });
                 setIsDeleteOpen(false);
                 setSelectedCourse(null);
@@ -298,3 +304,5 @@ export default function CourseManagementPage() {
         </div>
     );
 }
+
+    

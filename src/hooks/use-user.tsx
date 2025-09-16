@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, query, getDocs } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 
 type UserContextType = {
@@ -24,38 +24,37 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, "users"));
-    const unsubscribeUsers = onSnapshot(q, (querySnapshot) => {
-      const usersFromDb: User[] = [];
-      querySnapshot.forEach((doc) => {
-        usersFromDb.push({ uid: doc.id, ...doc.data() } as User);
-      });
-      setAllUsers(usersFromDb);
-      setLoadingUsers(false);
-    });
+    async function fetchData() {
+        setLoading(true);
+        try {
+            const usersQuery = query(collection(db, "users"));
+            const usersSnapshot = await getDocs(usersQuery);
+            const usersFromDb: User[] = [];
+            usersSnapshot.forEach((doc) => {
+                usersFromDb.push({ uid: doc.id, ...doc.data() } as User);
+            });
+            setAllUsers(usersFromDb);
 
-    const rolesQuery = query(collection(db, "admin_roles"));
-    const unsubscribeRoles = onSnapshot(rolesQuery, (querySnapshot) => {
-      const rolesFromDb: AdminRole[] = [];
-      querySnapshot.forEach((doc) => {
-        rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
-      });
-      setRoles(rolesFromDb);
-      setLoadingRoles(false);
-    });
+            const rolesQuery = query(collection(db, "admin_roles"));
+            const rolesSnapshot = await getDocs(rolesQuery);
+            const rolesFromDb: AdminRole[] = [];
+            rolesSnapshot.forEach((doc) => {
+                rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
+            });
+            setRoles(rolesFromDb);
 
-    return () => {
-        unsubscribeUsers();
-        unsubscribeRoles();
-    };
+        } catch(error) {
+            console.error("Failed to fetch initial data:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchData();
   }, []);
   
-  const loading = loadingUsers || loadingRoles;
-
   useEffect(() => {
     if (loading) return;
 
@@ -129,3 +128,5 @@ export function useUser() {
   }
   return context;
 }
+
+    

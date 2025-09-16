@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck } from "lucide-react";
 import { Settings } from "@/lib/types";
@@ -57,8 +57,9 @@ export default function AdminManagementPage() {
     });
 
     useEffect(() => {
-        const settingsRef = doc(db, "settings", "system");
-        const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
+        async function fetchSettings() {
+            const settingsRef = doc(db, "settings", "system");
+            const docSnap = await getDoc(settingsRef);
             if (docSnap.exists()) {
                 const data = docSnap.data() as Settings;
                 form.reset({
@@ -68,8 +69,8 @@ export default function AdminManagementPage() {
                 });
             }
             setLoading(false);
-        });
-        return () => unsubscribe();
+        }
+        fetchSettings();
     }, [form]);
 
     const onSubmit = async (data: SettingsFormValues) => {
@@ -270,3 +271,5 @@ export default function AdminManagementPage() {
         </div>
     );
 }
+
+    

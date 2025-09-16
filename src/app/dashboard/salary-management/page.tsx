@@ -20,7 +20,7 @@ import { MoreHorizontal, PlusCircle, Trash2, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch, query } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
@@ -41,27 +41,30 @@ function SalaryManagementContent() {
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsubSalaries = onSnapshot(collection(db, "salaries"), (snapshot) => {
-            const data: TeacherSalary[] = [];
-            snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() } as TeacherSalary));
-            setSalaries(data.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        });
-        const unsubAttendances = onSnapshot(collection(db, "attendances"), (snapshot) => {
-            const data: Attendance[] = [];
-            snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() } as Attendance));
-            setAttendances(data);
-        });
-        const unsubCourses = onSnapshot(collection(db, "courses"), (snapshot) => {
-            const data: Course[] = [];
-            snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() } as Course));
-            setCourses(data);
-        });
-        setLoadingData(false);
-        return () => {
-            unsubSalaries();
-            unsubAttendances();
-            unsubCourses();
+        async function fetchData() {
+            setLoadingData(true);
+            try {
+                const salariesSnap = await getDocs(collection(db, "salaries"));
+                const salariesData: TeacherSalary[] = [];
+                salariesSnap.forEach((doc) => salariesData.push({ id: doc.id, ...doc.data() } as TeacherSalary));
+                setSalaries(salariesData.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+
+                const attendancesSnap = await getDocs(collection(db, "attendances"));
+                const attendancesData: Attendance[] = [];
+                attendancesSnap.forEach((doc) => attendancesData.push({ id: doc.id, ...doc.data() } as Attendance));
+                setAttendances(attendancesData);
+
+                const coursesSnap = await getDocs(collection(db, "courses"));
+                const coursesData: Course[] = [];
+                coursesSnap.forEach((doc) => coursesData.push({ id: doc.id, ...doc.data() } as Course));
+                setCourses(coursesData);
+            } catch (error) {
+                console.error("Error fetching salary data:", error);
+            } finally {
+                setLoadingData(false);
+            }
         }
+        fetchData();
     }, []);
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
@@ -131,6 +134,7 @@ function SalaryManagementContent() {
                 ...salaryData
             };
             await setDoc(doc(db, "salaries", newSalaryId), newSalary);
+            setSalaries(prev => [newSalary, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
             toast({ title: "Fiche de paie générée", description: "La fiche de paie a été enregistrée avec succès." });
             setIsFormOpen(false);
         } catch (error) {
@@ -143,7 +147,8 @@ function SalaryManagementContent() {
         try {
             const batch = writeBatch(db);
             const salaryRef = doc(db, "salaries", salary.id);
-            batch.update(salaryRef, { status, paidAt: new Date().toISOString() });
+            const updatedSalaryData = { status, paidAt: new Date().toISOString() };
+            batch.update(salaryRef, updatedSalaryData);
             
             if(status === 'paid') {
                 const transactionRef = doc(collection(db, 'cash_transactions'));
@@ -162,6 +167,7 @@ function SalaryManagementContent() {
 
             await batch.commit();
 
+            setSalaries(prev => prev.map(s => s.id === salary.id ? { ...s, ...updatedSalaryData } : s));
             toast({ title: "Statut mis à jour", description: `Le salaire a été marqué comme payé et enregistré en caisse.` });
         } catch (error) {
             console.error("Error updating status:", error);
@@ -178,6 +184,7 @@ function SalaryManagementContent() {
         if(selectedSalary) {
             try {
                 await deleteDoc(doc(db, "salaries", selectedSalary.id));
+                setSalaries(prev => prev.filter(s => s.id !== selectedSalary.id));
                 toast({ title: "Fiche de paie supprimée", description: "L'enregistrement a été supprimé." });
                 setIsDeleteOpen(false);
                 setSelectedSalary(null);
@@ -318,3 +325,5 @@ export default function SalaryManagementPage() {
         </Suspense>
     )
 }
+
+    

@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -26,7 +25,7 @@ import {
 import type { Message, AdminRole } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/use-user";
-import { collection, doc, setDoc, updateDoc, onSnapshot, query } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, getDocs, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -45,29 +44,17 @@ interface AnnouncementDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   announcement: Message | null;
+  onSave: (announcement: Message) => void;
 }
 
-export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: AnnouncementDialogProps) {
-  const { user } = useUser();
+export default function AnnouncementDialog({ isOpen, setIsOpen, announcement, onSave }: AnnouncementDialogProps) {
+  const { user, roles } = useUser();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
-  const [roles, setRoles] = useState<AdminRole[]>([]);
-
+  
   const form = useForm<AnnouncementFormValues>({
     resolver: zodResolver(announcementSchema),
   });
-  
-  useEffect(() => {
-    const q = query(collection(db, "admin_roles"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const rolesFromDb: AdminRole[] = [];
-        snapshot.forEach((doc) => {
-            rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
-        });
-        setRoles(rolesFromDb);
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -98,22 +85,28 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     }
     setSubmitting(true);
     try {
-        const announcementData = {
-            ...data,
-            senderId: user.uid,
-            type: 'announcement',
-            createdAt: new Date().toISOString(),
-        };
+        let savedAnnouncement: Message;
 
         if (announcement) {
             const docRef = doc(db, "announcements", announcement.id);
-            await updateDoc(docRef, announcementData);
+            const updatedData = { ...announcement, ...data };
+            await updateDoc(docRef, updatedData);
+            savedAnnouncement = updatedData;
             toast({ title: "Annonce modifiée", description: "L'annonce a été mise à jour avec succès." });
         } else {
             const newDocRef = doc(collection(db, "announcements"));
-            await setDoc(newDocRef, announcementData);
+            const newAnnouncementData = {
+                ...data,
+                id: newDocRef.id,
+                senderId: user.uid,
+                type: 'announcement',
+                createdAt: new Date().toISOString(),
+            } as Message;
+            await setDoc(newDocRef, newAnnouncementData);
+            savedAnnouncement = newAnnouncementData;
             toast({ title: "Annonce publiée", description: "La nouvelle annonce est maintenant visible." });
         }
+        onSave(savedAnnouncement);
         setIsOpen(false);
     } catch(error) {
         console.error("Error saving announcement: ", error);
@@ -196,3 +189,5 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     </Dialog>
   );
 }
+
+    

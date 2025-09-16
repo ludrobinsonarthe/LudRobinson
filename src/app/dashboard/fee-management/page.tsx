@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from "@/lib/firebase";
-import { collection, doc, writeBatch, onSnapshot, query } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs, query } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { FeeStructure, Cycle } from "@/lib/types";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
@@ -86,20 +86,21 @@ export default function FeeManagementPage() {
   });
 
   useEffect(() => {
-    const q = query(collection(db, "fee_structures"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        form.reset({ feeStructures: [] });
-      } else {
-        const structures: FeeStructure[] = [];
-        snapshot.forEach((doc) => {
-          structures.push({ id: doc.id, ...doc.data() } as FeeStructure);
-        });
-        form.reset({ feeStructures: structures });
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    async function fetchFees() {
+        const q = query(collection(db, "fee_structures"));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+            form.reset({ feeStructures: [] });
+        } else {
+            const structures: FeeStructure[] = [];
+            snapshot.forEach((doc) => {
+            structures.push({ id: doc.id, ...doc.data() } as FeeStructure);
+            });
+            form.reset({ feeStructures: structures });
+        }
+        setLoading(false);
+    }
+    fetchFees();
   }, [form]);
 
   const onSubmit = async (data: FeeManagementFormValues) => {
@@ -271,3 +272,5 @@ export default function FeeManagementPage() {
     </div>
   );
 }
+
+    

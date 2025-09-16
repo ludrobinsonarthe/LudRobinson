@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
-import { collection, query, where, onSnapshot, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BookOpenCheck, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,28 +43,29 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
-        if (!studentToView || !studentToView.student?.fieldId) {
-            setLoading(false);
-            setCourses([]);
-            return;
+        async function fetchCourses() {
+            if (!studentToView || !studentToView.student?.fieldId) {
+                setLoading(false);
+                setCourses([]);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const q = query(collection(db, "courses"), where("fieldId", "==", studentToView.student.fieldId));
+                const snapshot = await getDocs(q);
+                const studentCourses: Course[] = [];
+                snapshot.forEach((doc) => {
+                    studentCourses.push({ id: doc.id, ...doc.data() } as Course);
+                });
+                setCourses(studentCourses);
+            } catch (error) {
+                console.error("Error fetching student courses: ", error);
+            } finally {
+                setLoading(false);
+            }
         }
-
-        setLoading(true);
-        const q = query(collection(db, "courses"), where("fieldId", "==", studentToView.student.fieldId));
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const studentCourses: Course[] = [];
-            snapshot.forEach((doc) => {
-                studentCourses.push({ id: doc.id, ...doc.data() } as Course);
-            });
-            setCourses(studentCourses);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching student courses: ", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        fetchCourses();
     }, [studentToView]);
 
     const handleChildChange = (studentId: string) => {
@@ -165,3 +166,5 @@ export default function CoursesPage() {
         </div>
     );
 }
+
+    

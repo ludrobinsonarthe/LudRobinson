@@ -15,25 +15,9 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { User, Message } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
@@ -41,7 +25,7 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import MessageSummarizer from "./message-summarizer";
 import NewMessageDialog from "./new-message-dialog";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -49,12 +33,13 @@ interface ChatLayoutProps {
   defaultLayout: number[] | undefined;
   messages: Message[];
   users: User[];
+  onNewMessage: (message: Message) => void;
 }
 
 export default function ChatLayout({
-  defaultLayout = [320, 480],
   messages,
   users,
+  onNewMessage,
 }: ChatLayoutProps) {
   const { user: currentUser } = useUser();
   const { toast } = useToast();
@@ -126,17 +111,6 @@ export default function ChatLayout({
   const selectedUser = users.find(u => u.uid === selectedConversation);
 
   const handleStartNewConversation = (userId: string) => {
-    const existingConversation = conversations.find(c => c.partner?.uid === userId);
-    if (!existingConversation) {
-      // This is a new conversation, we don't have messages yet.
-      // We can add a placeholder or directly open the chat window.
-      const partner = users.find(u => u.uid === userId);
-      if (partner) {
-        // Add to the top of the list temporarily until a message is sent
-        // Note: this part is complex to manage without sending a message.
-        // The simplest UX is to just open the chat window.
-      }
-    }
     setSelectedConversation(userId);
     setIsNewMessageDialogOpen(false);
   }
@@ -146,14 +120,19 @@ export default function ChatLayout({
       if (!messageContent.trim() || !currentUser || !selectedConversation) return;
 
       setIsSending(true);
+      const newMessageRef = doc(collection(db, "messages"));
+      const newMessage: Message = {
+          id: newMessageRef.id,
+          senderId: currentUser.uid,
+          receiverId: selectedConversation,
+          content: messageContent,
+          type: 'private',
+          createdAt: new Date().toISOString(),
+      };
+
       try {
-          await addDoc(collection(db, "messages"), {
-              senderId: currentUser.uid,
-              receiverId: selectedConversation,
-              content: messageContent,
-              type: 'private',
-              createdAt: new Date().toISOString(),
-          });
+          await setDoc(newMessageRef, newMessage);
+          onNewMessage(newMessage);
           setMessageContent("");
       } catch (error) {
           console.error("Error sending message:", error);
@@ -357,3 +336,5 @@ export default function ChatLayout({
     </>
   );
 }
+
+    

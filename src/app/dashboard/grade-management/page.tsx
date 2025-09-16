@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { collection, query, where, onSnapshot, doc, getDoc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Grade, Course, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -45,43 +45,42 @@ function GradeManagementContent() {
 
         const fetchCourseAndGrades = async () => {
             setLoading(true);
-            const courseRef = doc(db, "courses", courseId);
-            const courseSnap = await getDoc(courseRef);
+            try {
+                const courseRef = doc(db, "courses", courseId);
+                const courseSnap = await getDoc(courseRef);
 
-            if (courseSnap.exists()) {
-                const courseData = { id: courseSnap.id, ...courseSnap.data() } as Course;
-                setCourse(courseData);
+                if (courseSnap.exists()) {
+                    const courseData = { id: courseSnap.id, ...courseSnap.data() } as Course;
+                    setCourse(courseData);
 
-                // Find students in the same field and level
-                const courseStudents = users.filter(user => 
-                    user.role === 'student' &&
-                    user.student?.fieldId === courseData.fieldId &&
-                    user.student?.level === courseData.level
-                );
-                setStudents(courseStudents);
+                    const courseStudents = users.filter(user => 
+                        user.role === 'student' &&
+                        user.student?.fieldId === courseData.fieldId &&
+                        user.student?.level === courseData.level
+                    );
+                    setStudents(courseStudents);
 
-                // Fetch grades for this course
-                const gradesQuery = query(collection(db, "grades"), where("courseId", "==", courseId));
-                const unsubscribe = onSnapshot(gradesQuery, (snapshot) => {
+                    const gradesQuery = query(collection(db, "grades"), where("courseId", "==", courseId));
+                    const gradesSnapshot = await getDocs(gradesQuery);
                     const gradesData: Grade[] = [];
-                    snapshot.forEach(doc => gradesData.push({ id: doc.id, ...doc.data() } as Grade));
+                    gradesSnapshot.forEach(doc => gradesData.push({ id: doc.id, ...doc.data() } as Grade));
                     setGrades(gradesData);
-                });
-
-                setLoading(false);
-                return unsubscribe;
-            } else {
-                setCourse(null);
+                } else {
+                    setCourse(null);
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                toast({ variant: 'destructive', title: "Erreur de chargement" });
+            } finally {
                 setLoading(false);
             }
         };
 
-        const unsubscribe = fetchCourseAndGrades();
+        if (users.length > 0) {
+           fetchCourseAndGrades();
+        }
 
-        return () => {
-            // No direct way to unsubscribe from promise-based return
-        };
-    }, [courseId, users]);
+    }, [courseId, users, toast]);
 
     const gradesByStudent = useMemo(() => {
         const map: { [studentId: string]: Grade[] } = {};
@@ -129,12 +128,11 @@ function GradeManagementContent() {
         if (!courseId || !selectedStudentId) return;
         try {
             if (selectedGrade) {
-                // Update
                 const gradeRef = doc(db, "grades", selectedGrade.id);
                 await updateDoc(gradeRef, data);
+                setGrades(prev => prev.map(g => g.id === selectedGrade.id ? { ...g, ...data } : g));
                 toast({ title: "Note mise à jour" });
             } else {
-                // Create
                 const newGradeId = doc(collection(db, 'grades')).id;
                 const newGrade: Grade = {
                     id: newGradeId,
@@ -144,6 +142,7 @@ function GradeManagementContent() {
                     ...data
                 }
                 await setDoc(doc(db, "grades", newGradeId), newGrade);
+                setGrades(prev => [...prev, newGrade]);
                 toast({ title: "Note ajoutée avec succès" });
             }
             setIsFormOpen(false);
@@ -157,6 +156,7 @@ function GradeManagementContent() {
         if (!selectedGrade) return;
         try {
             await deleteDoc(doc(db, 'grades', selectedGrade.id));
+            setGrades(prev => prev.filter(g => g.id !== selectedGrade.id));
             toast({ title: "Note supprimée" });
             setIsDeleteOpen(false);
             setSelectedGrade(null);
@@ -275,3 +275,5 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+    

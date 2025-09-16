@@ -19,7 +19,7 @@ import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import PaymentFormDialog from '@/components/payment-form-dialog';
@@ -36,15 +36,17 @@ export default function TuitionManagementPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, "payments"), (snapshot) => {
+        async function fetchPayments() {
+            setLoadingPayments(true);
+            const snapshot = await getDocs(collection(db, "payments"));
             const paymentsFromDb: Payment[] = [];
             snapshot.forEach((doc) => {
                 paymentsFromDb.push({ id: doc.id, ...doc.data() } as Payment);
             });
             setPayments(paymentsFromDb.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
             setLoadingPayments(false);
-        });
-        return () => unsubscribe();
+        }
+        fetchPayments();
     }, []);
     
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -69,6 +71,7 @@ export default function TuitionManagementPage() {
                 ...paymentData
             };
             await setDoc(doc(db, "payments", newPaymentId), newPayment);
+            setPayments(prev => [newPayment, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
             toast({ title: "Paiement enregistré", description: "Le paiement a été enregistré avec succès et est en attente de validation." });
             setIsFormOpen(false);
         } catch (error) {
@@ -99,6 +102,7 @@ export default function TuitionManagementPage() {
             }
 
             await batch.commit();
+            setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status } : p));
             toast({ title: "Statut mis à jour", description: `Le paiement a été marqué comme ${status === 'validated' ? 'validé' : 'rejeté'}.` });
         } catch (error) {
             console.error("Error updating status:", error);
@@ -115,6 +119,7 @@ export default function TuitionManagementPage() {
         if(selectedPayment) {
             try {
                 await deleteDoc(doc(db, "payments", selectedPayment.id));
+                setPayments(prev => prev.filter(p => p.id !== selectedPayment.id));
                 toast({ title: "Paiement supprimé", description: "L'enregistrement du paiement a été supprimé." });
                 setIsDeleteOpen(false);
                 setSelectedPayment(null);
@@ -241,3 +246,5 @@ export default function TuitionManagementPage() {
         </div>
     );
 }
+
+    

@@ -12,7 +12,7 @@ import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import { Course, User, Attendance, Field, StudentAttendance } from '@/lib/types';
-import { collection, onSnapshot, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { mockFields } from '@/lib/mock-data';
@@ -37,18 +37,17 @@ function AttendanceContent() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
     useEffect(() => {
-        const unsubscribeCourses = onSnapshot(collection(db, 'courses'), snapshot => {
-            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-        });
-        const unsubscribeAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
-            setAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendance)));
+        async function fetchData() {
+            setLoadingData(true);
+            const coursesSnapshot = await getDocs(collection(db, 'courses'));
+            setCourses(coursesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
+            
+            const attendancesSnapshot = await getDocs(collection(db, 'attendances'));
+            setAttendances(attendancesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendance)));
+            
             setLoadingData(false);
-        });
-
-        return () => {
-            unsubscribeCourses();
-            unsubscribeAttendances();
         }
+        fetchData();
     }, []);
     
     useEffect(() => {
@@ -121,6 +120,26 @@ function AttendanceContent() {
                 await setDoc(docRef, newAttendance);
             }
             toast({ title: 'Présences enregistrées', description: 'Les fiches de présence ont été mises à jour.' });
+            setAttendances(prev => {
+                const existingIndex = prev.findIndex(a => a.id === attendanceId);
+                const newAttendanceRecord = {
+                    ...data,
+                    id: attendanceId,
+                    date: selectedDate!,
+                    courseId: selectedCourse!.id,
+                    teacherId: selectedCourse!.teacherId,
+                    validatedBy: adminUser.uid,
+                    createdAt: docSnap.exists() ? docSnap.data().createdAt : new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+                if (existingIndex > -1) {
+                    const newAttendances = [...prev];
+                    newAttendances[existingIndex] = newAttendanceRecord;
+                    return newAttendances;
+                } else {
+                    return [...prev, newAttendanceRecord];
+                }
+            });
             setIsDialogOpen(false);
         } catch (error) {
             console.error(error);
@@ -292,3 +311,5 @@ export default function AttendancePage() {
         </Suspense>
     );
 }
+
+    
