@@ -1,6 +1,8 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import 'react-image-crop/dist/ReactCrop.css';
+
 
 export const metadata: Metadata = {
   title: 'ISGI - Institut Supérieur de Gestion et d\'Ingénierie',

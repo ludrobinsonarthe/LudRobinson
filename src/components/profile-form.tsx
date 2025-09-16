@@ -23,6 +23,7 @@ import { useRef, useState, useTransition } from "react";
 import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
+import ImageCropperDialog from "./image-cropper-dialog";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
@@ -46,6 +47,9 @@ export default function ProfileForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imgSrc, setImgSrc] = useState('');
+
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -62,14 +66,21 @@ export default function ProfileForm() {
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      form.setValue('photo', file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
+      reader.onload = () => {
+        setImgSrc(reader.result as string);
+        setCropperOpen(true);
       };
       reader.readAsDataURL(file);
     }
   };
+
+  const handleCroppedImage = (imageBlob: Blob | null) => {
+    if (imageBlob) {
+        form.setValue('photo', imageBlob);
+        setAvatarPreview(URL.createObjectURL(imageBlob));
+    }
+  }
 
   function onSubmit(data: ProfileFormValues) {
     if (!user) return;
@@ -78,9 +89,9 @@ export default function ProfileForm() {
             let photoUrl = user.photoUrl;
             const photoFile = data.photo;
 
-            if (photoFile) {
-                const storageRef = ref(storage, `profile-pictures/${user.uid}/${photoFile.name}`);
-                const uploadResult = await uploadBytes(storageRef, photoFile);
+            if (photoFile && photoFile instanceof Blob) {
+                const storageRef = ref(storage, `profile-pictures/${user.uid}/profile.jpg`);
+                const uploadResult = await uploadBytes(storageRef, photoFile, { contentType: 'image/jpeg' });
                 photoUrl = await getDownloadURL(uploadResult.ref);
             }
 
@@ -119,6 +130,7 @@ export default function ProfileForm() {
   }
 
   return (
+    <>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <div className="flex items-center gap-6">
@@ -138,23 +150,13 @@ export default function ProfileForm() {
                     <Camera className="h-4 w-4"/>
                     <span className="sr-only">Changer la photo</span>
                 </Button>
-                <FormField
-                  control={form.control}
-                  name="photo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          ref={fileInputRef}
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handlePhotoChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                
+                <Input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
                 />
             </div>
             <div className="space-y-1">
@@ -242,5 +244,13 @@ export default function ProfileForm() {
         </div>
       </form>
     </Form>
+
+    <ImageCropperDialog
+        isOpen={cropperOpen}
+        setIsOpen={setCropperOpen}
+        imgSrc={imgSrc}
+        onCropped={handleCroppedImage}
+    />
+    </>
   );
 }

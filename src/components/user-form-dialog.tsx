@@ -16,9 +16,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import type { User, AdminRole } from "@/lib/types";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
+import ImageCropperDialog from "./image-cropper-dialog";
 
 const userFormSchema = z.object({
   firstName: z.string().min(2, "Le prénom est requis."),
@@ -35,7 +36,7 @@ type UserFormValues = z.infer<typeof userFormSchema>;
 interface UserFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (data: Partial<User>, photoFile?: File) => void;
+  onSave: (data: Partial<User>, photoFile?: File | Blob) => void;
   user: User | null;
   userType: 'admin' | 'teacher';
   adminRoles?: AdminRole[];
@@ -53,6 +54,9 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         position: '',
     }
   });
+  
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imgSrc, setImgSrc] = useState('');
 
   const showSpecialty = userType === 'teacher';
   const showAdminFields = userType === 'admin';
@@ -88,6 +92,24 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         }
     }
   }, [user, form.reset, isOpen]);
+  
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImgSrc(reader.result as string);
+        setCropperOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCroppedImage = (imageBlob: Blob | null) => {
+    if (imageBlob) {
+        form.setValue('photo', imageBlob);
+    }
+  }
 
   const onSubmit = (data: UserFormValues) => {
     const { photo, ...userDataValues } = data;
@@ -108,6 +130,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-[480px]">
         <Form {...form}>
@@ -117,19 +140,13 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
               <DialogDescription>{dialogDescription}</DialogDescription>
             </DialogHeader>
             
-            <FormField
-                control={form.control}
-                name="photo"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Photo de profil</FormLabel>
-                    <FormControl>
-                        <Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
+            <FormItem>
+                <FormLabel>Photo de profil</FormLabel>
+                <FormControl>
+                    <Input type="file" accept="image/*" onChange={handlePhotoChange} />
+                </FormControl>
+                <FormMessage />
+            </FormItem>
 
             <div className="grid grid-cols-2 gap-4">
                 <FormField
@@ -241,5 +258,12 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         </Form>
       </DialogContent>
     </Dialog>
+     <ImageCropperDialog
+        isOpen={cropperOpen}
+        setIsOpen={setCropperOpen}
+        imgSrc={imgSrc}
+        onCropped={handleCroppedImage}
+    />
+    </>
   );
 }

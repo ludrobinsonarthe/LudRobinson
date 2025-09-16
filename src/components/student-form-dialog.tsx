@@ -27,6 +27,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
 import { mockSectors, mockFields } from "@/lib/mock-data";
+import ImageCropperDialog from "./image-cropper-dialog";
 
 
 const studentFormSchema = z.object({
@@ -76,7 +77,7 @@ type StudentFormValues = z.infer<typeof studentFormSchema>;
 interface StudentFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File) => void;
+  onSave: (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => void;
   student: User | null;
   parents: User[];
 }
@@ -111,6 +112,9 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         parentalLink: ''
     }
   });
+  
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imgSrc, setImgSrc] = useState('');
 
   const parentSelection = form.watch('parentSelection');
   const selectedSector = form.watch('sectorId');
@@ -167,6 +171,24 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
    }, [selectedSector, form]);
 
 
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImgSrc(reader.result as string);
+        setCropperOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCroppedImage = (imageBlob: Blob | null) => {
+    if (imageBlob) {
+        form.setValue('photo', imageBlob);
+    }
+  }
+
   const onSubmit = (data: StudentFormValues) => {
     const { photo, ...studentDataValues } = data;
     const studentData: Partial<User> = {
@@ -201,6 +223,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-2xl">
         <Form {...form}>
@@ -216,19 +239,13 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-6">
                 <h3 className="text-lg font-semibold text-foreground">Informations de l'étudiant</h3>
-                <FormField
-                    control={form.control}
-                    name="photo"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Photo de profil</FormLabel>
-                        <FormControl>
-                            <Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                <FormItem>
+                    <FormLabel>Photo de profil</FormLabel>
+                    <FormControl>
+                        <Input type="file" accept="image/*" onChange={handlePhotoChange} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="firstName" render={({ field }) => (
                         <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} /></FormControl><FormMessage /></FormItem>
@@ -357,5 +374,12 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         </Form>
       </DialogContent>
     </Dialog>
+     <ImageCropperDialog
+        isOpen={cropperOpen}
+        setIsOpen={setCropperOpen}
+        imgSrc={imgSrc}
+        onCropped={handleCroppedImage}
+    />
+    </>
   );
 }

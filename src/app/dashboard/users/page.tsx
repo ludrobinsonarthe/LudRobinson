@@ -91,7 +91,7 @@ export default function UsersPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = async (userData: Partial<User>, photoFile?: File) => {
+    const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
         try {
             let userUid = selectedUser?.uid;
             if (!userUid) {
@@ -101,8 +101,8 @@ export default function UsersPage() {
             let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
 
             if (photoFile && userUid) {
-                 const storageRef = ref(storage, `profile-pictures/${userUid}/${photoFile.name}`);
-                 const uploadResult = await uploadBytes(storageRef, photoFile);
+                 const storageRef = ref(storage, `profile-pictures/${userUid}/profile.jpg`);
+                 const uploadResult = await uploadBytes(storageRef, photoFile, { contentType: 'image/jpeg' });
                  photoUrl = await getDownloadURL(uploadResult.ref);
             }
             

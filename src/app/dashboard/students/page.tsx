@@ -131,7 +131,7 @@ export default function StudentsPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File) => {
+    const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => {
         try {
             let studentUid = selectedStudent?.uid;
             if (!studentUid) {
@@ -140,8 +140,8 @@ export default function StudentsPage() {
 
             let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl;
             if (photoFile && studentUid) {
-                const storageRef = ref(storage, `profile-pictures/${studentUid}/${photoFile.name}`);
-                const uploadResult = await uploadBytes(storageRef, photoFile);
+                const storageRef = ref(storage, `profile-pictures/${studentUid}/profile.jpg`);
+                const uploadResult = await uploadBytes(storageRef, photoFile, { contentType: 'image/jpeg' });
                 photoUrl = await getDownloadURL(uploadResult.ref);
             }
             
