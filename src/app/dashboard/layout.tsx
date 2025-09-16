@@ -34,6 +34,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import DashboardHeader from "@/components/dashboard-header";
+import React from "react";
 
 function AppLogo() {
   return (
@@ -51,6 +52,12 @@ function AppLogo() {
 function MainSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
 
   const studentMenuItems = [
     { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
@@ -78,7 +85,7 @@ function MainSidebar() {
         <AppLogo />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarMenu>
+        {isMounted && <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
@@ -136,7 +143,7 @@ function MainSidebar() {
                 </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-        </SidebarMenu>
+        </SidebarMenu>}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
