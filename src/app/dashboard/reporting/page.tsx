@@ -7,13 +7,17 @@ import { useUser } from '@/hooks/use-user';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useState, useEffect } from 'react';
-import { Course, CashTransaction } from '@/lib/types';
+import { Course, CashTransaction, User, Payment } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
+import StudentFieldDistributionChart from '@/components/charts/student-field-distribution-chart';
+import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
+import { mockFields } from '@/lib/mock-data';
 
 export default function ReportingPage() {
     const { users, loading: usersLoading } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
     const [loadingData, setLoadingData] = useState(true);
 
     useEffect(() => {
@@ -23,17 +27,24 @@ export default function ReportingPage() {
         const unsubTransactions = onSnapshot(collection(db, 'cash_transactions'), snapshot => {
             setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction));
         });
+        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => {
+            setPayments(snapshot.docs.map(doc => doc.data() as Payment));
+        });
+
 
         setLoadingData(false);
 
         return () => {
             unsubCourses();
             unsubTransactions();
+            unsubPayments();
         };
     }, []);
 
+    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+
     const stats = useMemo(() => {
-        const studentCount = users.filter(u => u.role === 'student').length;
+        const studentCount = students.length;
         const teacherCount = users.filter(u => u.role === 'teacher').length;
         const adminCount = users.filter(u => u.role === 'admin').length;
         const courseCount = courses.length;
@@ -47,7 +58,7 @@ export default function ReportingPage() {
         const balance = totalIncome - totalExpense;
 
         return { studentCount, teacherCount, adminCount, courseCount, totalIncome, totalExpense, balance };
-    }, [users, courses, transactions]);
+    }, [users, courses, transactions, students]);
     
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF' }).format(amount);
@@ -144,21 +155,31 @@ export default function ReportingPage() {
                 </Card>
             </div>
 
-             <Card>
-                <CardHeader>
-                    <CardTitle>Autres Rapports</CardTitle>
-                    <CardDescription>
-                       D'autres visualisations et rapports de données seront bientôt disponibles ici.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
-                        <p className="text-muted-foreground">
-                           Section en cours de construction.
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
+            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Répartition des Étudiants par Filière</CardTitle>
+                        <CardDescription>
+                            Visualisation du nombre d'étudiants dans chaque filière.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       <StudentFieldDistributionChart students={students} fields={mockFields} />
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Aperçu Financier Mensuel</CardTitle>
+                        <CardDescription>
+                            Evolution des entrées et sorties sur les 12 derniers mois.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <FinancialMonthlyOverviewChart transactions={transactions} />
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
+
