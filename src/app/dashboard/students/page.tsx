@@ -14,9 +14,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field, Cycle } from "@/lib/types";
+import { User, UserRole, Class, Sector, Field, Cycle, Payment } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,7 +30,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, onSnapshot, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 
@@ -46,7 +46,9 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { users, setUsers, loading } = useUser();
+    const { users, loading: loadingUsers } = useUser();
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [loadingPayments, setLoadingPayments] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
@@ -59,10 +61,35 @@ export default function StudentsPage() {
     const [sectorFilter, setSectorFilter] = useState("all");
     const [fieldFilter, setFieldFilter] = useState("all");
     
+    useEffect(() => {
+        const q = query(collection(db, "payments"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const paymentsFromDb: Payment[] = [];
+            snapshot.forEach((doc) => {
+                paymentsFromDb.push({ id: doc.id, ...doc.data() } as Payment);
+            });
+            setPayments(paymentsFromDb);
+            setLoadingPayments(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const parents = useMemo(() => users.filter(u => u.role === 'parent'), [users]);
     const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), []);
     const sectorsById = useMemo(() => mockSectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), []);
+
+    const studentBalances = useMemo(() => {
+        const balances: Record<string, number> = {};
+        studentsFromUsers.forEach(student => {
+            const studentPayments = payments.filter(p => p.studentId === student.uid && p.status === 'validated');
+            const totalPaid = studentPayments.reduce((acc, p) => acc + p.amountPaid, 0);
+            const totalExpected = studentPayments.reduce((acc, p) => acc + p.amountExpected, 0);
+            balances[student.uid] = totalExpected - totalPaid;
+        });
+        return balances;
+    }, [payments, studentsFromUsers]);
+
 
     const availableFields = useMemo(() => {
         if (sectorFilter === 'all') return mockFields;
@@ -192,6 +219,7 @@ export default function StudentsPage() {
                 "Filière": student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A',
                 "Secteur": student.student?.fieldId ? sectorsById[fieldsById[student.student.fieldId]?.sectorId]?.name : 'N/A',
                 "Date d'inscription": format(new Date(student.createdAt), 'd MMMM yyyy', { locale: fr }),
+                "Solde Scolarité": studentBalances[student.uid] || 0,
                 "Tuteur": parent ? `${parent.firstName} ${parent.lastName}` : 'N/A',
                 "Email Tuteur": parent?.email,
                 "Téléphone Tuteur": parent?.phone,
@@ -302,7 +330,12 @@ export default function StudentsPage() {
             fileInputRef.current.value = "";
         }
     };
+    
+    const loading = loadingUsers || loadingPayments;
 
+    const formatCurrency = (amount: number, currency: string = 'XAF') => {
+        return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
+    }
 
     return (
         <div className="space-y-6">
@@ -388,9 +421,9 @@ export default function StudentsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nom</TableHead>
-                                <TableHead className="hidden md:table-cell">Cycle</TableHead>
+                                <TableHead className="hidden md:table-cell">Niveau</TableHead>
+                                <TableHead className="hidden lg:table-cell">Solde Scolarité</TableHead>
                                 <TableHead className="hidden lg:table-cell">Tuteur</TableHead>
-                                <TableHead className="hidden lg:table-cell">Date d'inscription</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -401,7 +434,9 @@ export default function StudentsPage() {
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
-                            ) : filteredStudents.length > 0 ? filteredStudents.map(student => (
+                            ) : filteredStudents.length > 0 ? filteredStudents.map(student => {
+                                const balance = studentBalances[student.uid] || 0;
+                                return (
                                 <TableRow key={student.uid}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-3">
@@ -416,13 +451,15 @@ export default function StudentsPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
-                                        <Badge variant="secondary">{cycles.find(c => c.value === student.student?.cycle)?.label || 'Non défini'}</Badge>
+                                        <Badge variant="secondary">{student.student?.level || 'N/A'}</Badge>
+                                    </TableCell>
+                                    <TableCell className="hidden lg:table-cell">
+                                        <Badge variant={balance > 0 ? "destructive" : "default"} className={balance === 0 ? "bg-green-600" : ""}>
+                                            {formatCurrency(balance, 'XAF')}
+                                        </Badge>
                                     </TableCell>
                                      <TableCell className="hidden lg:table-cell">
                                         {getParentName(student.student?.parentUid)}
-                                    </TableCell>
-                                    <TableCell className="hidden lg:table-cell">
-                                        {format(new Date(student.createdAt), 'd MMMM yyyy', { locale: fr })}
                                     </TableCell>
                                     <TableCell className="text-right">
                                        <DropdownMenu>
@@ -436,6 +473,10 @@ export default function StudentsPage() {
                                                     <Edit className="mr-2 h-4 w-4" />
                                                     Modifier
                                                </DropdownMenuItem>
+                                               <DropdownMenuItem>
+                                                    <Receipt className="mr-2 h-4 w-4" />
+                                                    Voir les paiements
+                                               </DropdownMenuItem>
                                                <DropdownMenuItem onClick={() => handleDelete(student)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
@@ -444,7 +485,8 @@ export default function StudentsPage() {
                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
-                            )) : (
+                                )
+                            }) : (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-24 text-center">
                                         Aucun étudiant trouvé correspondant aux filtres.
@@ -473,3 +515,5 @@ export default function StudentsPage() {
     );
 }
 
+
+    

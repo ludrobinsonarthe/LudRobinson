@@ -163,3 +163,5 @@ export interface Settings {
   currency: string;
   adminContacts: string[];
 }
+
+    

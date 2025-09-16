@@ -1,6 +1,92 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+
+"use client";
+
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from '@/components/ui/button';
+import { useUser } from "@/hooks/use-user";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Payment } from '@/lib/types';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { Download, FileText } from 'lucide-react';
+
+const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
+    validated: "default",
+    pending: "secondary",
+    rejected: "destructive",
+}
+const statusTranslation: { [key: string]: string } = {
+    validated: "Validé",
+    pending: "En attente",
+    rejected: "Rejeté",
+}
+const methodTranslation: { [key: string]: string } = {
+    cash: "Espèces",
+    mobile_money: "Mobile Money",
+    card: "Carte bancaire",
+}
 
 export default function PaymentsPage() {
+    const { user: currentUser } = useUser();
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!currentUser || currentUser.role !== 'student') {
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const q = query(collection(db, "payments"), where("studentId", "==", currentUser.uid));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const userPayments: Payment[] = [];
+            snapshot.forEach((doc) => {
+                userPayments.push({ id: doc.id, ...doc.data() } as Payment);
+            });
+            setPayments(userPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching payments: ", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [currentUser]);
+
+     const { totalExpected, totalPaid, totalBalance } = useMemo(() => {
+        const validatedPayments = payments.filter(p => p.status === 'validated');
+        const expected = validatedPayments.reduce((acc, p) => acc + p.amountExpected, 0);
+        const paid = validatedPayments.reduce((acc, p) => acc + p.amountPaid, 0);
+        return {
+            totalExpected: expected,
+            totalPaid: paid,
+            totalBalance: expected - paid,
+        };
+    }, [payments]);
+
+    if (currentUser?.role !== 'student') {
+        return (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[calc(100vh-12rem)]">
+                <h3 className="text-2xl font-bold tracking-tight">Accès non autorisé</h3>
+                <p className="text-sm text-muted-foreground">
+                    Seuls les étudiants peuvent accéder à cette page.
+                </p>
+            </div>
+        );
+    }
+    
+    const formatCurrency = (amount: number, currency: string = 'XAF') => {
+        return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
+    }
+
+
     return (
         <div className="space-y-6">
             <div>
@@ -17,13 +103,67 @@ export default function PaymentsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
-                        <p className="text-muted-foreground">
-                            La section des paiements est en cours de construction.
-                        </p>
-                    </div>
+                    {loading ? (
+                         <div className="flex items-center justify-center h-48">
+                            <p>Chargement de vos paiements...</p>
+                        </div>
+                    ) : payments.length > 0 ? (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Motif</TableHead>
+                                    <TableHead>Montant Payé</TableHead>
+                                    <TableHead>Méthode</TableHead>
+                                    <TableHead>Statut</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {payments.map(payment => (
+                                    <TableRow key={payment.id}>
+                                        <TableCell>{format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
+                                        <TableCell className='font-medium'>{payment.month} {payment.year}</TableCell>
+                                        <TableCell className='font-semibold'>{formatCurrency(payment.amountPaid, payment.currency)}</TableCell>
+                                        <TableCell><Badge variant='outline'>{methodTranslation[payment.method]}</Badge></TableCell>
+                                        <TableCell><Badge variant={statusVariant[payment.status]}>{statusTranslation[payment.status]}</Badge></TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="outline" size="sm" disabled={payment.status !== 'validated'}>
+                                                <Download className="mr-2 h-4 w-4" />
+                                                Reçu
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
+                            <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                            <h3 className="mt-4 text-lg font-semibold">Aucun paiement trouvé</h3>
+                            <p className="mb-4 mt-2 text-sm text-muted-foreground">
+                                L'historique de vos paiements apparaîtra ici.
+                            </p>
+                        </div>
+                    )}
                 </CardContent>
+                 {payments.length > 0 && (
+                     <CardFooter className="flex justify-end">
+                        <div className='text-right space-y-2'>
+                            <div >
+                                <p className='text-sm text-muted-foreground'>Total Payé</p>
+                                <p className='font-semibold text-lg'>{formatCurrency(totalPaid, 'XAF')}</p>
+                            </div>
+                             <div>
+                                <p className='text-sm text-muted-foreground'>Solde Restant</p>
+                                <p className={`font-bold text-2xl ${totalBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>{formatCurrency(totalBalance, 'XAF')}</p>
+                            </div>
+                        </div>
+                    </CardFooter>
+                )}
             </Card>
         </div>
     );
 }
+
+    
