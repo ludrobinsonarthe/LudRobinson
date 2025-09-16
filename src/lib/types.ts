@@ -17,6 +17,9 @@ export interface User {
   photoUrl: string;
   createdAt: string;
   status: UserStatus;
+  admin?: {
+    position: string;
+  };
   student?: {
     matricule: string;
     programId: string;

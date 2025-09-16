@@ -24,6 +24,7 @@ const userFormSchema = z.object({
   email: z.string().email("Adresse e-mail invalide."),
   photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
   specialty: z.string().optional(),
+  position: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -45,10 +46,12 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         email: '',
         photoUrl: '',
         specialty: '',
+        position: '',
     }
   });
 
   const showSpecialty = userType === 'teacher';
+  const showPosition = userType === 'admin';
   const dialogTitle = user 
     ? `Modifier ${userType === 'teacher' ? 'le professeur' : 'l\'administrateur'}` 
     : `Ajouter ${userType === 'teacher' ? 'un professeur' : 'un administrateur'}`;
@@ -67,6 +70,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             email: user.email,
             photoUrl: user.photoUrl,
             specialty: user.teacher?.specialty,
+            position: user.admin?.position,
         });
         } else {
         form.reset({
@@ -75,6 +79,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             email: '',
             photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
             specialty: '',
+            position: '',
         });
         }
     }
@@ -85,7 +90,11 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
     if (userType === 'teacher') {
         userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
     }
+     if (userType === 'admin') {
+        userData.admin = { position: data.position || '' };
+    }
     delete (userData as any).specialty;
+    delete (userData as any).position;
 
     onSave(userData);
     setIsOpen(false);
@@ -153,6 +162,22 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                         <FormLabel>Spécialité</FormLabel>
                         <FormControl>
                             <Input placeholder="Mathématiques, Physique..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
+
+            {showPosition && (
+                 <FormField
+                    control={form.control}
+                    name="position"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Poste</FormLabel>
+                        <FormControl>
+                            <Input placeholder="Comptable, Secrétaire..." {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>

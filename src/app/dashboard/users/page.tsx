@@ -134,6 +134,7 @@ export default function UsersPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nom</TableHead>
+                                <TableHead className="hidden md:table-cell">Poste</TableHead>
                                 <TableHead className="hidden lg:table-cell">Statut</TableHead>
                                 <TableHead className="hidden lg:table-cell">Date de création</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -142,7 +143,7 @@ export default function UsersPage() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
@@ -159,6 +160,9 @@ export default function UsersPage() {
                                                 <span className="text-sm text-muted-foreground">{user.email}</span>
                                             </div>
                                         </div>
+                                    </TableCell>
+                                    <TableCell className="hidden md:table-cell">
+                                        <Badge variant="outline">{user.admin?.position || 'Non défini'}</Badge>
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
                                         <Badge variant={statusVariant[user.status]}>{statusTranslation[user.status]}</Badge>
@@ -188,7 +192,7 @@ export default function UsersPage() {
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         Aucun administrateur trouvé.
                                     </TableCell>
                                 </TableRow>
