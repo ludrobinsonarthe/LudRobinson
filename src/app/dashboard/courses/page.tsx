@@ -5,9 +5,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { mockCourses } from '@/lib/mock-data';
 import { BookOpenCheck } from 'lucide-react';
 
 
@@ -27,9 +26,11 @@ export default function CoursesPage() {
     useEffect(() => {
         if (!currentUser || currentUser.role !== 'student' || !currentUser.student?.programId) {
             setLoading(false);
+            setCourses([]);
             return;
         }
 
+        setLoading(true);
         const q = query(collection(db, "courses"), where("programId", "==", currentUser.student.programId));
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
