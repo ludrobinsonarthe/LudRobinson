@@ -6,6 +6,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CornerUpLeft,
+  Loader2,
   MessageSquarePlus,
   Mic,
   Paperclip,
@@ -13,7 +14,6 @@ import {
   Video,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +41,9 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import MessageSummarizer from "./message-summarizer";
 import NewMessageDialog from "./new-message-dialog";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatLayoutProps {
   defaultLayout: number[] | undefined;
@@ -54,10 +57,15 @@ export default function ChatLayout({
   users,
 }: ChatLayoutProps) {
   const { user: currentUser } = useUser();
+  const { toast } = useToast();
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
   const [isNewMessageDialogOpen, setIsNewMessageDialogOpen] = React.useState(false);
+  const [messageContent, setMessageContent] = React.useState("");
+  const [isSending, setIsSending] = React.useState(false);
+  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -71,10 +79,9 @@ export default function ChatLayout({
   const conversations = React.useMemo(() => {
     if (!currentUser || !isMounted) return [];
     
-    const privateMessages = messages.filter(m => m.type === 'private');
     const conversationPartners = new Set<string>();
 
-    privateMessages.forEach(msg => {
+    messages.forEach(msg => {
       if (msg.senderId === currentUser.uid) {
         conversationPartners.add(msg.receiverId);
       }
@@ -85,7 +92,7 @@ export default function ChatLayout({
 
     return Array.from(conversationPartners).map(partnerId => {
         const partner = users.find(u => u.uid === partnerId);
-        const lastMessage = privateMessages
+        const lastMessage = messages
             .filter(m => (m.senderId === partnerId && m.receiverId === currentUser.uid) || (m.senderId === currentUser.uid && m.receiverId === partnerId))
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         return { partner, lastMessage };
@@ -102,21 +109,70 @@ export default function ChatLayout({
     if (!currentUser || !selectedConversation) return [];
     return messages.filter(
       (msg) =>
-        msg.type === "private" &&
-        ((msg.senderId === currentUser.uid && msg.receiverId === selectedConversation) ||
-          (msg.senderId === selectedConversation && msg.receiverId === currentUser.uid))
+        (msg.senderId === currentUser.uid && msg.receiverId === selectedConversation) ||
+        (msg.senderId === selectedConversation && msg.receiverId === currentUser.uid)
     ).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [messages, currentUser, selectedConversation]);
+  
+  React.useEffect(() => {
+      if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTo({
+              top: scrollAreaRef.current.scrollHeight,
+              behavior: 'smooth'
+          })
+      }
+  }, [selectedMessages]);
 
   const selectedUser = users.find(u => u.uid === selectedConversation);
 
   const handleStartNewConversation = (userId: string) => {
+    const existingConversation = conversations.find(c => c.partner?.uid === userId);
+    if (!existingConversation) {
+      // This is a new conversation, we don't have messages yet.
+      // We can add a placeholder or directly open the chat window.
+      const partner = users.find(u => u.uid === userId);
+      if (partner) {
+        // Add to the top of the list temporarily until a message is sent
+        // Note: this part is complex to manage without sending a message.
+        // The simplest UX is to just open the chat window.
+      }
+    }
     setSelectedConversation(userId);
     setIsNewMessageDialogOpen(false);
   }
 
-  if (!isMounted) {
-      return null;
+  const handleSendMessage = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!messageContent.trim() || !currentUser || !selectedConversation) return;
+
+      setIsSending(true);
+      try {
+          await addDoc(collection(db, "messages"), {
+              senderId: currentUser.uid,
+              receiverId: selectedConversation,
+              content: messageContent,
+              type: 'private',
+              createdAt: new Date().toISOString(),
+          });
+          setMessageContent("");
+      } catch (error) {
+          console.error("Error sending message:", error);
+          toast({
+              variant: "destructive",
+              title: "Erreur",
+              description: "Impossible d'envoyer le message."
+          });
+      } finally {
+          setIsSending(false);
+      }
+  }
+
+  if (!isMounted || !currentUser) {
+      return (
+         <div className="flex items-center justify-center h-96">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+         </div>
+      );
   }
 
   return (
@@ -208,7 +264,7 @@ export default function ChatLayout({
                   </div>
               </div>
 
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
                 <div className="space-y-4">
                   {selectedMessages.map((message, index) => (
                     <div
@@ -252,26 +308,35 @@ export default function ChatLayout({
                 </div>
               </ScrollArea>
 
-              <div className="p-4 border-t">
+              <form onSubmit={handleSendMessage} className="p-4 border-t">
                 <div className="relative">
                   <Textarea
                     placeholder="Écrire un message..."
                     className="pr-32 resize-none"
                     rows={1}
+                    value={messageContent}
+                    onChange={(e) => setMessageContent(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage(e);
+                        }
+                    }}
+                    disabled={isSending}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <Button type="submit" size="icon" variant="ghost">
+                    <Button type="button" size="icon" variant="ghost" disabled={isSending}>
                       <Paperclip className="h-5 w-5" />
                     </Button>
-                     <Button type="submit" size="icon" variant="ghost">
+                     <Button type="button" size="icon" variant="ghost" disabled={isSending}>
                       <Mic className="h-5 w-5" />
                     </Button>
-                    <Button type="submit" size="icon">
-                      <CornerUpLeft className="h-5 w-5" />
+                    <Button type="submit" size="icon" disabled={isSending || !messageContent.trim()}>
+                      {isSending ? <Loader2 className="h-5 w-5 animate-spin"/> : <CornerUpLeft className="h-5 w-5" />}
                     </Button>
                   </div>
                 </div>
-              </div>
+              </form>
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2">
