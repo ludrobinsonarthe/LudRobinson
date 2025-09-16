@@ -74,14 +74,14 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
 
   useEffect(() => {
     const total = (hourlyRate || 0) * (hoursWorked || 0);
-    form.setValue('totalSalary', total);
+    form.setValue('totalSalary', parseFloat(total.toFixed(2)));
   }, [hourlyRate, hoursWorked, form]);
 
   const updateHours = useCallback(() => {
     if (teacherId && month && year) {
         const monthIndex = months.indexOf(month);
         const calculatedHours = calculateHours(teacherId, monthIndex, parseInt(year));
-        form.setValue('hoursWorked', calculatedHours);
+        form.setValue('hoursWorked', parseFloat(calculatedHours.toFixed(2)));
     }
   }, [teacherId, month, year, calculateHours, form]);
 
@@ -158,16 +158,16 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
 
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="hoursWorked" render={({ field }) => (
-                        <FormItem><FormLabel>Heures Travaillées</FormLabel><FormControl><Input type="number" placeholder="80" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Heures Travaillées</FormLabel><FormControl><Input type="number" step="0.01" placeholder="80" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="hourlyRate" render={({ field }) => (
-                        <FormItem><FormLabel>Taux Horaire</FormLabel><FormControl><Input type="number" placeholder="5000" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Taux Horaire</FormLabel><FormControl><Input type="number" step="0.01" placeholder="5000" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
                 
                  <FormField control={form.control} name="totalSalary" render={({ field }) => (
                     <FormItem><FormLabel>Salaire Total</FormLabel>
-                    <FormControl><Input type="number" {...field} readOnly className="font-bold bg-muted" /></FormControl>
+                    <FormControl><Input type="number" step="0.01" {...field} readOnly className="font-bold bg-muted" /></FormControl>
                     <FormMessage /></FormItem>
                 )}/>
 

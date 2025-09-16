@@ -101,11 +101,20 @@ function SalaryManagementContent() {
         let totalHours = 0;
         teacherAttendances.forEach(att => {
             const course = courses.find(c => c.id === att.courseId);
-            const scheduleEntry = course?.schedule?.find(s => format(new Date(att.date), 'EEEE', {locale: fr}) === s.day);
-            if(scheduleEntry) {
-                 const start = parseFloat(scheduleEntry.start.replace(':', '.'));
-                 const end = parseFloat(scheduleEntry.end.replace(':', '.'));
-                 totalHours += (end - start);
+            if (course?.schedule) {
+                const scheduleEntry = course.schedule.find(s => format(new Date(att.date), 'EEEE', { locale: fr }) === s.day);
+                if (scheduleEntry) {
+                    try {
+                        const [startHour, startMinute] = scheduleEntry.start.split(':').map(Number);
+                        const [endHour, endMinute] = scheduleEntry.end.split(':').map(Number);
+                        const duration = (endHour - startHour) + (endMinute - startMinute) / 60;
+                        if (!isNaN(duration) && duration > 0) {
+                            totalHours += duration;
+                        }
+                    } catch (e) {
+                        console.error("Error parsing schedule time", e);
+                    }
+                }
             }
         });
         return totalHours;
@@ -241,7 +250,7 @@ function SalaryManagementContent() {
                                     {!teacherIdFilter && <TableCell className="font-medium">{getTeacherName(salary.teacherId)}</TableCell>}
                                     <TableCell>{salary.month} {salary.year}</TableCell>
                                     <TableCell>{formatCurrency(salary.hourlyRate, salary.currency)}</TableCell>
-                                    <TableCell>{salary.hoursWorked}h</TableCell>
+                                    <TableCell>{salary.hoursWorked.toFixed(2)}h</TableCell>
                                     <TableCell className='font-semibold'>{formatCurrency(salary.totalSalary, salary.currency)}</TableCell>
                                     <TableCell>
                                         <Badge variant={statusVariant[salary.status]}>{statusTranslation[salary.status]}</Badge>
