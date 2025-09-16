@@ -38,6 +38,7 @@ import {
   Landmark,
   FileCog,
   ClipboardCheck,
+  LayoutDashboard,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -75,6 +76,7 @@ function MainSidebar() {
   ];
 
   const adminManagementItems = [
+    { href: "/dashboard/reporting", label: "Tableau de Bord", icon: LayoutDashboard },
     { href: "/dashboard/students", label: "Étudiants", icon: Users },
     { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
     { href: "/dashboard/course-management", label: "Gestion Cours & Horaires", icon: BookMarked },
