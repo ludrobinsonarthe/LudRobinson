@@ -6,6 +6,7 @@ import type { User, AdminRole, AdminPermission } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
+import { mockUsers, mockAdminRoles } from '@/lib/mock-data';
 
 type UserContextType = {
   user: User | null;
@@ -21,68 +22,22 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [roles, setRoles] = useState<AdminRole[]>(mockAdminRoles);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const usersQuery = query(collection(db, "users"));
-    const rolesQuery = query(collection(db, "admin_roles"));
-
-    const unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
-        const usersFromDb: User[] = [];
-        snapshot.forEach(doc => usersFromDb.push({ uid: doc.id, ...doc.data() } as User));
-        setAllUsers(usersFromDb);
-
-        if (!currentUser) {
-            const adminUser = usersFromDb.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
-            if (adminUser) {
-                setCurrentUser(adminUser);
-            } else if (usersFromDb.length > 0) {
-                setCurrentUser(usersFromDb[0]);
-            }
-        }
-        setLoading(false);
-    }, (error) => {
-        console.error("Error fetching users:", error);
-        setLoading(false);
-    });
-    
-    const unsubscribeRoles = onSnapshot(rolesQuery, (snapshot) => {
-        const rolesFromDb: AdminRole[] = [];
-        snapshot.forEach(doc => rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole));
-        setRoles(rolesFromDb);
-    }, (error) => {
-        console.error("Error fetching roles:", error);
-    });
-
-    return () => {
-        unsubscribeUsers();
-        unsubscribeRoles();
-    };
+    // Using mock data, no need to fetch from Firestore
+    setLoading(true);
+    const superAdmin = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
+    setCurrentUser(superAdmin || mockUsers[0] || null);
+    setRoles(mockAdminRoles);
+    setAllUsers(mockUsers);
+    setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  useEffect(() => {
-      if (!loading && currentUser) {
-          const userInList = allUsers.find(u => u.uid === currentUser.uid);
-          if (!userInList) {
-               const adminUser = allUsers.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
-                if (adminUser) {
-                    setCurrentUser(adminUser);
-                } else if (allUsers.length > 0) {
-                    setCurrentUser(allUsers[0]);
-                } else {
-                    setCurrentUser(null);
-                }
-          } else if (JSON.stringify(currentUser) !== JSON.stringify(userInList)) {
-              setCurrentUser(userInList);
-          }
-      }
-  }, [allUsers, currentUser, loading]);
-
-
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') {
           return [];

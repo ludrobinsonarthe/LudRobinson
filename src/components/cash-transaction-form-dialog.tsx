@@ -84,20 +84,10 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
         return;
     }
     
-    const newTransaction = {
-        date: new Date().toISOString(),
-        createdBy: user.uid,
-        ...data
-    }
-    
-    try {
-        await addDoc(collection(db, 'cash_transactions'), newTransaction);
-        toast({ title: "Transaction enregistrée", description: "L'opération a été ajoutée à la caisse." });
-        setIsOpen(false);
-    } catch (error) {
-        console.error(error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la transaction." });
-    }
+    setTimeout(() => {
+      toast({ title: "Transaction enregistrée (Simulation)", description: "L'opération a été ajoutée à la caisse localement." });
+      setIsOpen(false);
+    }, 1000);
   };
 
   return (

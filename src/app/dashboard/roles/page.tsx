@@ -76,21 +76,10 @@ export default function RolesPage() {
 
   const onSubmit = async (data: RolesFormValues) => {
     setLoading(true);
-    const batch = writeBatch(db);
-    data.roles.forEach(role => {
-        const { id, ...roleData } = role;
-        const roleRef = doc(db, 'admin_roles', id);
-        batch.set(roleRef, roleData);
-    });
-    try {
-        await batch.commit();
-        toast({ title: "Rôles mis à jour", description: "Les permissions ont été enregistrées." });
-    } catch (error) {
-        console.error(error);
-        toast({ title: "Erreur", description: "Impossible d'enregistrer les rôles.", variant: "destructive" });
-    } finally {
+    setTimeout(() => {
+        toast({ title: "Rôles mis à jour (Simulation)", description: "Les permissions ont été enregistrées localement." });
         setLoading(false);
-    }
+    }, 1000);
   };
 
   const addNewRole = () => {
@@ -104,16 +93,8 @@ export default function RolesPage() {
 
   const removeRole = async (index: number) => {
     const roleId = fields[index].id;
-    try {
-        if (initialRoles.some(r => r.id === roleId)) {
-             await deleteDoc(doc(db, 'admin_roles', roleId));
-        }
-        remove(index);
-        toast({ title: "Rôle supprimé" });
-    } catch (error) {
-        console.error(error);
-        toast({ title: "Erreur", description: "Impossible de supprimer le rôle.", variant: "destructive" });
-    }
+    remove(index);
+    toast({ title: "Rôle supprimé (Simulation)" });
   }
 
   return (

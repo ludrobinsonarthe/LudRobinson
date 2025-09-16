@@ -83,28 +83,16 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     }
     setSubmitting(true);
     
-    try {
-        if (announcement) {
-            const announcementRef = doc(db, 'messages', announcement.id);
-            await setDoc(announcementRef, data, { merge: true });
-            toast({ title: "Annonce modifiée", description: "L'annonce a été mise à jour." });
-        } else {
-            const newAnnouncement = {
-                ...data,
-                senderId: user.uid,
-                type: 'announcement',
-                createdAt: new Date().toISOString(),
-            };
-            await addDoc(collection(db, 'messages'), newAnnouncement);
-            toast({ title: "Annonce publiée", description: "La nouvelle annonce a été publiée." });
-        }
-        setSubmitting(false);
-        setIsOpen(false);
-    } catch (error) {
-        console.error("Error saving announcement:", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'annonce." });
-        setSubmitting(false);
-    }
+    // Simulate DB operation
+    setTimeout(() => {
+      if (announcement) {
+          toast({ title: "Annonce modifiée (Simulation)", description: "L'annonce a été mise à jour localement." });
+      } else {
+          toast({ title: "Annonce publiée (Simulation)", description: "La nouvelle annonce a été publiée localement." });
+      }
+      setSubmitting(false);
+      setIsOpen(false);
+    }, 1000);
   };
 
   return (

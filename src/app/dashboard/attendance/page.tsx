@@ -17,6 +17,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
+import { mockCourses, mockFields, mockAttendances } from '@/lib/mock-data';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -38,28 +39,10 @@ function AttendanceContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        const unsubCourses = onSnapshot(collection(db, 'courses'), (snap) => {
-            const data: Course[] = [];
-            snap.forEach(doc => data.push({id: doc.id, ...doc.data()} as Course));
-            setCourses(data);
-            setLoadingData(false);
-        });
-        const unsubFields = onSnapshot(collection(db, 'fields'), (snap) => {
-            const data: Field[] = [];
-            snap.forEach(doc => data.push({id: doc.id, ...doc.data()} as Field));
-            setFields(data);
-        });
-        const unsubAttendances = onSnapshot(collection(db, 'attendances'), (snap) => {
-            const data: Attendance[] = [];
-            snap.forEach(doc => data.push({id: doc.id, ...doc.data()} as Attendance));
-            setAttendances(data);
-        });
-
-        return () => {
-            unsubCourses();
-            unsubFields();
-            unsubAttendances();
-        }
+        setCourses(mockCourses);
+        setFields(mockFields);
+        setAttendances(mockAttendances);
+        setLoadingData(false);
     }, []);
     
     useEffect(() => {
@@ -104,27 +87,29 @@ function AttendanceContent() {
         if (!selectedCourse || !selectedDate || !users.length) return;
         
         const attendanceId = `${selectedDate}-${selectedCourse.id}`;
-        const attendanceRef = doc(db, 'attendances', attendanceId);
-
-        try {
-            const newAttendanceRecord = {
-                ...data,
-                id: attendanceId,
-                date: selectedDate,
-                courseId: selectedCourse.id,
-                teacherId: selectedCourse.teacherId,
-                validatedBy: 'admin01', // Should be current user
-                createdAt: existingAttendance ? existingAttendance.createdAt : new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            }
-            await setDoc(attendanceRef, newAttendanceRecord, { merge: true });
-
-            toast({ title: 'Présences enregistrées', description: 'La fiche de présence a été mise à jour.' });
-        } catch (error) {
-            console.error("Error saving attendance: ", error);
-            toast({ title: 'Erreur', description: "Impossible d'enregistrer la fiche de présence.", variant: 'destructive'});
-        }
         
+        const newAttendanceRecord: Attendance = {
+            ...data,
+            id: attendanceId,
+            date: selectedDate,
+            courseId: selectedCourse.id,
+            teacherId: selectedCourse.teacherId,
+            validatedBy: 'admin01', // Should be current user
+            createdAt: existingAttendance ? existingAttendance.createdAt : new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }
+
+        setAttendances(prev => {
+            const existingIndex = prev.findIndex(a => a.id === attendanceId);
+            if (existingIndex > -1) {
+                const newAttendances = [...prev];
+                newAttendances[existingIndex] = newAttendanceRecord;
+                return newAttendances;
+            }
+            return [...prev, newAttendanceRecord];
+        });
+
+        toast({ title: 'Présences enregistrées (Simulation)', description: 'La fiche de présence a été mise à jour localement.' });
         setIsDialogOpen(false);
     };
     

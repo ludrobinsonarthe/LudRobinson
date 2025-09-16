@@ -10,7 +10,7 @@ import { Course, CashTransaction, Payment } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
 import StudentFieldDistributionChart from '@/components/charts/student-field-distribution-chart';
 import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
-import { mockFields } from '@/lib/mock-data';
+import { mockFields, mockCourses, mockCashTransactions, mockPayments } from '@/lib/mock-data';
 
 export default function ReportingPage() {
     const { users, loading: usersLoading } = useUser();
@@ -21,22 +21,10 @@ export default function ReportingPage() {
 
     useEffect(() => {
         setLoadingData(true);
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snap => {
-            setCourses(snap.docs.map(doc => doc.data() as Course));
-        });
-        const unsubTrans = onSnapshot(collection(db, 'cash_transactions'), snap => {
-            setTransactions(snap.docs.map(doc => doc.data() as CashTransaction));
-        });
-        const unsubPayments = onSnapshot(collection(db, 'payments'), snap => {
-            setPayments(snap.docs.map(doc => doc.data() as Payment));
-            setLoadingData(false);
-        });
-
-        return () => {
-            unsubCourses();
-            unsubTrans();
-            unsubPayments();
-        }
+        setCourses(mockCourses);
+        setTransactions(mockCashTransactions);
+        setPayments(mockPayments);
+        setLoadingData(false);
     }, []);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);

@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { mockFeeStructures } from "@/lib/mock-data";
 
 const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
 const cycles: { value: Cycle; label: string }[] = [
@@ -80,52 +81,26 @@ export default function FeeManagementPage() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, reset } = useFieldArray({
     control: form.control,
     name: "feeStructures",
   });
 
   useEffect(() => {
-    async function fetchFees() {
-        const q = query(collection(db, "fee_structures"));
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-            form.reset({ feeStructures: [] });
-        } else {
-            const structures: FeeStructure[] = [];
-            snapshot.forEach((doc) => {
-            structures.push({ id: doc.id, ...doc.data() } as FeeStructure);
-            });
-            form.reset({ feeStructures: structures });
-        }
-        setLoading(false);
-    }
-    fetchFees();
-  }, [form]);
+    setLoading(true);
+    reset({ feeStructures: mockFeeStructures });
+    setLoading(false);
+  }, [reset]);
 
   const onSubmit = async (data: FeeManagementFormValues) => {
-    try {
-      setLoading(true);
-      const batch = writeBatch(db);
-      data.feeStructures.forEach((structure) => {
-        const docRef = doc(db, "fee_structures", structure.id);
-        batch.set(docRef, structure);
-      });
-      await batch.commit();
+    setLoading(true);
+    setTimeout(() => {
       toast({
-        title: "Frais mis à jour",
-        description: "La structure des frais a été enregistrée avec succès.",
+        title: "Frais mis à jour (Simulation)",
+        description: "La structure des frais a été enregistrée localement.",
       });
-    } catch (error) {
-      console.error("Error saving fees:", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible d'enregistrer les frais.",
-      });
-    } finally {
       setLoading(false);
-    }
+    }, 1000);
   };
   
   const addNewFeeStructure = () => {
@@ -272,5 +247,3 @@ export default function FeeManagementPage() {
     </div>
   );
 }
-
-    

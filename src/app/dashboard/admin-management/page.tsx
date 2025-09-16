@@ -60,39 +60,22 @@ export default function AdminManagementPage() {
     });
 
     useEffect(() => {
-        async function fetchSettings() {
-            setLoading(true);
-            const settingsRef = doc(db, "settings", "system");
-            const docSnap = await getDoc(settingsRef);
-            if (docSnap.exists()) {
-                form.reset(docSnap.data() as SettingsFormValues);
-            } else {
-                form.reset(defaultSettings);
-            }
-            setLoading(false);
-        }
-        fetchSettings();
+        // Using mock data for now
+        setLoading(true);
+        form.reset(defaultSettings);
+        setLoading(false);
     }, [form]);
 
     const onSubmit = async (data: SettingsFormValues) => {
-        try {
-            setLoading(true);
-            const settingsRef = doc(db, "settings", "system");
-            await setDoc(settingsRef, { id: 'system', ...data }, { merge: true });
+        setLoading(true);
+        // Simulate DB operation
+        setTimeout(() => {
             toast({
-                title: "Paramètres enregistrés",
-                description: "Les paramètres globaux de l'application ont été mis à jour.",
+                title: "Paramètres enregistrés (Simulation)",
+                description: "Les paramètres globaux de l'application ont été mis à jour localement.",
             });
-        } catch (error) {
-            console.error("Error saving settings:", error);
-            toast({
-                variant: "destructive",
-                title: "Erreur",
-                description: "Impossible d'enregistrer les paramètres. Vérifiez vos permissions.",
-            });
-        } finally {
             setLoading(false);
-        }
+        }, 1000);
     };
 
 
@@ -272,5 +255,3 @@ export default function AdminManagementPage() {
         </div>
     );
 }
-
-    

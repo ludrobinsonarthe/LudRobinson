@@ -21,6 +21,7 @@ import { useState, useEffect, useMemo } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { mockDocuments } from "@/lib/mock-data";
 
 const documentTypeTranslation: {[key: string]: string} = {
     'bulletin': 'Bulletin de notes',
@@ -60,18 +61,10 @@ export default function DocumentsPage() {
         }
 
         setLoading(true);
-        const q = query(collection(db, "documents"), where("studentId", "==", studentToView.uid));
+        const userDocuments = mockDocuments.filter(doc => doc.studentId === studentToView.uid);
+        setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
+        setLoading(false);
         
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const userDocuments: OfficialDocument[] = [];
-            snapshot.forEach((doc) => {
-                userDocuments.push({id: doc.id, ...doc.data()} as OfficialDocument);
-            });
-            setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
-            setLoading(false);
-        });
-        
-        return () => unsubscribe();
     }, [studentToView]);
 
      const handleChildChange = (studentId: string) => {

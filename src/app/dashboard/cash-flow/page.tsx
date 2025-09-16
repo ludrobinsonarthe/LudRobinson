@@ -23,6 +23,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import CashTransactionFormDialog from '@/components/cash-transaction-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
+import { mockCashTransactions } from '@/lib/mock-data';
 
 export default function CashFlowPage() {
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
@@ -34,19 +35,9 @@ export default function CashFlowPage() {
 
     useEffect(() => {
         setLoading(true);
-        const unsub = onSnapshot(collection(db, "cash_transactions"), (snapshot) => {
-            const trans: CashTransaction[] = [];
-            snapshot.forEach(doc => trans.push({id: doc.id, ...doc.data()} as CashTransaction));
-            setTransactions(trans.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            setLoading(false);
-        }, (error) => {
-            console.error(error);
-            toast({title: "Erreur", description: "Impossible de charger les transactions.", variant: "destructive"});
-            setLoading(false);
-        });
-
-        return () => unsub();
-    }, [toast]);
+        setTransactions(mockCashTransactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setLoading(false);
+    }, []);
 
     const { totalIncome, totalExpense, balance } = useMemo(() => {
         let income = 0;
@@ -73,12 +64,8 @@ export default function CashFlowPage() {
 
     const confirmDelete = async () => {
         if(selectedTransaction) {
-            try {
-                await deleteDoc(doc(db, "cash_transactions", selectedTransaction.id));
-                toast({ title: "Transaction supprimée", description: "L'opération a été supprimée de la base de données." });
-            } catch (error) {
-                 toast({ title: "Erreur", description: "Impossible de supprimer la transaction.", variant: 'destructive' });
-            }
+            setTransactions(prev => prev.filter(t => t.id !== selectedTransaction.id));
+            toast({ title: "Transaction supprimée (Simulation)" });
             setIsDeleteOpen(false);
             setSelectedTransaction(null);
         }

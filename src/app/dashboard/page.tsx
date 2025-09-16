@@ -10,6 +10,7 @@ import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
 import { collection, query, orderBy, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { mockMessages } from "@/lib/mock-data";
 
 export default function DashboardPage() {
     const { user: currentUser, userPermissions } = useUser();
@@ -22,31 +23,19 @@ export default function DashboardPage() {
         if (!currentUser) return;
         
         setLoading(true);
+        // Using mock data
         const targetReceivers = ['all', currentUser.role];
         if (currentUser.admin?.roleId) {
             targetReceivers.push(currentUser.admin.roleId);
         }
-
-        const q = query(
-            collection(db, "messages"),
-            where('type', '==', 'announcement'),
-            where('receiverId', 'in', targetReceivers),
-            orderBy("createdAt", "desc")
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedAnnouncements: Message[] = [];
-            snapshot.forEach((doc) => {
-                fetchedAnnouncements.push({ id: doc.id, ...doc.data() } as Message);
-            });
-            setAnnouncements(fetchedAnnouncements);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching announcements: ", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        
+        const fetchedAnnouncements = mockMessages.filter(m => 
+            m.type === 'announcement' &&
+            targetReceivers.includes(m.receiverId)
+        ).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        setAnnouncements(fetchedAnnouncements);
+        setLoading(false);
 
     }, [currentUser]);
 
