@@ -93,15 +93,20 @@ export default function UsersPage() {
 
     const handleSave = async (userData: Partial<User>, photoFile?: File) => {
         try {
-            let photoUrl = userData.photoUrl || selectedUser?.photoUrl || `https://picsum.photos/seed/${userData.uid}/100/100`;
+            let userUid = selectedUser?.uid;
+            if (!userUid) {
+                userUid = doc(collection(db, "users")).id;
+            }
+            
+            let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
 
-            if (selectedUser && photoFile) {
-                 const storageRef = ref(storage, `profile-pictures/${selectedUser.uid}/${photoFile.name}`);
+            if (photoFile && userUid) {
+                 const storageRef = ref(storage, `profile-pictures/${userUid}/${photoFile.name}`);
                  const uploadResult = await uploadBytes(storageRef, photoFile);
                  photoUrl = await getDownloadURL(uploadResult.ref);
             }
             
-            const finalUserData = { ...userData, photoUrl };
+            const finalUserData = { ...userData, photoUrl: photoUrl || `https://picsum.photos/seed/${userUid}/100/100` };
 
             if (selectedUser) {
                 // Edit
@@ -110,23 +115,14 @@ export default function UsersPage() {
                 toast({ title: "Administrateur mis à jour", description: "Les informations ont été mises à jour." });
             } else {
                 // Add
-                const newUserId = doc(collection(db, "users")).id;
-                
-                 if (photoFile) {
-                    const storageRef = ref(storage, `profile-pictures/${newUserId}/${photoFile.name}`);
-                    const uploadResult = await uploadBytes(storageRef, photoFile);
-                    photoUrl = await getDownloadURL(uploadResult.ref);
-                }
-
                 const newUser: User = {
-                    uid: newUserId,
+                    uid: userUid,
                     createdAt: new Date().toISOString(),
                     status: 'active',
                     role: 'admin',
                     ...finalUserData,
-                    photoUrl,
                 } as User;
-                await setDoc(doc(db, "users", newUserId), newUser);
+                await setDoc(doc(db, "users", userUid), newUser);
                 toast({ title: "Administrateur ajouté", description: "Le nouvel utilisateur a été ajouté." });
             }
         } catch (error) {

@@ -60,15 +60,19 @@ export default function TeachersPage() {
 
     const handleSave = async (userData: Partial<User>, photoFile?: File) => {
         try {
-            let photoUrl = userData.photoUrl || selectedTeacher?.photoUrl || `https://picsum.photos/seed/${userData.uid}/100/100`;
+            let userUid = selectedTeacher?.uid;
+            if (!userUid) {
+                userUid = doc(collection(db, "users")).id;
+            }
 
-            if (selectedTeacher && photoFile) {
-                 const storageRef = ref(storage, `profile-pictures/${selectedTeacher.uid}/${photoFile.name}`);
-                 const uploadResult = await uploadBytes(storageRef, photoFile);
-                 photoUrl = await getDownloadURL(uploadResult.ref);
+            let photoUrl = userData.photoUrl || selectedTeacher?.photoUrl;
+            if (photoFile && userUid) {
+                const storageRef = ref(storage, `profile-pictures/${userUid}/${photoFile.name}`);
+                const uploadResult = await uploadBytes(storageRef, photoFile);
+                photoUrl = await getDownloadURL(uploadResult.ref);
             }
             
-            const finalUserData = { ...userData, photoUrl };
+            const finalUserData = { ...userData, photoUrl: photoUrl || `https://picsum.photos/seed/${userUid}/100/100` };
 
             if (selectedTeacher) {
                 // Edit existing teacher
@@ -77,24 +81,15 @@ export default function TeachersPage() {
                 toast({ title: "Professeur mis à jour", description: "Les informations du professeur ont été mises à jour." });
             } else {
                 // Add new teacher
-                const newTeacherId = doc(collection(db, "users")).id;
-                
-                if (photoFile) {
-                    const storageRef = ref(storage, `profile-pictures/${newTeacherId}/${photoFile.name}`);
-                    const uploadResult = await uploadBytes(storageRef, photoFile);
-                    photoUrl = await getDownloadURL(uploadResult.ref);
-                }
-
                 const newTeacher: User = {
-                    uid: newTeacherId,
+                    uid: userUid,
                     createdAt: new Date().toISOString(),
                     status: 'active',
                     role: 'teacher',
                     ...finalUserData,
-                    photoUrl,
                 } as User;
                 
-                await setDoc(doc(db, "users", newTeacherId), newTeacher);
+                await setDoc(doc(db, "users", userUid), newTeacher);
                 toast({ title: "Professeur ajouté", description: "Le nouveau professeur a été ajouté avec succès." });
             }
         } catch (error) {

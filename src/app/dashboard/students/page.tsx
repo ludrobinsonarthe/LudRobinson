@@ -133,15 +133,19 @@ export default function StudentsPage() {
 
     const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File) => {
         try {
-            let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl || `https://picsum.photos/seed/${studentData.uid}/100/100`;
+            let studentUid = selectedStudent?.uid;
+            if (!studentUid) {
+                studentUid = doc(collection(db, "users")).id;
+            }
 
-            if (photoFile && studentData.uid) {
-                const storageRef = ref(storage, `profile-pictures/${studentData.uid}/${photoFile.name}`);
+            let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl;
+            if (photoFile && studentUid) {
+                const storageRef = ref(storage, `profile-pictures/${studentUid}/${photoFile.name}`);
                 const uploadResult = await uploadBytes(storageRef, photoFile);
                 photoUrl = await getDownloadURL(uploadResult.ref);
             }
             
-            const finalStudentData = { ...studentData, photoUrl };
+            const finalStudentData = { ...studentData, photoUrl: photoUrl || `https://picsum.photos/seed/${studentUid}/100/100` };
 
             if (selectedStudent) {
                 // Edit existing student
@@ -151,22 +155,13 @@ export default function StudentsPage() {
             } else {
                  // Add new student and potentially a new parent
                 const batch = writeBatch(db);
-                const newStudentId = doc(collection(db, "users")).id;
                 
-                // If a new photo was uploaded for a new user
-                if (photoFile) {
-                    const storageRef = ref(storage, `profile-pictures/${newStudentId}/${photoFile.name}`);
-                    const uploadResult = await uploadBytes(storageRef, photoFile);
-                    photoUrl = await getDownloadURL(uploadResult.ref);
-                }
-
                 const newStudent: User = {
-                    uid: newStudentId,
+                    uid: studentUid,
                     createdAt: new Date().toISOString(),
                     status: 'active',
                     role: 'student',
                     ...finalStudentData,
-                    photoUrl,
                 } as User;
 
                 let newParentId: string | undefined;
@@ -194,7 +189,7 @@ export default function StudentsPage() {
                     }
                 }
                 
-                batch.set(doc(db, "users", newStudentId), newStudent);
+                batch.set(doc(db, "users", studentUid), newStudent);
                 await batch.commit();
                 toast({ title: "Étudiant ajouté", description: "Le nouvel étudiant a été ajouté avec succès." });
             }
