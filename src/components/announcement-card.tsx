@@ -6,13 +6,13 @@ import {
   CardContent,
   CardFooter,
   CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Paperclip, Pencil } from "lucide-react";
-import type { Message } from "@/lib/types";
-import { mockUsers } from "@/lib/mock-data";
+import type { Message, User } from "@/lib/types";
 import { format, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from "@/hooks/use-user";
@@ -35,8 +35,9 @@ const getInitials = (firstName: string, lastName:string ) => {
 };
 
 export default function AnnouncementCard({ announcement, onEdit }: AnnouncementCardProps) {
-  const sender = mockUsers.find(user => user.uid === announcement.senderId);
-  const { user: currentUser } = useUser();
+  const { user: currentUser, users } = useUser();
+  const [sender, setSender] = useState<User | null>(null);
+
   const [formattedDate, setFormattedDate] = useState("");
   const [fullDate, setFullDate] = useState("");
   const [isMounted, setIsMounted] = useState(false);
@@ -48,9 +49,32 @@ export default function AnnouncementCard({ announcement, onEdit }: AnnouncementC
     setFullDate(format(date, 'PPpp', { locale: fr }));
   }, [announcement.createdAt]);
 
+  useEffect(() => {
+      const foundSender = users.find(user => user.uid === announcement.senderId);
+      setSender(foundSender || null);
+  }, [users, announcement.senderId]);
+
 
   if (!sender) {
-    return null;
+    return (
+        <Card className="animate-pulse">
+            <CardHeader>
+                <div className="flex items-start gap-4">
+                    <div className="h-12 w-12 rounded-full bg-muted"></div>
+                    <div className="grid gap-2 flex-1">
+                       <div className="h-5 w-32 bg-muted rounded-md"></div>
+                       <div className="h-4 w-24 bg-muted rounded-md"></div>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <div className="h-4 w-full bg-muted rounded-md"></div>
+                    <div className="h-4 w-3/4 bg-muted rounded-md"></div>
+                </div>
+            </CardContent>
+        </Card>
+    );
   }
 
   return (
@@ -81,6 +105,7 @@ export default function AnnouncementCard({ announcement, onEdit }: AnnouncementC
             </Button>
           )}
         </div>
+        {announcement.title && <CardTitle className="font-headline text-2xl pt-2">{announcement.title}</CardTitle>}
       </CardHeader>
       <CardContent>
         <p className="whitespace-pre-wrap">{announcement.content}</p>

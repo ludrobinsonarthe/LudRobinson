@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -180,7 +179,8 @@ export interface CashTransaction {
 export interface Message {
   id: string;
   senderId: string;
-  receiverId: string; // student_uid | class_ref | all
+  receiverId: string; // student_uid | class_ref | all | role_id | role_name
+  title?: string;
   content: string;
   type: 'announcement' | 'private';
   attachments?: string[];
