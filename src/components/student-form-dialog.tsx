@@ -39,6 +39,7 @@ const studentFormSchema = z.object({
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
   classId: z.string().min(1, "Veuillez sélectionner une classe."),
+  parentalLink: z.string().optional(),
   
   // Parent/Tutor Info
   parentSelection: z.enum(['existing', 'new']).default('existing'),
@@ -46,6 +47,8 @@ const studentFormSchema = z.object({
   parentFirstName: z.string().optional(),
   parentLastName: z.string().optional(),
   parentEmail: z.string().optional(),
+  parentPhone: z.string().optional(),
+  parentAddress: z.string().optional(),
 }).refine(data => {
     if (data.parentSelection === 'new') {
         return !!data.parentFirstName && !!data.parentLastName && !!data.parentEmail;
@@ -96,7 +99,10 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         parentUid: '',
         parentFirstName: '',
         parentLastName: '',
-        parentEmail: ''
+        parentEmail: '',
+        parentPhone: '',
+        parentAddress: '',
+        parentalLink: ''
     }
   });
 
@@ -123,6 +129,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             fieldId: student.student?.fieldId,
             classId: student.student?.classId,
             parentUid: student.student?.parentUid,
+            parentalLink: student.student?.parentalLink,
             parentSelection: student.student?.parentUid ? 'existing' : 'new'
           });
         } else {
@@ -140,7 +147,10 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             parentUid: '',
             parentFirstName: '',
             parentLastName: '',
-            parentEmail: ''
+            parentEmail: '',
+            parentPhone: '',
+            parentAddress: '',
+            parentalLink: ''
           });
         }
     }
@@ -163,6 +173,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             classId: data.classId,
             level: data.level,
             fieldId: data.fieldId,
+            parentalLink: data.parentalLink,
             parentUid: data.parentSelection === 'existing' ? data.parentUid : undefined,
         }
     };
@@ -173,6 +184,8 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             firstName: data.parentFirstName,
             lastName: data.parentLastName,
             email: data.parentEmail,
+            phone: data.parentPhone,
+            address: data.parentAddress,
             photoUrl: `https://picsum.photos/seed/${Date.now()+1}/100/100`,
         }
     }
@@ -261,6 +274,10 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
 
                 <h3 className="text-lg font-semibold text-foreground">Informations du tuteur</h3>
                 
+                <FormField control={form.control} name="parentalLink" render={({ field }) => (
+                    <FormItem><FormLabel>Lien parental</FormLabel><FormControl><Input placeholder="Père, Mère, Tuteur légal..." {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+
                 <FormField control={form.control} name="parentSelection" render={({ field }) => (
                     <FormItem>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -297,6 +314,12 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
                          <FormField control={form.control} name="parentEmail" render={({ field }) => (
                             <FormItem><FormLabel>E-mail du tuteur</FormLabel><FormControl><Input type="email" placeholder="tuteur@email.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
+                        <FormField control={form.control} name="parentPhone" render={({ field }) => (
+                            <FormItem><FormLabel>Téléphone du tuteur</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="parentAddress" render={({ field }) => (
+                            <FormItem><FormLabel>Adresse du tuteur</FormLabel><FormControl><Input placeholder="Adresse complète" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
                     </div>
                 )}
             </div>
@@ -311,3 +334,5 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
     </Dialog>
   );
 }
+
+    

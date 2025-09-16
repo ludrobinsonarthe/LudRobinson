@@ -1,3 +1,4 @@
+
 import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field } from './types';
 
 export const mockUsers: User[] = [
@@ -42,7 +43,8 @@ export const mockUsers: User[] = [
       endDate: '2025-07-30',
       parentUid: 'parent01',
       level: 'Licence 3',
-      fieldId: 'gl'
+      fieldId: 'gl',
+      parentalLink: 'Fille'
     },
   },
   {
@@ -223,3 +225,5 @@ export const mockDocuments: OfficialDocument[] = [
     issuedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ];
+
+    

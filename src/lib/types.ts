@@ -1,3 +1,4 @@
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 
@@ -23,6 +24,7 @@ export interface User {
     enrollmentDate: string;
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user
+    parentalLink?: string;
   };
   teacher?: {
     specialty: string;
@@ -132,3 +134,5 @@ export interface Settings {
   currency: string;
   adminContacts: string[];
 }
+
+    
