@@ -11,10 +11,11 @@ import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance } from '@/lib/types';
+import { Course, User, Attendance, Field } from '@/lib/types';
 import { collection, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { mockFields } from '@/lib/mock-data';
 
 const timeSlots = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
 
@@ -52,6 +53,8 @@ function AttendanceContent() {
     }, [teacherIdFilter]);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), []);
+
 
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
@@ -69,11 +72,12 @@ function AttendanceContent() {
                     ...c,
                     scheduleInfo: s,
                     teacher: teachers.find(t => t.uid === c.teacherId),
+                    field: fieldsById[c.fieldId],
                 }))
             ).sort((a,b) => a.scheduleInfo.start.localeCompare(b.scheduleInfo.start));
         });
         return schedule;
-    }, [courses, weekDays, selectedTeacher, teachers]);
+    }, [courses, weekDays, selectedTeacher, teachers, fieldsById]);
 
     const handleAttendanceChange = (courseId: string, teacherId: string, date: string, status: 'present' | 'absent') => {
         const id = `${date}-${courseId}`;
@@ -162,9 +166,10 @@ function AttendanceContent() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[200px]">Cours</TableHead>
-                                    <TableHead className="w-[200px]">Professeur</TableHead>
-                                    <TableHead className="w-[150px]">Heure</TableHead>
+                                    <TableHead className="w-[180px]">Cours</TableHead>
+                                    <TableHead className="w-[180px]">Professeur</TableHead>
+                                    <TableHead className="w-[180px]">Filière</TableHead>
+                                    <TableHead className="w-[120px]">Heure</TableHead>
                                     {weekDays.map(day => (
                                         <TableHead key={day.toString()} className="text-center">
                                             {format(day, 'EEE d', { locale: fr })}
@@ -174,9 +179,9 @@ function AttendanceContent() {
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={8} className="h-48 text-center">Chargement...</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={9} className="h-48 text-center">Chargement...</TableCell></TableRow>
                                 ) : Object.values(scheduleByDay).flat().length === 0 ? (
-                                    <TableRow><TableCell colSpan={8} className="h-48 text-center">Aucun cours planifié pour cette semaine/ce filtre.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={9} className="h-48 text-center">Aucun cours planifié pour cette semaine/ce filtre.</TableCell></TableRow>
                                 ) : (
                                     Object.values(scheduleByDay)
                                         .flat()
@@ -194,6 +199,7 @@ function AttendanceContent() {
                                             <TableRow key={`${course.id}-${course.scheduleInfo.start}`}>
                                                 <TableCell className="font-semibold">{course.name}</TableCell>
                                                 <TableCell>{course.teacher?.firstName} {course.teacher?.lastName}</TableCell>
+                                                <TableCell>{course.field?.name || 'N/A'}</TableCell>
                                                 <TableCell>{course.scheduleInfo.start} - {course.scheduleInfo.end}</TableCell>
                                                 {weekDays.map(day => {
                                                     const dateStr = format(day, 'yyyy-MM-dd');
