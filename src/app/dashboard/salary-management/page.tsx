@@ -50,7 +50,7 @@ export default function SalaryManagementPage() {
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(s => s.uid === teacherId);
-        return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Inconnu';
+        return teacher ? `${'\'\'\''} ${teacher.firstName} ${teacher.lastName}` : 'Inconnu';
     }
 
     const handleAdd = () => {
