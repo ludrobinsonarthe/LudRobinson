@@ -40,6 +40,7 @@ export const mockUsers: User[] = [
       classId: 'class01',
       enrollmentDate: '2022-09-01',
       endDate: '2025-07-30',
+      parentUid: 'parent01',
     },
   },
   {
@@ -68,6 +69,9 @@ export const mockUsers: User[] = [
     photoUrl: 'https://picsum.photos/seed/parent/100/100',
     createdAt: new Date().toISOString(),
     status: 'active',
+    parent: {
+        childrenUids: ['student01']
+    }
   },
 ];
 

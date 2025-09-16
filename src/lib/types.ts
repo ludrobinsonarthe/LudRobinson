@@ -20,11 +20,15 @@ export interface User {
     classId: string;
     enrollmentDate: string;
     endDate: string;
+    parentUid?: string; // UID of the parent/guardian user
   };
   teacher?: {
     specialty: string;
     assignedCourses: string[];
   };
+  parent?: {
+    childrenUids: string[]; // UIDs of their children
+  }
 }
 
 export interface Program {
