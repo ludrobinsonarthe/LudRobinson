@@ -61,13 +61,15 @@ export default function PaymentsPage() {
     }, [currentUser]);
 
      const { totalExpected, totalPaid, totalBalance } = useMemo(() => {
-        const validatedPayments = payments.filter(p => p.status === 'validated');
-        const expected = validatedPayments.reduce((acc, p) => acc + p.amountExpected, 0);
-        const paid = validatedPayments.reduce((acc, p) => acc + p.amountPaid, 0);
+        // We calculate balance based on ALL payments, regardless of status, 
+        // to show the student the total due.
+        const totalExpected = payments.reduce((acc, p) => acc + p.amountExpected, 0);
+        // We calculate total paid based only on VALIDATED payments.
+        const totalPaid = payments.filter(p => p.status === 'validated').reduce((acc, p) => acc + p.amountPaid, 0);
         return {
-            totalExpected: expected,
-            totalPaid: paid,
-            totalBalance: expected - paid,
+            totalExpected: totalExpected,
+            totalPaid: totalPaid,
+            totalBalance: totalExpected - totalPaid,
         };
     }, [payments]);
 
@@ -151,7 +153,7 @@ export default function PaymentsPage() {
                      <CardFooter className="flex justify-end">
                         <div className='text-right space-y-2'>
                             <div >
-                                <p className='text-sm text-muted-foreground'>Total Payé</p>
+                                <p className='text-sm text-muted-foreground'>Total Payé (Validé)</p>
                                 <p className='font-semibold text-lg'>{formatCurrency(totalPaid, 'XAF')}</p>
                             </div>
                              <div>
