@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole } from "@/lib/types";
+import { User } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import { format } from 'date-fns';
@@ -22,7 +22,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
-import { useMemo } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { doc, setDoc, deleteDoc, updateDoc, collection } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -30,10 +32,11 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function TeachersPage() {
-    const { users, setUsers } = useUser();
+    const { users, loading } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
+    const { toast } = useToast();
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
 
@@ -52,28 +55,44 @@ export default function TeachersPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = (userData: Partial<User>) => {
-        if (selectedTeacher) {
-            // Edit
-            setUsers(users.map(u => u.uid === selectedTeacher.uid ? { ...u, ...userData } as User : u));
-        } else {
-            // Add new teacher
-            const newTeacher: User = {
-                uid: `user${Date.now()}`,
-                createdAt: new Date().toISOString(),
-                status: 'active',
-                role: 'teacher',
-                ...userData
-            } as User;
-            setUsers([...users, newTeacher]);
+    const handleSave = async (userData: Partial<User>) => {
+        try {
+            if (selectedTeacher) {
+                // Edit existing teacher
+                const teacherRef = doc(db, "users", selectedTeacher.uid);
+                await updateDoc(teacherRef, userData);
+                toast({ title: "Professeur mis à jour", description: "Les informations du professeur ont été mises à jour." });
+            } else {
+                // Add new teacher
+                const newTeacherId = doc(collection(db, "users")).id;
+                const newTeacher: User = {
+                    uid: newTeacherId,
+                    createdAt: new Date().toISOString(),
+                    status: 'active',
+                    role: 'teacher',
+                    ...userData
+                } as User;
+                
+                await setDoc(doc(db, "users", newTeacherId), newTeacher);
+                toast({ title: "Professeur ajouté", description: "Le nouveau professeur a été ajouté avec succès." });
+            }
+        } catch (error) {
+            console.error("Error saving teacher:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le professeur." });
         }
     }
     
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if(selectedTeacher) {
-            setUsers(users.filter(u => u.uid !== selectedTeacher.uid));
-            setIsDeleteOpen(false);
-            setSelectedTeacher(null);
+            try {
+                await deleteDoc(doc(db, "users", selectedTeacher.uid));
+                toast({ title: "Professeur supprimé", description: "Le professeur a été supprimé avec succès." });
+                setIsDeleteOpen(false);
+                setSelectedTeacher(null);
+            } catch (error) {
+                console.error("Error deleting teacher: ", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le professeur." });
+            }
         }
     }
 
@@ -109,7 +128,13 @@ export default function TeachersPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {teachers.length > 0 ? teachers.map(teacher => (
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        Chargement...
+                                    </TableCell>
+                                </TableRow>
+                            ) : teachers.length > 0 ? teachers.map(teacher => (
                                 <TableRow key={teacher.uid}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-3">

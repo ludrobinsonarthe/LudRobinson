@@ -2,84 +2,11 @@
 
 import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field } from './types';
 
+// Mock data is now being phased out in favor of Firestore.
+// It is kept here for reference and potential fallback during development.
+
 export const mockUsers: User[] = [
-  {
-    uid: 'admin01',
-    role: 'admin',
-    firstName: 'Admin',
-    lastName: 'Principal',
-    email: 'admin@isgi.com',
-    photoUrl: 'https://picsum.photos/seed/admin/100/100',
-    createdAt: new Date().toISOString(),
-    status: 'active',
-  },
-  {
-    uid: 'teacher01',
-    role: 'teacher',
-    firstName: 'Marie',
-    lastName: 'Curie',
-    email: 'marie.curie@isgi.com',
-    photoUrl: 'https://picsum.photos/seed/teacher/100/100',
-    createdAt: new Date().toISOString(),
-    status: 'active',
-    teacher: {
-      specialty: 'Mathématiques',
-      assignedCourses: ['math01'],
-    },
-  },
-  {
-    uid: 'student01',
-    role: 'student',
-    firstName: 'Alice',
-    lastName: 'Dubois',
-    email: 'alice.dubois@isgi.com',
-    photoUrl: 'https://picsum.photos/seed/student1/100/100',
-    createdAt: new Date().toISOString(),
-    status: 'active',
-    student: {
-      matricule: 'ISGI-2025-L3-001',
-      programId: 'prog01',
-      cycle: 'local',
-      enrollmentDate: '2022-09-01',
-      endDate: '2025-07-30',
-      parentUid: 'parent01',
-      level: 'Licence 3',
-      fieldId: 'gl',
-      parentalLink: 'Fille'
-    },
-  },
-  {
-    uid: 'student02',
-    role: 'student',
-    firstName: 'Bob',
-    lastName: 'Martin',
-    email: 'bob.martin@isgi.com',
-    photoUrl: 'https://picsum.photos/seed/student2/100/100',
-    createdAt: new Date().toISOString(),
-    status: 'active',
-    student: {
-      matricule: 'ISGI-2025-L3-002',
-      programId: 'prog01',
-      cycle: 'international',
-      enrollmentDate: '2022-09-01',
-      endDate: '2025-07-30',
-      level: 'Licence 3',
-      fieldId: 'gl'
-    },
-  },
-  {
-    uid: 'parent01',
-    role: 'parent',
-    firstName: 'Claire',
-    lastName: 'Dubois',
-    email: 'claire.dubois@email.com',
-    photoUrl: 'https://picsum.photos/seed/parent/100/100',
-    createdAt: new Date().toISOString(),
-    status: 'active',
-    parent: {
-        childrenUids: ['student01']
-    }
-  },
+  // This data is now primarily managed in Firestore.
 ];
 
 export const mockSectors: Sector[] = [

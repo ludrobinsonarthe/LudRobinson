@@ -23,6 +23,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
+import { useToast } from "@/hooks/use-toast";
+import { doc, setDoc, deleteDoc, updateDoc, collection } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 
 const roleTranslation: { [key in UserRole]: string } = {
@@ -50,10 +53,11 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { users, setUsers } = useUser();
+    const { users, loading } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const { toast } = useToast();
 
     const handleAdd = () => {
         setSelectedUser(null);
@@ -70,27 +74,42 @@ export default function UsersPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = (userData: Partial<User>) => {
-        if (selectedUser) {
-            // Edit
-            setUsers(users.map(u => u.uid === selectedUser.uid ? { ...u, ...userData } as User : u));
-        } else {
-            // Add
-            const newUser: User = {
-                uid: `user${Date.now()}`,
-                createdAt: new Date().toISOString(),
-                status: 'active',
-                ...userData
-            } as User;
-            setUsers([...users, newUser]);
+    const handleSave = async (userData: Partial<User>) => {
+        try {
+            if (selectedUser) {
+                // Edit
+                const userRef = doc(db, "users", selectedUser.uid);
+                await updateDoc(userRef, userData);
+                toast({ title: "Utilisateur mis à jour", description: "Les informations ont été mises à jour." });
+            } else {
+                // Add
+                const newUserId = doc(collection(db, "users")).id;
+                const newUser: User = {
+                    uid: newUserId,
+                    createdAt: new Date().toISOString(),
+                    status: 'active',
+                    ...userData
+                } as User;
+                await setDoc(doc(db, "users", newUserId), newUser);
+                toast({ title: "Utilisateur ajouté", description: "Le nouvel utilisateur a été ajouté." });
+            }
+        } catch (error) {
+            console.error("Error saving user:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'utilisateur." });
         }
     }
     
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if(selectedUser) {
-            setUsers(users.filter(u => u.uid !== selectedUser.uid));
-            setIsDeleteOpen(false);
-            setSelectedUser(null);
+            try {
+                await deleteDoc(doc(db, "users", selectedUser.uid));
+                toast({ title: "Utilisateur supprimé", description: "L'utilisateur a été supprimé." });
+                setIsDeleteOpen(false);
+                setSelectedUser(null);
+            } catch (error) {
+                console.error("Error deleting user: ", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'utilisateur." });
+            }
         }
     }
 
@@ -127,7 +146,13 @@ export default function UsersPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {users.length > 0 ? users.map(user => (
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center">
+                                        Chargement...
+                                    </TableCell>
+                                </TableRow>
+                            ) : users.length > 0 ? users.map(user => (
                                 <TableRow key={user.uid}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-3">
