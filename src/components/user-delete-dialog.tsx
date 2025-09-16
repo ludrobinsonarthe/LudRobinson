@@ -18,19 +18,21 @@ interface UserDeleteDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   onConfirm: () => void;
-  user: User | null;
+  user: Partial<User> | null;
+  title?: string;
+  description?: string;
 }
 
-export default function UserDeleteDialog({ isOpen, setIsOpen, onConfirm, user }: UserDeleteDialogProps) {
+export default function UserDeleteDialog({ isOpen, setIsOpen, onConfirm, user, title, description }: UserDeleteDialogProps) {
   if (!user) return null;
 
   return (
     <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cet utilisateur ?</AlertDialogTitle>
+          <AlertDialogTitle>{title || "Êtes-vous sûr de vouloir supprimer cet élément ?"}</AlertDialogTitle>
           <AlertDialogDescription>
-            Cette action est irréversible. Le compte de <span className="font-semibold">{user.firstName} {user.lastName}</span> sera définitivement supprimé.
+            {description || `Cette action est irréversible. L'élément "${user.firstName} ${user.lastName || ''}" sera définitivement supprimé.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
