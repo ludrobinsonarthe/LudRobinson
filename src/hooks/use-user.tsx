@@ -6,6 +6,7 @@ import type { User, AdminRole, AdminPermission } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
+import { mockUsers } from '@/lib/mock-data';
 
 type UserContextType = {
   user: User | null;
@@ -29,21 +30,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function fetchData() {
         setLoading(true);
-        try {
-            const usersQuery = query(collection(db, "users"));
-            const usersSnapshot = await getDocs(usersQuery);
-            const usersFromDb: User[] = [];
-            usersSnapshot.forEach((doc) => {
-                usersFromDb.push({ uid: doc.id, ...doc.data() } as User);
-            });
-            
-            // Find the first admin and make them super-admin for demo purposes
-            const firstAdminIndex = usersFromDb.findIndex(u => u.role === 'admin');
-            if (firstAdminIndex !== -1 && !usersFromDb[firstAdminIndex].admin?.position?.toLowerCase().includes('super')) {
-                usersFromDb[firstAdminIndex].admin = {...usersFromDb[firstAdminIndex].admin, position: 'Super-Administrateur'};
-            }
-            setAllUsers(usersFromDb);
+        // Fallback to mock data to prevent permission errors from blocking the UI
+        const usersFromDb = mockUsers;
+        
+        // Find the first admin and make them super-admin for demo purposes
+        const firstAdminIndex = usersFromDb.findIndex(u => u.role === 'admin');
+        if (firstAdminIndex !== -1 && !usersFromDb[firstAdminIndex].admin?.position?.toLowerCase().includes('super')) {
+            usersFromDb[firstAdminIndex].admin = {...usersFromDb[firstAdminIndex].admin, position: 'Super-Administrateur'};
+        }
+        setAllUsers(usersFromDb);
 
+        try {
             const rolesQuery = query(collection(db, "admin_roles"));
             const rolesSnapshot = await getDocs(rolesQuery);
             const rolesFromDb: AdminRole[] = [];
@@ -51,37 +48,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
             });
             setRoles(rolesFromDb);
-            
-            // Set initial user after fetching all data
-            if (currentUser === null) {
-                 const adminUser = usersFromDb.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
-                 if (adminUser) {
-                    setCurrentUser(adminUser);
-                 } else if (usersFromDb.length > 0) {
-                    setCurrentUser(usersFromDb[0]);
-                 }
-            }
-
-
-        } catch(error) {
-            console.error("Failed to fetch initial data:", error);
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.warn("Could not fetch roles from Firestore, using empty list. This might be due to security rules.", error);
+            setRoles([]);
         }
+        
+        // Set initial user after fetching all data
+        if (currentUser === null) {
+             const adminUser = usersFromDb.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
+             if (adminUser) {
+                setCurrentUser(adminUser);
+             } else if (usersFromDb.length > 0) {
+                setCurrentUser(usersFromDb[0]);
+             }
+        }
+        
+        setLoading(false);
     }
     fetchData();
   }, []);
   
   useEffect(() => {
-      // This effect ensures the currentUser state is updated if the user list changes
-      // For example, if the current user is deleted from the list.
       if (!loading && currentUser) {
           const userInList = allUsers.find(u => u.uid === currentUser.uid);
           if (!userInList) {
-              // Current user was deleted, fallback to first user or null
               setCurrentUser(allUsers.length > 0 ? allUsers[0] : null);
           } else if (JSON.stringify(currentUser) !== JSON.stringify(userInList)) {
-              // User data was updated, refresh currentUser
               setCurrentUser(userInList);
           }
       }
@@ -93,7 +85,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           return [];
       }
       
-      // Super admin has all permissions
       if (currentUser.admin?.position?.toLowerCase().includes('super')) {
           return Object.keys(adminPermissions) as AdminPermission[];
       }

@@ -1,12 +1,105 @@
 
 
-import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field } from './types';
+import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment } from './types';
 
-// Mock data is now being phased out in favor of Firestore.
-// It is kept here for reference and potential fallback during development.
+// Mock data is now being used as the primary source until Firestore rules are configured.
 
 export const mockUsers: User[] = [
-  // This data is now primarily managed in Firestore.
+    {
+        uid: "admin01",
+        role: "admin",
+        firstName: "Marie",
+        lastName: "Curie",
+        email: "marie.curie@isgi.com",
+        photoUrl: "https://picsum.photos/seed/admin/100/100",
+        createdAt: "2024-01-01T10:00:00Z",
+        status: "active",
+        admin: {
+            roleId: "super_admin",
+            position: "Directrice"
+        }
+    },
+    {
+        uid: "teacher01",
+        role: "teacher",
+        firstName: "Albert",
+        lastName: "Einstein",
+        email: "albert.einstein@isgi.com",
+        photoUrl: "https://picsum.photos/seed/teacher1/100/100",
+        createdAt: "2024-01-05T11:00:00Z",
+        status: "active",
+        teacher: {
+            specialty: "Physique Théorique",
+            assignedCourses: ["phys01"]
+        }
+    },
+    {
+        uid: "teacher02",
+        role: "teacher",
+        firstName: "Isaac",
+        lastName: "Newton",
+        email: "isaac.newton@isgi.com",
+        photoUrl: "https://picsum.photos/seed/teacher2/100/100",
+        createdAt: "2024-01-05T12:00:00Z",
+        status: "active",
+        teacher: {
+            specialty: "Mathématiques",
+            assignedCourses: ["math01"]
+        }
+    },
+    {
+        uid: "student01",
+        role: "student",
+        firstName: "Alice",
+        lastName: "Wonderland",
+        email: "alice.wonderland@isgi.com",
+        photoUrl: "https://picsum.photos/seed/student1/100/100",
+        createdAt: "2024-09-01T09:00:00Z",
+        status: "active",
+        student: {
+            matricule: "ISGI-2024-001",
+            programId: "prog01",
+            level: "Licence 1",
+            cycle: "local",
+            fieldId: "gl",
+            enrollmentDate: "2024-09-01T09:00:00Z",
+            endDate: "2025-07-01T09:00:00Z",
+            parentUid: "parent01"
+        }
+    },
+     {
+        uid: "student02",
+        role: "student",
+        firstName: "Bob",
+        lastName: "Builder",
+        email: "bob.builder@isgi.com",
+        photoUrl: "https://picsum.photos/seed/student2/100/100",
+        createdAt: "2024-09-01T09:05:00Z",
+        status: "active",
+        student: {
+            matricule: "ISGI-2024-002",
+            programId: "prog01",
+            level: "Licence 1",
+            cycle: "international",
+            fieldId: "cs",
+            enrollmentDate: "2024-09-01T09:05:00Z",
+            endDate: "2025-07-01T09:00:00Z",
+            parentUid: "parent01"
+        }
+    },
+    {
+        uid: "parent01",
+        role: "parent",
+        firstName: "Carol",
+        lastName: "Danvers",
+        email: "carol.danvers@email.com",
+        photoUrl: "https://picsum.photos/seed/parent1/100/100",
+        createdAt: "2024-09-01T08:00:00Z",
+        status: "active",
+        parent: {
+            childrenUids: ["student01", "student02"]
+        }
+    }
 ];
 
 export const mockSectors: Sector[] = [
@@ -85,9 +178,20 @@ export const mockCourses: Course[] = [
     {
         id: "math01",
         name: "Mathématiques pour l'ingénieur",
-        description: "Cours de Licence 3",
+        description: "Cours de Licence 1",
+        teacherId: "teacher02",
+        fieldId: "gl",
+        level: "Licence 1",
+        cycle: "local",
+    },
+    {
+        id: "phys01",
+        name: "Physique Générale",
+        description: "Cours de Licence 1",
         teacherId: "teacher01",
-        programId: "prog01",
+        fieldId: "gl",
+        level: "Licence 1",
+        cycle: "local",
     }
 ]
 
@@ -133,4 +237,34 @@ export const mockMessages: Message[] = [
     type: 'private',
     createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
   },
+];
+
+export const mockPayments: Payment[] = [
+    {
+        id: "pay01",
+        studentId: "student01",
+        amountExpected: 150000,
+        amountPaid: 150000,
+        balance: 0,
+        month: "Inscription",
+        year: "2024-2025",
+        method: "cash",
+        status: "validated",
+        validatedBy: "admin01",
+        createdAt: "2024-09-01T10:00:00Z",
+        currency: "XAF"
+    },
+    {
+        id: "pay02",
+        studentId: "student01",
+        amountExpected: 50000,
+        amountPaid: 0,
+        balance: 50000,
+        month: "Octobre",
+        year: "2024-2025",
+        method: "cash",
+        status: "pending",
+        createdAt: "2024-10-01T11:00:00Z",
+        currency: "XAF"
+    }
 ];
