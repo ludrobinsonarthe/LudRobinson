@@ -8,15 +8,15 @@ export const mockUsers: User[] = [
     {
         uid: "admin01",
         role: "admin",
-        firstName: "Marie",
-        lastName: "Curie",
-        email: "marie.curie@isgi.com",
+        firstName: "sem franslin",
+        lastName: "Bourangon",
+        email: "sem.bourangon@isgi.com",
         photoUrl: "https://picsum.photos/seed/admin/100/100",
         createdAt: "2024-01-01T10:00:00Z",
         status: "active",
         admin: {
             roleId: "super_admin",
-            position: "Super-Administratrice"
+            position: "Super-Administrateur"
         }
     },
     {
