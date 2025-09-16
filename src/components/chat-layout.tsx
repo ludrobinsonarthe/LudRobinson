@@ -8,6 +8,8 @@ import {
   CornerUpLeft,
   Mic,
   Paperclip,
+  Phone,
+  Video,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -180,7 +182,17 @@ export default function ChatLayout({
                     />
                     <AvatarFallback>{getInitials(`${selectedUser.firstName} ${selectedUser.lastName}`)}</AvatarFallback>
                   </Avatar>
-                  <div className="font-semibold">{`${selectedUser.firstName} ${selectedUser.lastName}`}</div>
+                  <div className="font-semibold flex-1">{`${selectedUser.firstName} ${selectedUser.lastName}`}</div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon">
+                        <Phone className="h-5 w-5" />
+                        <span className="sr-only">Appel vocal</span>
+                    </Button>
+                    <Button variant="ghost" size="icon">
+                        <Video className="h-5 w-5" />
+                        <span className="sr-only">Appel vidéo</span>
+                    </Button>
+                  </div>
               </div>
 
               <ScrollArea className="flex-1 p-4">
@@ -231,12 +243,15 @@ export default function ChatLayout({
                 <div className="relative">
                   <Textarea
                     placeholder="Écrire un message..."
-                    className="pr-20 resize-none"
+                    className="pr-32 resize-none"
                     rows={1}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <Button type="submit" size="icon" variant="ghost">
                       <Paperclip className="h-5 w-5" />
+                    </Button>
+                     <Button type="submit" size="icon" variant="ghost">
+                      <Mic className="h-5 w-5" />
                     </Button>
                     <Button type="submit" size="icon">
                       <CornerUpLeft className="h-5 w-5" />
@@ -257,5 +272,3 @@ export default function ChatLayout({
     </div>
   );
 }
-
-    
