@@ -124,6 +124,17 @@ export interface TeacherSalary {
   currency: string;
 }
 
+export interface CashTransaction {
+    id: string;
+    date: string;
+    type: 'income' | 'expense';
+    category: 'tuition' | 'salary' | 'equipment' | 'utilities' | 'other';
+    description: string;
+    amount: number;
+    currency: string;
+    createdBy: string; // admin_uid
+}
+
 export interface Message {
   id: string;
   senderId: string;
