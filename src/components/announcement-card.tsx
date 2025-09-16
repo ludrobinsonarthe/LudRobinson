@@ -1,10 +1,11 @@
+
+"use client";
+
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import { mockUsers } from "@/lib/mock-data";
 import { format, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from "@/hooks/use-user";
+import React, { useState, useEffect } from "react";
 
 interface AnnouncementCardProps {
   announcement: Message;
@@ -28,19 +30,28 @@ const roleTranslation: { [key: string]: string } = {
     parent: "Parent",
 };
 
-const getInitials = (firstName: string, lastName: string) => {
+const getInitials = (firstName: string, lastName:string ) => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
 };
 
 export default function AnnouncementCard({ announcement, onEdit }: AnnouncementCardProps) {
   const sender = mockUsers.find(user => user.uid === announcement.senderId);
   const { user: currentUser } = useUser();
+  const [formattedDate, setFormattedDate] = useState("");
+  const [fullDate, setFullDate] = useState("");
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    const date = new Date(announcement.createdAt);
+    setFormattedDate(formatDistanceToNow(date, { addSuffix: true, locale: fr }));
+    setFullDate(format(date, 'PPpp', { locale: fr }));
+  }, [announcement.createdAt]);
+
 
   if (!sender) {
     return null;
   }
-
-  const formattedDate = formatDistanceToNow(new Date(announcement.createdAt), { addSuffix: true, locale: fr });
 
   return (
     <Card>
@@ -55,9 +66,13 @@ export default function AnnouncementCard({ announcement, onEdit }: AnnouncementC
                 <p className="font-semibold">{`${sender.firstName} ${sender.lastName}`}</p>
                 <Badge variant="secondary">{roleTranslation[sender.role]}</Badge>
             </div>
-            <p className="text-sm text-muted-foreground" title={format(new Date(announcement.createdAt), 'PPpp', { locale: fr })}>
-              {formattedDate}
-            </p>
+            {isMounted ? (
+                <p className="text-sm text-muted-foreground" title={fullDate}>
+                {formattedDate}
+                </p>
+            ) : (
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+            )}
           </div>
            {currentUser?.role === 'admin' && (
             <Button variant="ghost" size="icon" onClick={() => onEdit(announcement)}>
