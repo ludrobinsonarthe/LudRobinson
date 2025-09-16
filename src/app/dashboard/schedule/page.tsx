@@ -21,7 +21,7 @@ const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const timeSlots = Array.from({ length: 6 }, (_, i) => `${8 + i * 2}:00`); // 8:00, 10:00, ..., 18:00
 
 function ScheduleContent() {
-    const { user: currentUser } = useUser();
+    const { user: currentUser, users } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
     
@@ -80,7 +80,7 @@ function ScheduleContent() {
     }, [filteredCourses]);
     
     const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), []);
-    const teachers = useMemo(() => useUser.getState().users.filter(u => u.role === 'teacher'), [useUser.getState().users]);
+    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(t => t.uid === teacherId);
         return teacher ? `${teacher.firstName[0]}. ${teacher.lastName}` : 'N/A';
