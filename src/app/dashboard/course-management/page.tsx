@@ -110,9 +110,9 @@ export default function CourseManagementPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-start">
                  <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Cours</h1>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Cours et Horaires</h1>
                     <p className="text-muted-foreground">
-                        Créez, modifiez et gérez les cours de l'institut.
+                        Créez, modifiez et gérez les cours de l'institut et leurs emplois du temps.
                     </p>
                 </div>
                 <Button onClick={handleAdd}>
@@ -124,7 +124,7 @@ export default function CourseManagementPage() {
                 <CardHeader>
                     <CardTitle>Liste des cours</CardTitle>
                     <CardDescription>
-                        Recherchez, ajoutez ou modifiez les informations des cours.
+                        Recherchez, ajoutez ou modifiez les informations et les horaires des cours.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
