@@ -45,6 +45,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import DashboardHeader from "@/components/dashboard-header";
 import React from "react";
+import { AdminPermission } from "@/lib/types";
 
 function AppLogo() {
   return (
@@ -61,7 +62,7 @@ function AppLogo() {
 
 function MainSidebar() {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -76,20 +77,20 @@ function MainSidebar() {
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
   ];
 
-  const adminManagementItems = [
-    { href: "/dashboard/reporting", label: "Tableau de Bord", icon: LayoutDashboard },
-    { href: "/dashboard/students", label: "Étudiants", icon: Users },
-    { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
-    { href: "/dashboard/course-management", label: "Gestion Cours & Horaires", icon: BookMarked },
-    { href: "/dashboard/grade-management", label: "Gestion des notes", icon: ClipboardList },
-    { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt },
-    { href: "/dashboard/fee-management", label: "Gestion des frais", icon: FileCog },
-    { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote },
-    { href: "/dashboard/attendance", label: "Suivi des Présences", icon: ClipboardCheck },
-    { href: "/dashboard/cash-flow", label: "Suivi de caisse", icon: Landmark },
-    { href: "/dashboard/users", label: "Utilisateurs", icon: UserCog },
-    { href: "/dashboard/roles", label: "Rôles & Permissions", icon: ShieldCheck },
-    { href: "/dashboard/admin-management", label: "Administration", icon: Building },
+  const adminManagementItems: {href: string, label: string, icon: React.ElementType, permission: AdminPermission}[] = [
+    { href: "/dashboard/reporting", label: "Tableau de Bord", icon: LayoutDashboard, permission: 'view_reporting' },
+    { href: "/dashboard/students", label: "Étudiants", icon: Users, permission: 'manage_students' },
+    { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap, permission: 'manage_teachers' },
+    { href: "/dashboard/course-management", label: "Gestion Cours & Horaires", icon: BookMarked, permission: 'manage_course' },
+    { href: "/dashboard/grade-management", label: "Gestion des notes", icon: ClipboardList, permission: 'manage_grades' },
+    { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt, permission: 'manage_tuition' },
+    { href: "/dashboard/fee-management", label: "Gestion des frais", icon: FileCog, permission: 'manage_fees' },
+    { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote, permission: 'manage_salaries' },
+    { href: "/dashboard/attendance", label: "Suivi des Présences", icon: ClipboardCheck, permission: 'manage_attendance' },
+    { href: "/dashboard/cash-flow", label: "Suivi de caisse", icon: Landmark, permission: 'manage_cash_flow' },
+    { href: "/dashboard/users", label: "Utilisateurs", icon: UserCog, permission: 'manage_users' },
+    { href: "/dashboard/roles", label: "Rôles & Permissions", icon: ShieldCheck, permission: 'manage_roles' },
+    { href: "/dashboard/admin-management", label: "Administration", icon: Building, permission: 'manage_admin_settings' },
   ]
 
   const menuItems = [
@@ -148,6 +149,7 @@ function MainSidebar() {
           {showAdminMenu && <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             {adminManagementItems.map((item) => (
+              hasPermission(item.permission) &&
               <SidebarMenuItem key={item.href + item.label}>
                   <SidebarMenuButton
                       asChild
