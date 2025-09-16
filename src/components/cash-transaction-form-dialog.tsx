@@ -25,8 +25,6 @@ import {
 import { CashTransaction } from "@/lib/types";
 import { useEffect } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-import { db } from "@/lib/firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -79,28 +77,21 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen, onAdd }: 
     }
   }, [isOpen, form]);
 
-  const onSubmit = async (data: TransactionFormValues) => {
+  const onSubmit = (data: TransactionFormValues) => {
     if(!user) {
         toast({ variant: "destructive", title: "Erreur", description: "Vous devez être connecté pour effectuer cette action." });
         return;
     }
-    try {
-        const newTransactionId = doc(collection(db, 'cash_transactions')).id;
-        const newTransaction: CashTransaction = {
-            id: newTransactionId,
-            date: new Date().toISOString(),
-            createdBy: user.uid,
-            ...data
-        }
-        await setDoc(doc(db, "cash_transactions", newTransactionId), newTransaction);
-        onAdd(newTransaction);
-        toast({ title: "Transaction enregistrée", description: "L'opération a été ajoutée à la caisse." });
-        setIsOpen(false);
-
-    } catch (error) {
-        console.error("Error saving transaction:", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la transaction." });
+    
+    const newTransaction: CashTransaction = {
+        id: `cash_${Date.now()}`,
+        date: new Date().toISOString(),
+        createdBy: user.uid,
+        ...data
     }
+    onAdd(newTransaction);
+    toast({ title: "Transaction enregistrée (Simulation)", description: "L'opération a été ajoutée localement à la caisse." });
+    setIsOpen(false);
   };
 
   return (
@@ -157,5 +148,3 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen, onAdd }: 
     </Dialog>
   );
 }
-
-    

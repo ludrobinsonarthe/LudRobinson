@@ -1,6 +1,6 @@
 
 
-import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole } from './types';
+import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade } from './types';
 
 // Mock data is now being used as the primary source until Firestore rules are configured.
 
@@ -266,6 +266,42 @@ export const mockPayments: Payment[] = [
         status: "pending",
         createdAt: "2024-10-01T11:00:00Z",
         currency: "XAF"
+    }
+];
+
+export const mockGrades: Grade[] = [
+    {
+        id: "grade01",
+        studentId: "student01",
+        courseId: "math01",
+        type: 'devoir',
+        score: 15,
+        total: 20,
+        coefficient: 1,
+        academicYear: '2024-2025',
+        createdAt: '2024-10-15T10:00:00Z',
+    },
+    {
+        id: "grade02",
+        studentId: "student01",
+        courseId: "math01",
+        type: 'examen',
+        score: 14,
+        total: 20,
+        coefficient: 2,
+        academicYear: '2024-2025',
+        createdAt: '2024-12-10T10:00:00Z',
+    },
+     {
+        id: "grade03",
+        studentId: "student01",
+        courseId: "phys01",
+        type: 'examen',
+        score: 16,
+        total: 20,
+        coefficient: 2,
+        academicYear: '2024-2025',
+        createdAt: '2024-12-12T10:00:00Z',
     }
 ];
 

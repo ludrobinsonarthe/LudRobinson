@@ -25,8 +25,6 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import MessageSummarizer from "./message-summarizer";
 import NewMessageDialog from "./new-message-dialog";
-import { collection, addDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatLayoutProps {
@@ -96,7 +94,7 @@ export default function ChatLayout({
       (msg) =>
         (msg.senderId === currentUser.uid && msg.receiverId === selectedConversation) ||
         (msg.senderId === selectedConversation && msg.receiverId === currentUser.uid)
-    ).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    ).sort((a,b) => new Date(a.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [messages, currentUser, selectedConversation]);
   
   React.useEffect(() => {
@@ -120,9 +118,8 @@ export default function ChatLayout({
       if (!messageContent.trim() || !currentUser || !selectedConversation) return;
 
       setIsSending(true);
-      const newMessageRef = doc(collection(db, "messages"));
       const newMessage: Message = {
-          id: newMessageRef.id,
+          id: `msg_${Date.now()}`,
           senderId: currentUser.uid,
           receiverId: selectedConversation,
           content: messageContent,
@@ -130,20 +127,13 @@ export default function ChatLayout({
           createdAt: new Date().toISOString(),
       };
 
-      try {
-          await setDoc(newMessageRef, newMessage);
-          onNewMessage(newMessage);
-          setMessageContent("");
-      } catch (error) {
-          console.error("Error sending message:", error);
-          toast({
-              variant: "destructive",
-              title: "Erreur",
-              description: "Impossible d'envoyer le message."
-          });
-      } finally {
-          setIsSending(false);
-      }
+      onNewMessage(newMessage);
+      setMessageContent("");
+      toast({
+          title: "Message envoyé (Simulation)",
+          description: "Votre message a été ajouté à la conversation locale."
+      });
+      setIsSending(false);
   }
 
   if (!isMounted || !currentUser) {
@@ -336,5 +326,3 @@ export default function ChatLayout({
     </>
   );
 }
-
-    

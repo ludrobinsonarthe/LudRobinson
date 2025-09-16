@@ -40,15 +40,17 @@ type GradeFormValues = z.infer<typeof gradeFormSchema>;
 interface GradeFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (data: Omit<Grade, 'id'|'courseId'|'studentId'|'createdAt'>) => void;
+  onSave: (data: Grade) => void;
   grade: Grade | null;
+  studentId: string;
+  courseId: string;
 }
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}-${currentYear - i + 1}`);
 
 
-export default function GradeFormDialog({ isOpen, setIsOpen, onSave, grade }: GradeFormDialogProps) {
+export default function GradeFormDialog({ isOpen, setIsOpen, onSave, grade, studentId, courseId }: GradeFormDialogProps) {
   const form = useForm<GradeFormValues>({
     resolver: zodResolver(gradeFormSchema),
     defaultValues: {
@@ -86,7 +88,14 @@ export default function GradeFormDialog({ isOpen, setIsOpen, onSave, grade }: Gr
   }, [grade, isOpen, form]);
 
   const onSubmit = (data: GradeFormValues) => {
-    onSave(data);
+    const newGrade: Grade = {
+      id: grade?.id || `grade_${Date.now()}`,
+      studentId: grade?.studentId || studentId,
+      courseId: grade?.courseId || courseId,
+      createdAt: grade?.createdAt || new Date().toISOString(),
+      ...data
+    };
+    onSave(newGrade);
   };
 
   return (

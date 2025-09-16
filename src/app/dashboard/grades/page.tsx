@@ -6,11 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Grade, Course, User } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { mockCourses, mockGrades } from '@/lib/mock-data';
 
 
 interface CourseWithGrades extends Course {
@@ -43,39 +42,19 @@ export default function GradesPage() {
     }, [currentUser, children, selectedChildId]);
 
     useEffect(() => {
-        async function fetchGradesAndCourses() {
-            if (!studentToView || !studentToView.uid) {
-                setLoading(false);
-                setGrades([]);
-                setCourses([]);
-                return;
-            }
-
-            setLoading(true);
-            try {
-                const gradesQuery = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
-                const gradesSnapshot = await getDocs(gradesQuery);
-                const studentGrades: Grade[] = [];
-                gradesSnapshot.forEach((doc) => {
-                    studentGrades.push({ id: doc.id, ...doc.data() } as Grade);
-                });
-                setGrades(studentGrades);
-
-                const coursesQuery = query(collection(db, "courses"));
-                const coursesSnapshot = await getDocs(coursesQuery);
-                const allCourses: Course[] = [];
-                coursesSnapshot.forEach((doc) => {
-                    allCourses.push({ id: doc.id, ...doc.data() } as Course);
-                });
-                setCourses(allCourses);
-            } catch (error) {
-                 console.error("Error fetching data: ", error);
-            } finally {
-                setLoading(false);
-            }
+        if (!studentToView || !studentToView.uid) {
+            setLoading(false);
+            setGrades([]);
+            setCourses([]);
+            return;
         }
 
-        fetchGradesAndCourses();
+        setLoading(true);
+        const studentGrades = mockGrades.filter(g => g.studentId === studentToView.uid);
+        setGrades(studentGrades);
+        setCourses(mockCourses);
+        setLoading(false);
+        
     }, [studentToView]);
 
     const coursesWithGrades = useMemo((): CourseWithGrades[] => {
@@ -225,5 +204,3 @@ export default function GradesPage() {
         </div>
     );
 }
-
-    

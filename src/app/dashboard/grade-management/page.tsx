@@ -7,8 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { collection, query, where, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Grade, Course, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react';
@@ -16,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import GradeFormDialog from '@/components/grade-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { mockCourses, mockGrades } from '@/lib/mock-data';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
@@ -43,42 +42,25 @@ function GradeManagementContent() {
             return;
         }
 
-        const fetchCourseAndGrades = async () => {
-            setLoading(true);
-            try {
-                const courseRef = doc(db, "courses", courseId);
-                const courseSnap = await getDoc(courseRef);
+        setLoading(true);
+        const courseData = mockCourses.find(c => c.id === courseId);
 
-                if (courseSnap.exists()) {
-                    const courseData = { id: courseSnap.id, ...courseSnap.data() } as Course;
-                    setCourse(courseData);
+        if (courseData) {
+            setCourse(courseData);
 
-                    const courseStudents = users.filter(user => 
-                        user.role === 'student' &&
-                        user.student?.fieldId === courseData.fieldId &&
-                        user.student?.level === courseData.level
-                    );
-                    setStudents(courseStudents);
+            const courseStudents = users.filter(user => 
+                user.role === 'student' &&
+                user.student?.fieldId === courseData.fieldId &&
+                user.student?.level === courseData.level
+            );
+            setStudents(courseStudents);
 
-                    const gradesQuery = query(collection(db, "grades"), where("courseId", "==", courseId));
-                    const gradesSnapshot = await getDocs(gradesQuery);
-                    const gradesData: Grade[] = [];
-                    gradesSnapshot.forEach(doc => gradesData.push({ id: doc.id, ...doc.data() } as Grade));
-                    setGrades(gradesData);
-                } else {
-                    setCourse(null);
-                }
-            } catch (error) {
-                console.error("Error fetching data:", error);
-                toast({ variant: 'destructive', title: "Erreur de chargement" });
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (users.length > 0) {
-           fetchCourseAndGrades();
+            const courseGrades = mockGrades.filter(g => g.courseId === courseId);
+            setGrades(courseGrades);
+        } else {
+            setCourse(null);
         }
+        setLoading(false);
 
     }, [courseId, users, toast]);
 
@@ -124,46 +106,23 @@ function GradeManagementContent() {
         setIsDeleteOpen(true);
     };
 
-    const handleSaveGrade = async (data: Omit<Grade, 'id' | 'courseId' | 'studentId' | 'createdAt'>) => {
-        if (!courseId || !selectedStudentId) return;
-        try {
-            if (selectedGrade) {
-                const gradeRef = doc(db, "grades", selectedGrade.id);
-                await updateDoc(gradeRef, data);
-                setGrades(prev => prev.map(g => g.id === selectedGrade.id ? { ...g, ...data } : g));
-                toast({ title: "Note mise à jour" });
-            } else {
-                const newGradeId = doc(collection(db, 'grades')).id;
-                const newGrade: Grade = {
-                    id: newGradeId,
-                    courseId,
-                    studentId: selectedStudentId,
-                    createdAt: new Date().toISOString(),
-                    ...data
-                }
-                await setDoc(doc(db, "grades", newGradeId), newGrade);
-                setGrades(prev => [...prev, newGrade]);
-                toast({ title: "Note ajoutée avec succès" });
-            }
-            setIsFormOpen(false);
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: "Erreur", description: "Impossible d'enregistrer la note." });
+    const handleSaveGrade = (data: Grade) => {
+        if (selectedGrade) {
+            setGrades(prev => prev.map(g => g.id === selectedGrade.id ? data : g));
+            toast({ title: "Note mise à jour (Simulation)" });
+        } else {
+            setGrades(prev => [...prev, data]);
+            toast({ title: "Note ajoutée (Simulation)" });
         }
+        setIsFormOpen(false);
     };
 
     const confirmDeleteGrade = async () => {
         if (!selectedGrade) return;
-        try {
-            await deleteDoc(doc(db, 'grades', selectedGrade.id));
-            setGrades(prev => prev.filter(g => g.id !== selectedGrade.id));
-            toast({ title: "Note supprimée" });
-            setIsDeleteOpen(false);
-            setSelectedGrade(null);
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: "Erreur", description: "Impossible de supprimer la note." });
-        }
+        setGrades(prev => prev.filter(g => g.id !== selectedGrade.id));
+        toast({ title: "Note supprimée (Simulation)" });
+        setIsDeleteOpen(false);
+        setSelectedGrade(null);
     };
 
     if (loading || usersLoading) {
@@ -246,13 +205,16 @@ function GradeManagementContent() {
                     </Table>
                 </CardContent>
             </Card>
-
-            <GradeFormDialog 
-                isOpen={isFormOpen}
-                setIsOpen={setIsFormOpen}
-                onSave={handleSaveGrade}
-                grade={selectedGrade}
-            />
+            {isFormOpen && courseId && selectedStudentId &&
+                <GradeFormDialog 
+                    isOpen={isFormOpen}
+                    setIsOpen={setIsFormOpen}
+                    onSave={handleSaveGrade}
+                    grade={selectedGrade}
+                    studentId={selectedStudentId}
+                    courseId={courseId}
+                />
+            }
             {selectedGrade && (
                 <UserDeleteDialog
                     isOpen={isDeleteOpen}
@@ -275,5 +237,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-
-    
