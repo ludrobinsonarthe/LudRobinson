@@ -11,6 +11,8 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import {
   Home,
@@ -26,6 +28,8 @@ import {
   Wallet,
   Users,
   GraduationCap,
+  Building,
+  UserCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -56,18 +60,16 @@ function MainSidebar() {
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
   ];
 
-  const adminMenuItems = [
+  const adminManagementItems = [
     { href: "/dashboard/students", label: "Étudiants", icon: Users },
     { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
+    { href: "/dashboard/users", label: "Utilisateurs", icon: UserCog },
+    { href: "/dashboard/admin-management", label: "Administration", icon: Building },
   ]
 
   const menuItems = [
     { href: "/dashboard", label: "Annonces", icon: Home },
     { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
-    ...(user?.role === 'student' ? studentMenuItems : []),
-    ...(user?.role === 'admin' ? adminMenuItems : []),
-    ...(user?.role !== 'student' && user?.role !== 'parent' ? [{ href: "/dashboard/documents", label: "Documents", icon: FileText }] : []),
-    { href: "/dashboard/profile", label: "Profil", icon: UserIcon },
   ];
 
   return (
@@ -91,6 +93,54 @@ function MainSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+
+          {user?.role === 'student' && studentMenuItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href}
+                tooltip={item.label}
+              >
+                <Link href={item.href}>
+                  <item.icon />
+                  <span>{item.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+
+          {user?.role === 'admin' && (
+            <SidebarGroup>
+                <SidebarGroupLabel>Gestion</SidebarGroupLabel>
+                {adminManagementItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                            asChild
+                            isActive={pathname === item.href}
+                            tooltip={item.label}
+                        >
+                            <Link href={item.href}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                ))}
+            </SidebarGroup>
+          )}
+
+          <SidebarMenuItem>
+            <SidebarMenuButton
+                asChild
+                isActive={pathname === "/dashboard/profile"}
+                tooltip={"Profil"}
+              >
+                <Link href={"/dashboard/profile"}>
+                  <UserIcon />
+                  <span>Profil</span>
+                </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
