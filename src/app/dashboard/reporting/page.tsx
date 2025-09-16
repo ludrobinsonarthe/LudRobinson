@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useUser } from '@/hooks/use-user';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
