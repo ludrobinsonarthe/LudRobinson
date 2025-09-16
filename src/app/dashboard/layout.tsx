@@ -32,6 +32,7 @@ import {
   UserCog,
   BookMarked,
   Receipt,
+  Banknote,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -74,6 +75,7 @@ function MainSidebar() {
     { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
     { href: "/dashboard/course-management", label: "Gestion des cours", icon: BookMarked },
     { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt },
+    { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote },
     { href: "/dashboard/users", label: "Utilisateurs", icon: UserCog },
     { href: "/dashboard/admin-management", label: "Administration", icon: Building },
   ]

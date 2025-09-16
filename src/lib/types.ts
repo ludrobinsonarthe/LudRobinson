@@ -109,6 +109,21 @@ export interface Payment {
   currency: string;
 }
 
+export interface TeacherSalary {
+  id: string;
+  teacherId: string;
+  month: string;
+  year: string;
+  hourlyRate: number;
+  hoursWorked: number;
+  totalSalary: number;
+  status: 'pending' | 'paid';
+  paidAt?: string;
+  paidBy?: string; // admin_uid
+  createdAt: string;
+  currency: string;
+}
+
 export interface Message {
   id: string;
   senderId: string;
@@ -136,4 +151,3 @@ export interface Settings {
   currency: string;
   adminContacts: string[];
 }
-
