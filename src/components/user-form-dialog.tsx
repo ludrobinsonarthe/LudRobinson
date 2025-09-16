@@ -65,12 +65,12 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
     if (isOpen) {
         if (user) {
         form.reset({
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            photoUrl: user.photoUrl,
-            specialty: user.teacher?.specialty,
-            position: user.admin?.position,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '',
+            photoUrl: user.photoUrl || '',
+            specialty: user.teacher?.specialty || '',
+            position: user.admin?.position || '',
         });
         } else {
         form.reset({
