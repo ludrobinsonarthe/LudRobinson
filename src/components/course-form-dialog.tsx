@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,15 @@ import {
 import type { Course, User, Sector, Field } from "@/lib/types";
 import { useEffect, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-import { mockSectors, mockFields } from "@/lib/mock-data";
+import { Separator } from "./ui/separator";
+import { PlusCircle, Trash2 } from "lucide-react";
+
+const scheduleSchema = z.object({
+    day: z.enum(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']),
+    start: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Format HH:MM invalide."),
+    end: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Format HH:MM invalide."),
+    room: z.string().min(1, "La salle est requise."),
+});
 
 const courseFormSchema = z.object({
   name: z.string().min(3, "Le nom du cours doit comporter au moins 3 caractères."),
@@ -34,6 +43,7 @@ const courseFormSchema = z.object({
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
   documentFile: z.any().optional(),
+  schedule: z.array(scheduleSchema).optional(),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -48,6 +58,10 @@ interface CourseFormDialogProps {
   fields: Field[];
 }
 
+const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const timeSlots = Array.from({ length: 12 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`);
+
+
 export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, teachers, sectors, fields }: CourseFormDialogProps) {
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -57,7 +71,13 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         teacherId: '',
         sectorId: '',
         fieldId: '',
+        schedule: []
     }
+  });
+
+  const { fields: scheduleFields, append, remove } = useFieldArray({
+      control: form.control,
+      name: "schedule"
   });
 
   const selectedSector = form.watch('sectorId');
@@ -77,6 +97,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             teacherId: course.teacherId,
             sectorId: courseSectorId,
             fieldId: course.fieldId,
+            schedule: course.schedule || [],
           });
         } else {
           form.reset({
@@ -85,6 +106,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             teacherId: '',
             sectorId: '',
             fieldId: '',
+            schedule: [],
           });
         }
     }
@@ -99,12 +121,9 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
    }, [selectedSector, form, fields]);
 
   const onSubmit = (data: CourseFormValues) => {
-    // NOTE: File upload logic is not implemented yet.
-    // This will require setting up Firebase Storage and handling the upload.
     const { sectorId, documentFile, ...courseData} = data;
     const finalCourseData: Partial<Course> = {
         ...courseData,
-        // When upload is implemented, the uploaded file URL will be saved here.
         documents: course?.documents || [] 
     };
     onSave(finalCourseData);
@@ -113,84 +132,128 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-3xl">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <DialogHeader>
               <DialogTitle className="font-headline">
-                {course ? "Modifier le cours" : "Ajouter un nouveau cours"}
+                {course ? "Modifier le cours et son emploi du temps" : "Ajouter un nouveau cours"}
               </DialogTitle>
               <DialogDescription>
                 {course
-                  ? "Modifiez les informations du cours ci-dessous."
-                  : "Remplissez le formulaire pour créer un nouveau cours."}
+                  ? "Modifiez les informations et les horaires du cours ci-dessous."
+                  : "Remplissez le formulaire pour créer un nouveau cours et définir ses horaires."}
               </DialogDescription>
             </DialogHeader>
             
-            <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem>
-                <FormLabel>Nom du cours</FormLabel>
-                <FormControl><Input placeholder="Ex: Mathématiques Avancées" {...field} /></FormControl>
-                <FormMessage />
-                </FormItem>
-            )}/>
-             <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem>
-                <FormLabel>Description</FormLabel>
-                <FormControl><Textarea placeholder="Brève description du cours..." {...field} /></FormControl>
-                <FormMessage />
-                </FormItem>
-            )}/>
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-6">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Nom du cours</FormLabel>
+                    <FormControl><Input placeholder="Ex: Mathématiques Avancées" {...field} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
+                 <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl><Textarea placeholder="Brève description du cours..." {...field} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
 
-             <FormField control={form.control} name="documentFile" render={({ field: { onChange, value, ...rest } }) => (
-                <FormItem>
-                <FormLabel>Document du cours (PDF)</FormLabel>
-                <FormControl>
-                    <Input 
-                        type="file" 
-                        accept=".pdf"
-                        onChange={(e) => onChange(e.target.files)}
-                        {...rest}
-                    />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}/>
+                 <FormField control={form.control} name="documentFile" render={({ field: { onChange, value, ...rest } }) => (
+                    <FormItem>
+                    <FormLabel>Document du cours (PDF)</FormLabel>
+                    <FormControl>
+                        <Input 
+                            type="file" 
+                            accept=".pdf"
+                            onChange={(e) => onChange(e.target.files)}
+                            {...rest}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
 
-            <FormField control={form.control} name="teacherId" render={({ field }) => (
-                <FormItem>
-                <FormLabel>Professeur</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un professeur..." /></SelectTrigger></FormControl>
-                    <SelectContent>
-                        {teachers.map(teacher => (
-                            <SelectItem key={teacher.uid} value={teacher.uid}>{teacher.firstName} {teacher.lastName}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}/>
-
-            <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="sectorId" render={({ field }) => (
-                    <FormItem><FormLabel>Secteur</FormLabel>
+                <FormField control={form.control} name="teacherId" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Professeur</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Secteur..." /></SelectTrigger></FormControl>
-                        <SelectContent>{sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un professeur..." /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            {teachers.map(teacher => (
+                                <SelectItem key={teacher.uid} value={teacher.uid}>{teacher.firstName} {teacher.lastName}</SelectItem>
+                            ))}
+                        </SelectContent>
                     </Select>
                     <FormMessage />
                     </FormItem>
                 )}/>
-                <FormField control={form.control} name="fieldId" render={({ field }) => (
-                    <FormItem><FormLabel>Filière</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
-                        <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Filière..."} /></SelectTrigger></FormControl>
-                        <SelectContent>{availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}/>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="sectorId" render={({ field }) => (
+                        <FormItem><FormLabel>Secteur</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Secteur..." /></SelectTrigger></FormControl>
+                            <SelectContent>{sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="fieldId" render={({ field }) => (
+                        <FormItem><FormLabel>Filière</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
+                            <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Filière..."} /></SelectTrigger></FormControl>
+                            <SelectContent>{availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}/>
+                </div>
+
+                <Separator />
+                
+                <div>
+                    <h3 className="text-lg font-medium mb-2">Emploi du temps</h3>
+                    <div className="space-y-4">
+                        {scheduleFields.map((field, index) => (
+                            <div key={field.id} className="grid grid-cols-5 gap-2 items-end p-3 border rounded-md relative">
+                                <FormField control={form.control} name={`schedule.${index}.day`} render={({ field }) => (
+                                    <FormItem><FormLabel>Jour</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                            <SelectContent>{daysOfWeek.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                    <FormMessage /></FormItem>
+                                )}/>
+                                 <FormField control={form.control} name={`schedule.${index}.start`} render={({ field }) => (
+                                    <FormItem><FormLabel>Début</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                 <FormField control={form.control} name={`schedule.${index}.end`} render={({ field }) => (
+                                    <FormItem><FormLabel>Fin</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name={`schedule.${index}.room`} render={({ field }) => (
+                                    <FormItem><FormLabel>Salle</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                </Button>
+                            </div>
+                        ))}
+                         <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => append({ day: 'Lundi', start: '08:00', end: '10:00', room: '' })}
+                        >
+                           <PlusCircle className="mr-2 h-4 w-4" />
+                            Ajouter un créneau
+                        </Button>
+                    </div>
+                </div>
+
             </div>
 
 
