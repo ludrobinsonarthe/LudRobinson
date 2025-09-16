@@ -33,6 +33,7 @@ const studentFormSchema = z.object({
   firstName: z.string().min(2, "Le prénom est requis."),
   lastName: z.string().min(2, "Le nom est requis."),
   email: z.string().email("Adresse e-mail invalide."),
+  phone: z.string().optional(),
   photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
   matricule: z.string().min(1, "Le matricule est requis."),
   level: z.string().min(1, "Le niveau est requis."),
@@ -93,6 +94,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         firstName: '',
         lastName: '',
         email: '',
+        phone: '',
         photoUrl: '',
         matricule: '',
         level: '',
@@ -126,6 +128,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             firstName: student.firstName,
             lastName: student.lastName,
             email: student.email,
+            phone: student.phone,
             photoUrl: student.photoUrl,
             matricule: student.student?.matricule,
             level: student.student?.level,
@@ -141,6 +144,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             firstName: '',
             lastName: '',
             email: '',
+            phone: '',
             photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
             matricule: `ISGI-${new Date().getFullYear()}-L1-${Math.floor(100 + Math.random() * 900)}`,
             level: '',
@@ -170,6 +174,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
+        phone: data.phone,
         photoUrl: data.photoUrl,
         student: {
             ...student?.student,
@@ -223,9 +228,15 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
                     )}/>
                 </div>
 
-                <FormField control={form.control} name="email" render={({ field }) => (
-                    <FormItem><FormLabel>Adresse e-mail</FormLabel><FormControl><Input type="email" placeholder="email@isgi.com" {...field} /></FormControl><FormMessage /></FormItem>
-                )}/>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                        <FormItem><FormLabel>Adresse e-mail</FormLabel><FormControl><Input type="email" placeholder="email@isgi.com" {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={form.control} name="phone" render={({ field }) => (
+                        <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </div>
+
 
                 <div className="grid grid-cols-2 gap-4">
                      <FormField control={form.control} name="matricule" render={({ field }) => (
@@ -338,3 +349,5 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
     </Dialog>
   );
 }
+
+    

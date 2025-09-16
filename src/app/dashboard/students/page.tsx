@@ -165,6 +165,7 @@ export default function StudentsPage() {
                 "Prénom": student.firstName,
                 "Nom": student.lastName,
                 "Email": student.email,
+                "Téléphone": student.phone,
                 "Matricule": student.student?.matricule,
                 "Niveau": student.student?.level,
                 "Cycle": cycles.find(c => c.value === student.student?.cycle)?.label,
@@ -242,6 +243,7 @@ export default function StudentsPage() {
                         firstName: studentRow['Prenom'] || '',
                         lastName: studentRow['Nom'] || '',
                         email: studentRow['Email'] || '',
+                        phone: studentRow['Téléphone'] || '',
                         role: 'student',
                         status: 'active',
                         createdAt: new Date().toISOString(),
@@ -437,5 +439,7 @@ export default function StudentsPage() {
         </div>
     );
 }
+
+    
 
     
