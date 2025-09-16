@@ -68,7 +68,7 @@ function SalaryManagementContent() {
     
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(s => s.uid === teacherId);
-        return teacher ? `${'\'teacher.firstName\''} ${'\'teacher.lastName\''}` : 'Inconnu';
+        return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Inconnu';
     }
 
     const filteredSalaries = useMemo(() => {
@@ -78,7 +78,8 @@ function SalaryManagementContent() {
 
     const pageTitle = useMemo(() => {
         if (teacherIdFilter) {
-            return `Salaires pour ${getTeacherName(teacherIdFilter)}`;
+            const teacher = teachers.find(t => t.uid === teacherIdFilter);
+            return `Salaires pour ${teacher ? `${teacher.firstName} ${teacher.lastName}`: 'Professeur'}`;
         }
         return "Gestion des Salaires";
     }, [teacherIdFilter, teachers]);
