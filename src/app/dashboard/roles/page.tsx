@@ -29,7 +29,6 @@ import { AdminRole, adminPermissions, AdminPermission } from "@/lib/types";
 import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDescription } from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
 
 const roleSchema = z.object({
   id: z.string(),
