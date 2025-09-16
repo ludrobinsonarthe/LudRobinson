@@ -126,6 +126,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         ...courseData,
         documents: course?.documents || [] 
     };
+    // Handle file upload here if needed
     onSave(finalCourseData);
     setIsOpen(false);
   };
@@ -169,7 +170,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                         <Input 
                             type="file" 
                             accept=".pdf"
-                            onChange={(e) => onChange(e.target.files)}
+                            onChange={(e) => onChange(e.target.files?.[0])}
                             {...rest}
                         />
                     </FormControl>
@@ -229,10 +230,10 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                                     <FormMessage /></FormItem>
                                 )}/>
                                  <FormField control={form.control} name={`schedule.${index}.start`} render={({ field }) => (
-                                    <FormItem><FormLabel>Début</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Début</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
                                  <FormField control={form.control} name={`schedule.${index}.end`} render={({ field }) => (
-                                    <FormItem><FormLabel>Fin</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Fin</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`schedule.${index}.room`} render={({ field }) => (
                                     <FormItem><FormLabel>Salle</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
