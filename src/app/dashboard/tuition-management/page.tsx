@@ -166,7 +166,7 @@ export default function TuitionManagementPage() {
                             <TableRow>
                                 <TableHead>Étudiant</TableHead>
                                 <TableHead>Montant Payé</TableHead>
-                                <TableHead>Mois</TableHead>
+                                <TableHead>Motif / Mois</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Statut</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>

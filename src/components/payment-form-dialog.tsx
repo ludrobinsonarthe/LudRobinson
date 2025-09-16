@@ -46,7 +46,7 @@ interface PaymentFormDialogProps {
   payment?: Payment | null;
 }
 
-const academicMonths = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
+const academicMonths = ["Inscription", "Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}-${currentYear - i + 1}`);
 
@@ -123,9 +123,9 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
                 
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="month" render={({ field }) => (
-                        <FormItem><FormLabel>Mois</FormLabel>
+                        <FormItem><FormLabel>Motif / Mois</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un mois..." /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un motif..." /></SelectTrigger></FormControl>
                             <SelectContent>{academicMonths.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage /></FormItem>
