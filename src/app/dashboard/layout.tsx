@@ -77,7 +77,6 @@ function MainSidebar() {
     { href: "/dashboard/students", label: "Étudiants", icon: Users },
     { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
     { href: "/dashboard/course-management", label: "Gestion des cours", icon: BookMarked },
-    { href: "/dashboard/course-management", label: "Gestion Emplois du Temps", icon: CalendarDays },
     { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt },
     { href: "/dashboard/fee-management", label: "Gestion des frais", icon: FileCog },
     { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote },
