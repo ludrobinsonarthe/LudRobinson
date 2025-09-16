@@ -81,7 +81,8 @@ export const mockUsers: User[] = [
 
 export const mockSectors: Sector[] = [
   { id: 'gestion', name: 'GESTION' },
-  { id: 'indus_tech', name: 'INDUSTRIE ET TECHNOLOGIE' },
+  { id: 'industrie', name: 'INDUSTRIE' },
+  { id: 'technologie', name: 'TECHNOLOGIE' },
 ];
 
 export const mockFields: Field[] = [
@@ -90,10 +91,12 @@ export const mockFields: Field[] = [
   { id: 'grh', name: 'Gestion des Ressources Humaines', sectorId: 'gestion' },
   { id: 'mcf', name: 'Management et Commerce des Affaires', sectorId: 'gestion' },
   
-  // INDUSTRIE ET TECHNOLOGIE
-  { id: 'gl', name: 'Génie Logiciel', sectorId: 'indus_tech' },
-  { id: 'rsi', name: 'Réseaux et Systèmes Informatiques', sectorId: 'indus_tech' },
-  { id: 'mi', name: 'Maintenance Industrielle', sectorId: 'indus_tech' },
+  // TECHNOLOGIE
+  { id: 'gl', name: 'Génie Logiciel', sectorId: 'technologie' },
+  { id: 'rsi', name: 'Réseaux et Systèmes Informatiques', sectorId: 'technologie' },
+  
+  // INDUSTRIE
+  { id: 'mi', name: 'Maintenance Industrielle', sectorId: 'industrie' },
 ];
 
 
