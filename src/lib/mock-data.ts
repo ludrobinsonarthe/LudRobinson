@@ -16,7 +16,7 @@ export const mockUsers: User[] = [
         status: "active",
         admin: {
             roleId: "super_admin",
-            position: "Directrice"
+            position: "Super-Administratrice"
         }
     },
     {
