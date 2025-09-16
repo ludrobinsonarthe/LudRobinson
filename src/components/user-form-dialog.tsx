@@ -94,7 +94,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
-        // photoUrl will be handled by upload logic
+        // photo will be handled by upload logic in the onSave function
     };
     if (userType === 'teacher') {
         userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
@@ -117,6 +117,20 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
               <DialogDescription>{dialogDescription}</DialogDescription>
             </DialogHeader>
             
+            <FormField
+                control={form.control}
+                name="photo"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Photo de profil</FormLabel>
+                    <FormControl>
+                        <Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+
             <div className="grid grid-cols-2 gap-4">
                 <FormField
                     control={form.control}

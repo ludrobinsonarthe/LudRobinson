@@ -173,7 +173,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         lastName: data.lastName,
         email: data.email,
         phone: data.phone,
-        // photoUrl will be handled by the upload logic
+        // photo will be handled by the onSave function with upload logic
         student: {
             ...(student?.student || {}),
             matricule: data.matricule,
@@ -193,7 +193,6 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             email: data.parentEmail,
             phone: data.parentPhone,
             address: data.parentAddress,
-            photoUrl: `https://picsum.photos/seed/${Date.now()+1}/100/100`,
         }
     }
 
@@ -217,6 +216,19 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-6">
                 <h3 className="text-lg font-semibold text-foreground">Informations de l'étudiant</h3>
+                <FormField
+                    control={form.control}
+                    name="photo"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Photo de profil</FormLabel>
+                        <FormControl>
+                            <Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="firstName" render={({ field }) => (
                         <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} /></FormControl><FormMessage /></FormItem>
