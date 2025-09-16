@@ -193,5 +193,4 @@ export interface Settings {
   logoUrl: string;
   academicYear: string;
   currency: string;
-  adminContacts: string[];
 }
