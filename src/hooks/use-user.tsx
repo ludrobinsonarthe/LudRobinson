@@ -14,8 +14,8 @@ const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    // Default to the first student for demonstration
-    return mockUsers.find(u => u.role === 'student') || null;
+    // Default to the first admin for demonstration
+    return mockUsers.find(u => u.role === 'admin') || null;
   });
 
   const setUser = (user: User) => {
