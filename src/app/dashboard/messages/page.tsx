@@ -20,8 +20,7 @@ export default function MessagesPage() {
 
     const q = query(
       collection(db, "messages"),
-      where("type", "==", "private"),
-      orderBy("createdAt", "desc")
+      where("type", "==", "private")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -30,6 +29,9 @@ export default function MessagesPage() {
       const userMessages = allMessages.filter(
         msg => msg.senderId === user.uid || msg.receiverId === user.uid
       );
+      
+      // Tri côté client pour éviter la création d'un index composite
+      userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
       setMessages(userMessages);
       setLoading(false);
