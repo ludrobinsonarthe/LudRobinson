@@ -58,6 +58,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
+
+    // Find the first admin and make them super-admin for demo purposes
+    const firstAdmin = allUsers.find(u => u.role === 'admin');
+    if (firstAdmin && !firstAdmin.admin?.position?.toLowerCase().includes('super')) {
+        firstAdmin.admin = {...firstAdmin.admin, position: 'Super-Administrateur'};
+    }
     
     const adminUser = allUsers.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
     const userInList = allUsers.find(u => u.uid === currentUser?.uid);
@@ -69,7 +75,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } else if (currentUser === null && adminUser) {
         setCurrentUser(adminUser);
     } else if (allUsers.length > 0 && !userInList) {
-        setCurrentUser(allUsers[0]);
+        setCurrentUser(adminUser || allUsers[0]);
     } else if (allUsers.length === 0) {
         setCurrentUser(null);
     }
