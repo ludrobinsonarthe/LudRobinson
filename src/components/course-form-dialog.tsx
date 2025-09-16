@@ -33,7 +33,7 @@ const courseFormSchema = z.object({
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
-  documentFile: z.instanceof(FileList).optional(),
+  documentFile: z.any().optional(),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
