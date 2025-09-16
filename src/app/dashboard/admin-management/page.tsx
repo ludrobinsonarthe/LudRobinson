@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Loader2, PlusCircle, Trash2, UserCog } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck } from "lucide-react";
 import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
@@ -229,23 +229,41 @@ export default function AdminManagementPage() {
                     </Form>
                     
                     <Separator className="my-8" />
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Personnel Administratif</CardTitle>
-                            <CardDescription>
-                                Gérez les comptes et les permissions du personnel administratif de l'institut.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <Button asChild>
-                               <Link href="/dashboard/users">
-                                 <UserCog className="mr-2 h-4 w-4" />
-                                 Gérer le personnel
-                               </Link>
-                           </Button>
-                        </CardContent>
-                    </Card>
+                    
+                    <div className="grid md:grid-cols-2 gap-8">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Personnel Administratif</CardTitle>
+                                <CardDescription>
+                                    Gérez les comptes et les permissions du personnel administratif de l'institut.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                            <Button asChild>
+                                <Link href="/dashboard/users">
+                                    <UserCog className="mr-2 h-4 w-4" />
+                                    Gérer le personnel
+                                </Link>
+                            </Button>
+                            </CardContent>
+                        </Card>
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Rôles & Permissions</CardTitle>
+                                <CardDescription>
+                                    Définissez des rôles (ex: Comptable) et leurs permissions spécifiques dans l'application.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                            <Button asChild>
+                                <Link href="/dashboard/roles">
+                                    <ShieldCheck className="mr-2 h-4 w-4" />
+                                    Gérer les rôles
+                                </Link>
+                            </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
 
                 </div>
             )}

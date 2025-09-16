@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useMemo }from "react";
+import { useState, useMemo, useEffect }from "react";
 import {
   Table,
   TableBody,
@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole } from "@/lib/types";
+import { User, UserRole, AdminRole } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import { format } from 'date-fns';
@@ -24,7 +24,7 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
@@ -44,14 +44,36 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 
 export default function UsersPage() {
     const { users, loading } = useUser();
+    const [roles, setRoles] = useState<AdminRole[]>([]);
+    const [loadingRoles, setLoadingRoles] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const { toast } = useToast();
 
+    useEffect(() => {
+        const q = query(collection(db, "admin_roles"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const rolesFromDb: AdminRole[] = [];
+            snapshot.forEach((doc) => {
+                rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
+            });
+            setRoles(rolesFromDb);
+            setLoadingRoles(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
     const admins = useMemo(() => {
         return users.filter(user => user.role === 'admin');
     }, [users]);
+    
+    const rolesById = useMemo(() => {
+        return roles.reduce((acc, role) => {
+            acc[role.id] = role;
+            return acc;
+        }, {} as Record<string, AdminRole>);
+    }, [roles]);
 
     const handleAdd = () => {
         setSelectedUser(null);
@@ -141,7 +163,7 @@ export default function UsersPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading ? (
+                            {loading || loadingRoles ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-24 text-center">
                                         Chargement...
@@ -162,7 +184,7 @@ export default function UsersPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
-                                        <Badge variant="outline">{user.admin?.position || 'Non défini'}</Badge>
+                                        <Badge variant="outline">{user.admin?.roleId ? rolesById[user.admin.roleId]?.name : 'Non défini'}</Badge>
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
                                         <Badge variant={statusVariant[user.status]}>{statusTranslation[user.status]}</Badge>
@@ -208,6 +230,7 @@ export default function UsersPage() {
                 onSave={handleSave}
                 user={selectedUser}
                 userType="admin"
+                adminRoles={roles}
             />
             <UserDeleteDialog
                 isOpen={isDeleteOpen}

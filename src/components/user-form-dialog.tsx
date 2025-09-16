@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -14,9 +15,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { User } from "@/lib/types";
+import type { User, AdminRole } from "@/lib/types";
 import { useEffect } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 
 const userFormSchema = z.object({
   firstName: z.string().min(2, "Le prénom est requis."),
@@ -24,7 +26,7 @@ const userFormSchema = z.object({
   email: z.string().email("Adresse e-mail invalide."),
   photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
   specialty: z.string().optional(),
-  position: z.string().optional(),
+  roleId: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -35,9 +37,10 @@ interface UserFormDialogProps {
   onSave: (data: Partial<User>) => void;
   user: User | null;
   userType: 'admin' | 'teacher';
+  adminRoles?: AdminRole[];
 }
 
-export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userType }: UserFormDialogProps) {
+export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userType, adminRoles }: UserFormDialogProps) {
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
@@ -46,7 +49,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         email: '',
         photoUrl: '',
         specialty: '',
-        position: '',
+        roleId: '',
     }
   });
 
@@ -70,7 +73,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             email: user.email || '',
             photoUrl: user.photoUrl || '',
             specialty: user.teacher?.specialty || '',
-            position: user.admin?.position || '',
+            roleId: user.admin?.roleId || '',
         });
         } else {
         form.reset({
@@ -79,23 +82,26 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             email: '',
             photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
             specialty: '',
-            position: '',
+            roleId: '',
         });
         }
     }
   }, [user, form.reset, isOpen]);
 
   const onSubmit = (data: UserFormValues) => {
-    const userData: Partial<User> = {...data};
+    const userData: Partial<User> = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        photoUrl: data.photoUrl,
+    };
     if (userType === 'teacher') {
         userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
     }
      if (userType === 'admin') {
-        userData.admin = { position: data.position || '' };
+        userData.admin = { roleId: data.roleId || '' };
     }
-    delete (userData as any).specialty;
-    delete (userData as any).position;
-
+    
     onSave(userData);
     setIsOpen(false);
   };
@@ -169,16 +175,21 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                 />
             )}
 
-            {showPosition && (
+            {showPosition && adminRoles && (
                  <FormField
                     control={form.control}
-                    name="position"
+                    name="roleId"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Poste</FormLabel>
-                        <FormControl>
-                            <Input placeholder="Comptable, Secrétaire..." {...field} />
-                        </FormControl>
+                        <FormLabel>Poste / Rôle</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un rôle..." /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {adminRoles.map(role => (
+                                    <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <FormMessage />
                         </FormItem>
                     )}

@@ -4,6 +4,29 @@ export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
 
+export const adminPermissions = {
+  manage_students: "Gérer les étudiants",
+  manage_teachers: "Gérer les professeurs",
+  manage_users: "Gérer les utilisateurs admin",
+  manage_courses: "Gérer les cours et horaires",
+  manage_grades: "Gérer les notes",
+  manage_tuition: "Gérer la scolarité",
+  manage_fees: "Gérer les frais",
+  manage_salaries: "Gérer les salaires",
+  manage_attendance: "Gérer les présences",
+  manage_cash_flow: "Gérer la caisse",
+  view_reporting: "Voir les rapports",
+  manage_settings: "Gérer les paramètres administratifs",
+};
+
+export type AdminPermission = keyof typeof adminPermissions;
+
+export interface AdminRole {
+  id: string;
+  name: string;
+  permissions: AdminPermission[];
+}
+
 export interface User {
   uid: string;
   role: UserRole;
@@ -18,7 +41,7 @@ export interface User {
   createdAt: string;
   status: UserStatus;
   admin?: {
-    position: string;
+    roleId: string;
   };
   student?: {
     matricule: string;
