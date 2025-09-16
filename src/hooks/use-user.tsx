@@ -36,6 +36,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             usersSnapshot.forEach((doc) => {
                 usersFromDb.push({ uid: doc.id, ...doc.data() } as User);
             });
+            
+            // Find the first admin and make them super-admin for demo purposes
+            const firstAdminIndex = usersFromDb.findIndex(u => u.role === 'admin');
+            if (firstAdminIndex !== -1 && !usersFromDb[firstAdminIndex].admin?.position?.toLowerCase().includes('super')) {
+                usersFromDb[firstAdminIndex].admin = {...usersFromDb[firstAdminIndex].admin, position: 'Super-Administrateur'};
+            }
             setAllUsers(usersFromDb);
 
             const rolesQuery = query(collection(db, "admin_roles"));
@@ -45,6 +51,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
             });
             setRoles(rolesFromDb);
+            
+            // Set initial user after fetching all data
+            if (currentUser === null) {
+                 const adminUser = usersFromDb.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
+                 if (adminUser) {
+                    setCurrentUser(adminUser);
+                 } else if (usersFromDb.length > 0) {
+                    setCurrentUser(usersFromDb[0]);
+                 }
+            }
+
 
         } catch(error) {
             console.error("Failed to fetch initial data:", error);
@@ -56,28 +73,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-    if (loading) return;
-
-    // Find the first admin and make them super-admin for demo purposes
-    const firstAdmin = allUsers.find(u => u.role === 'admin');
-    if (firstAdmin && !firstAdmin.admin?.position?.toLowerCase().includes('super')) {
-        firstAdmin.admin = {...firstAdmin.admin, position: 'Super-Administrateur'};
-    }
-    
-    const adminUser = allUsers.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
-    const userInList = allUsers.find(u => u.uid === currentUser?.uid);
-
-    if (userInList) {
-        if (JSON.stringify(currentUser) !== JSON.stringify(userInList)) {
-            setCurrentUser(userInList);
-        }
-    } else if (currentUser === null && adminUser) {
-        setCurrentUser(adminUser);
-    } else if (allUsers.length > 0 && !userInList) {
-        setCurrentUser(adminUser || allUsers[0]);
-    } else if (allUsers.length === 0) {
-        setCurrentUser(null);
-    }
+      // This effect ensures the currentUser state is updated if the user list changes
+      // For example, if the current user is deleted from the list.
+      if (!loading && currentUser) {
+          const userInList = allUsers.find(u => u.uid === currentUser.uid);
+          if (!userInList) {
+              // Current user was deleted, fallback to first user or null
+              setCurrentUser(allUsers.length > 0 ? allUsers[0] : null);
+          } else if (JSON.stringify(currentUser) !== JSON.stringify(userInList)) {
+              // User data was updated, refresh currentUser
+              setCurrentUser(userInList);
+          }
+      }
   }, [allUsers, currentUser, loading]);
 
 
@@ -128,5 +135,3 @@ export function useUser() {
   }
   return context;
 }
-
-    
