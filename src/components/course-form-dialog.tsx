@@ -22,15 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Course, User, Program } from "@/lib/types";
-import { useEffect } from "react";
+import type { Course, User, Sector, Field } from "@/lib/types";
+import { useEffect, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { mockSectors, mockFields } from "@/lib/mock-data";
 
 const courseFormSchema = z.object({
   name: z.string().min(3, "Le nom du cours doit comporter au moins 3 caractères."),
   description: z.string().optional(),
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
-  programId: z.string().min(1, "Veuillez sélectionner un programme."),
+  sectorId: z.string().min(1, "Le secteur est requis."),
+  fieldId: z.string().min(1, "La filière est requise."),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -41,40 +43,63 @@ interface CourseFormDialogProps {
   onSave: (data: Partial<Course>) => void;
   course: Course | null;
   teachers: User[];
-  programs: Pick<Program, 'id' | 'name'>[];
+  sectors: Sector[];
+  fields: Field[];
 }
 
-export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, teachers, programs }: CourseFormDialogProps) {
+export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, teachers, sectors, fields }: CourseFormDialogProps) {
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
         name: '',
         description: '',
         teacherId: '',
-        programId: '',
+        sectorId: '',
+        fieldId: '',
     }
   });
 
+  const selectedSector = form.watch('sectorId');
+
+  const availableFields = useMemo(() => {
+      if (!selectedSector) return [];
+      return fields.filter(f => f.sectorId === selectedSector);
+  }, [selectedSector, fields]);
+
   useEffect(() => {
-    if (course) {
-      form.reset({
-        name: course.name,
-        description: course.description,
-        teacherId: course.teacherId,
-        programId: course.programId,
-      });
-    } else {
-      form.reset({
-        name: '',
-        description: '',
-        teacherId: '',
-        programId: '',
-      });
+    if (isOpen) {
+        const courseSectorId = fields.find(f => f.id === course?.fieldId)?.sectorId || '';
+        if (course) {
+          form.reset({
+            name: course.name,
+            description: course.description,
+            teacherId: course.teacherId,
+            sectorId: courseSectorId,
+            fieldId: course.fieldId,
+          });
+        } else {
+          form.reset({
+            name: '',
+            description: '',
+            teacherId: '',
+            sectorId: '',
+            fieldId: '',
+          });
+        }
     }
-  }, [course, form.reset, isOpen]);
+  }, [course, isOpen, form, fields]);
+  
+   useEffect(() => {
+    if(!form.getValues('fieldId')) return;
+    const currentField = fields.find(f => f.id === form.getValues('fieldId'));
+    if(currentField && currentField.sectorId !== selectedSector) {
+        form.setValue('fieldId', '');
+    }
+   }, [selectedSector, form, fields]);
 
   const onSubmit = (data: CourseFormValues) => {
-    onSave(data);
+    const { sectorId, ...courseData} = data;
+    onSave(courseData);
     setIsOpen(false);
   };
 
@@ -124,20 +149,27 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                 </FormItem>
             )}/>
 
-            <FormField control={form.control} name="programId" render={({ field }) => (
-                <FormItem>
-                <FormLabel>Programme</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un programme..." /></SelectTrigger></FormControl>
-                    <SelectContent>
-                        {programs.map(program => (
-                            <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}/>
+            <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="sectorId" render={({ field }) => (
+                    <FormItem><FormLabel>Secteur</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Secteur..." /></SelectTrigger></FormControl>
+                        <SelectContent>{sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
+                <FormField control={form.control} name="fieldId" render={({ field }) => (
+                    <FormItem><FormLabel>Filière</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
+                        <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Filière..."} /></SelectTrigger></FormControl>
+                        <SelectContent>{availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
+            </div>
+
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>

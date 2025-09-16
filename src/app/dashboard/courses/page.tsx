@@ -24,14 +24,14 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
-        if (!currentUser || currentUser.role !== 'student' || !currentUser.student?.programId) {
+        if (!currentUser || currentUser.role !== 'student' || !currentUser.student?.fieldId) {
             setLoading(false);
             setCourses([]);
             return;
         }
 
         setLoading(true);
-        const q = query(collection(db, "courses"), where("programId", "==", currentUser.student.programId));
+        const q = query(collection(db, "courses"), where("fieldId", "==", currentUser.student.fieldId));
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const studentCourses: Course[] = [];
@@ -105,7 +105,7 @@ export default function CoursesPage() {
                      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
                         <h3 className="text-xl font-bold tracking-tight">Aucun cours trouvé</h3>
                         <p className="text-sm text-muted-foreground">
-                           Aucun cours ne correspond à votre programme pour le moment.
+                           Aucun cours ne correspond à votre filière pour le moment.
                         </p>
                     </div>
                    )}

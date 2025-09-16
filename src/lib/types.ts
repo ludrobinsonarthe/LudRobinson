@@ -71,7 +71,7 @@ export interface Course {
   name: string;
   description: string;
   teacherId: string; // teacher_uid
-  programId: string;
+  fieldId: string;
   documents?: string[];
   schedule?: {
     day: string;
@@ -136,3 +136,4 @@ export interface Settings {
   currency: string;
   adminContacts: string[];
 }
+

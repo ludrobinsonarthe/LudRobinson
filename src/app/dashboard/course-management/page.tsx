@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Course, User } from "@/lib/types";
+import { Course, Field, Sector } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
@@ -21,6 +21,7 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch }
 import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import CourseFormDialog from "@/components/course-form-dialog";
+import { mockSectors, mockFields } from "@/lib/mock-data";
 
 export default function CourseManagementPage() {
     const { users } = useUser();
@@ -44,20 +45,19 @@ export default function CourseManagementPage() {
     }, []);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
-    const programs = useMemo(() => { 
-        // In a real app, programs would be fetched from Firestore as well.
-        // For now, we'll use a mock or assume they exist.
-        return [{ id: 'prog01', name: 'Ingénierie Informatique' }];
-    }, []);
+    const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), []);
+    const sectorsById = useMemo(() => mockSectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), []);
 
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(t => t.uid === teacherId);
         return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Non assigné';
     }
 
-    const getProgramName = (programId: string) => {
-        const program = programs.find(p => p.id === programId);
-        return program ? program.name : 'N/A';
+    const getFieldInfo = (fieldId: string) => {
+        const field = fieldsById[fieldId];
+        if (!field) return { fieldName: 'N/A', sectorName: 'N/A' };
+        const sector = sectorsById[field.sectorId];
+        return { fieldName: field.name, sectorName: sector?.name || 'N/A' };
     }
 
     const handleAdd = () => {
@@ -133,22 +133,26 @@ export default function CourseManagementPage() {
                             <TableRow>
                                 <TableHead>Nom du cours</TableHead>
                                 <TableHead>Professeur</TableHead>
-                                <TableHead>Programme</TableHead>
+                                <TableHead>Filière</TableHead>
+                                <TableHead>Secteur</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
-                            ) : courses.length > 0 ? courses.map(course => (
+                            ) : courses.length > 0 ? courses.map(course => {
+                                const { fieldName, sectorName } = getFieldInfo(course.fieldId);
+                                return (
                                 <TableRow key={course.id}>
                                     <TableCell className="font-medium">{course.name}</TableCell>
                                     <TableCell>{getTeacherName(course.teacherId)}</TableCell>
-                                    <TableCell>{getProgramName(course.programId)}</TableCell>
+                                    <TableCell>{fieldName}</TableCell>
+                                    <TableCell>{sectorName}</TableCell>
                                     <TableCell className="text-right">
                                        <DropdownMenu>
                                            <DropdownMenuTrigger asChild>
@@ -169,9 +173,10 @@ export default function CourseManagementPage() {
                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
-                            )) : (
+                                );
+                            }) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
+                                    <TableCell colSpan={5} className="h-24 text-center">
                                         Aucun cours trouvé.
                                     </TableCell>
                                 </TableRow>
@@ -187,7 +192,8 @@ export default function CourseManagementPage() {
                 onSave={handleSave}
                 course={selectedCourse}
                 teachers={teachers}
-                programs={programs}
+                sectors={mockSectors}
+                fields={mockFields}
             />
             {selectedCourse && (
                  <UserDeleteDialog
@@ -200,4 +206,3 @@ export default function CourseManagementPage() {
         </div>
     );
 }
-
