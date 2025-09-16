@@ -23,7 +23,7 @@ export default function GradesPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!currentUser || currentUser.role !== 'student') {
+        if (!currentUser || !currentUser.uid) {
             setLoading(false);
             return;
         }
@@ -98,12 +98,12 @@ export default function GradesPage() {
     }, [coursesWithGrades]);
 
 
-     if (currentUser?.role !== 'student') {
+     if (currentUser?.role === 'parent') {
         return (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[calc(100vh-12rem)]">
                 <h3 className="text-2xl font-bold tracking-tight">Accès non autorisé</h3>
                 <p className="text-sm text-muted-foreground">
-                    Seuls les étudiants peuvent accéder à cette page.
+                    Cette section est réservée aux étudiants et administrateurs.
                 </p>
             </div>
         );
@@ -169,7 +169,7 @@ export default function GradesPage() {
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
                         <h3 className="text-xl font-bold tracking-tight">Aucune note disponible</h3>
                         <p className="text-sm text-muted-foreground">
-                           Vos notes n'ont pas encore été publiées.
+                           Vos notes n'ont pas encore été publiées, ou vous n'êtes pas un étudiant.
                         </p>
                     </div>
                    )}

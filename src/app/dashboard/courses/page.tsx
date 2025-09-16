@@ -24,7 +24,7 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
-        if (!currentUser || currentUser.role !== 'student' || !currentUser.student?.fieldId) {
+        if (!currentUser || !currentUser.student?.fieldId) {
             setLoading(false);
             setCourses([]);
             return;
@@ -49,12 +49,12 @@ export default function CoursesPage() {
     }, [currentUser]);
 
 
-    if (currentUser?.role !== 'student') {
+    if (currentUser?.role === 'parent') {
         return (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[calc(100vh-12rem)]">
                 <h3 className="text-2xl font-bold tracking-tight">Accès non autorisé</h3>
                 <p className="text-sm text-muted-foreground">
-                    Seuls les étudiants peuvent accéder à cette page.
+                    Cette section est réservée aux étudiants et administrateurs.
                 </p>
             </div>
         );
@@ -105,7 +105,7 @@ export default function CoursesPage() {
                      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
                         <h3 className="text-xl font-bold tracking-tight">Aucun cours trouvé</h3>
                         <p className="text-sm text-muted-foreground">
-                           Aucun cours ne correspond à votre filière pour le moment.
+                           Aucun cours ne correspond à votre filière pour le moment ou vous n'êtes pas un étudiant.
                         </p>
                     </div>
                    )}

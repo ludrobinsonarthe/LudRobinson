@@ -1,3 +1,4 @@
+
 "use client"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -62,7 +63,6 @@ function MainSidebar() {
     setIsMounted(true);
   }, []);
 
-
   const studentMenuItems = [
     { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
     { href: "/dashboard/grades", label: "Notes", icon: ClipboardList },
@@ -86,6 +86,10 @@ function MainSidebar() {
     { href: "/dashboard", label: "Annonces", icon: Home },
     { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
   ];
+  
+  const showStudentMenu = isMounted && (user?.role === 'student' || user?.role === 'admin');
+  const showAdminMenu = isMounted && user?.role === 'admin';
+
 
   return (
     <Sidebar>
