@@ -19,7 +19,7 @@ import { MoreHorizontal, PlusCircle, Trash2, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
@@ -78,9 +78,28 @@ export default function SalaryManagementPage() {
     
     const handleUpdateStatus = async (salary: TeacherSalary, status: 'paid') => {
         try {
+            const batch = writeBatch(db);
             const salaryRef = doc(db, "salaries", salary.id);
-            await updateDoc(salaryRef, { status, paidAt: new Date().toISOString() });
-            toast({ title: "Statut mis à jour", description: `Le salaire a été marqué comme payé.` });
+            batch.update(salaryRef, { status, paidAt: new Date().toISOString() });
+            
+            if(status === 'paid') {
+                const transactionRef = doc(collection(db, 'cash_transactions'));
+                batch.set(transactionRef, {
+                    id: transactionRef.id,
+                    date: new Date().toISOString(),
+                    type: 'expense',
+                    category: 'salary',
+                    description: `Paiement salaire - ${getTeacherName(salary.teacherId)} - ${salary.month} ${salary.year}`,
+                    amount: salary.totalSalary,
+                    currency: salary.currency,
+                    createdBy: 'admin', // This should be the current admin's UID
+                    relatedDocId: salary.id,
+                });
+            }
+
+            await batch.commit();
+
+            toast({ title: "Statut mis à jour", description: `Le salaire a été marqué comme payé et enregistré en caisse.` });
         } catch (error) {
             console.error("Error updating status:", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour le statut." });
@@ -226,3 +245,5 @@ export default function SalaryManagementPage() {
         </div>
     );
 }
+
+    
