@@ -27,6 +27,7 @@ const userFormSchema = z.object({
   photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
   specialty: z.string().optional(),
   roleId: z.string().optional(),
+  position: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -50,11 +51,12 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         photoUrl: '',
         specialty: '',
         roleId: '',
+        position: '',
     }
   });
 
   const showSpecialty = userType === 'teacher';
-  const showPosition = userType === 'admin';
+  const showAdminFields = userType === 'admin';
   const dialogTitle = user 
     ? `Modifier ${userType === 'teacher' ? 'le professeur' : 'l\'administrateur'}` 
     : `Ajouter ${userType === 'teacher' ? 'un professeur' : 'un administrateur'}`;
@@ -74,6 +76,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             photoUrl: user.photoUrl || '',
             specialty: user.teacher?.specialty || '',
             roleId: user.admin?.roleId || '',
+            position: user.admin?.position || '',
         });
         } else {
         form.reset({
@@ -83,6 +86,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
             specialty: '',
             roleId: '',
+            position: '',
         });
         }
     }
@@ -99,7 +103,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
     }
      if (userType === 'admin') {
-        userData.admin = { roleId: data.roleId || '' };
+        userData.admin = { roleId: data.roleId || '', position: data.position || '' };
     }
     
     onSave(userData);
@@ -167,7 +171,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                         <FormItem>
                         <FormLabel>Spécialité</FormLabel>
                         <FormControl>
-                            <Input placeholder="Mathématiques, Physique..." {...field} />
+                            <Input placeholder="Mathématiques, Physique..." {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -175,25 +179,42 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                 />
             )}
 
-            {showPosition && adminRoles && (
-                 <FormField
-                    control={form.control}
-                    name="roleId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Poste / Rôle</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un rôle..." /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                {adminRoles.map(role => (
-                                    <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
+            {showAdminFields && (
+                <>
+                    <FormField
+                        control={form.control}
+                        name="position"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Poste occupé</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Directeur des études, Comptable..." {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {adminRoles && (
+                        <FormField
+                            control={form.control}
+                            name="roleId"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Rôle (Permissions)</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || ''}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un rôle..." /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {adminRoles.map(role => (
+                                            <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     )}
-                />
+                </>
             )}
 
 

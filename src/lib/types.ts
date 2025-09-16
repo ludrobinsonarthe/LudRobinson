@@ -42,6 +42,7 @@ export interface User {
   status: UserStatus;
   admin?: {
     roleId: string;
+    position?: string;
   };
   student?: {
     matricule: string;
