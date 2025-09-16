@@ -149,8 +149,9 @@ export default function SalaryManagementPage() {
                             <TableRow>
                                 <TableHead>Professeur</TableHead>
                                 <TableHead>Mois/Année</TableHead>
+                                <TableHead>Taux Horaire</TableHead>
+                                <TableHead>Heures</TableHead>
                                 <TableHead>Salaire Total</TableHead>
-                                <TableHead>Date d'émission</TableHead>
                                 <TableHead>Statut</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
@@ -158,7 +159,7 @@ export default function SalaryManagementPage() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={7} className="h-24 text-center">
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
@@ -166,8 +167,9 @@ export default function SalaryManagementPage() {
                                 <TableRow key={salary.id}>
                                     <TableCell className="font-medium">{getTeacherName(salary.teacherId)}</TableCell>
                                     <TableCell>{salary.month} {salary.year}</TableCell>
+                                    <TableCell>{formatCurrency(salary.hourlyRate, salary.currency)}</TableCell>
+                                    <TableCell>{salary.hoursWorked}h</TableCell>
                                     <TableCell className='font-semibold'>{formatCurrency(salary.totalSalary, salary.currency)}</TableCell>
-                                    <TableCell>{format(new Date(salary.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
                                     <TableCell>
                                         <Badge variant={statusVariant[salary.status]}>{statusTranslation[salary.status]}</Badge>
                                     </TableCell>
@@ -196,7 +198,7 @@ export default function SalaryManagementPage() {
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
+                                    <TableCell colSpan={7} className="h-24 text-center">
                                         Aucune fiche de paie trouvée.
                                     </TableCell>
                                 </TableRow>
