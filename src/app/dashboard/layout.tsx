@@ -24,6 +24,8 @@ import {
   ClipboardList,
   CalendarDays,
   Wallet,
+  Users,
+  GraduationCap,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -54,10 +56,16 @@ function MainSidebar() {
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
   ];
 
+  const adminMenuItems = [
+    { href: "/dashboard/students", label: "Étudiants", icon: Users },
+    { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
+  ]
+
   const menuItems = [
     { href: "/dashboard", label: "Annonces", icon: Home },
     { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
     ...(user?.role === 'student' ? studentMenuItems : []),
+    ...(user?.role === 'admin' ? adminMenuItems : []),
     ...(user?.role !== 'student' && user?.role !== 'parent' ? [{ href: "/dashboard/documents", label: "Documents", icon: FileText }] : []),
     { href: "/dashboard/profile", label: "Profil", icon: UserIcon },
   ];
