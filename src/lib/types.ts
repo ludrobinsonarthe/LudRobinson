@@ -193,4 +193,6 @@ export interface Settings {
   logoUrl: string;
   academicYear: string;
   currency: string;
+  levels: { value: string }[];
+  sectors: { id: string; name: string }[];
 }

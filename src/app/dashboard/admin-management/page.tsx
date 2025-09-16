@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -10,16 +10,22 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Loader2 } from "lucide-react";
+import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { Settings } from "@/lib/types";
+import { Separator } from "@/components/ui/separator";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
   logoUrl: z.string().url("L'URL du logo doit être valide.").or(z.literal("")),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
+  levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
+  sectors: z.array(z.object({ 
+    id: z.string().min(1, "L'ID est requis."),
+    name: z.string().min(1, "Le nom est requis.") 
+  })),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -35,14 +41,30 @@ export default function AdminManagementPage() {
             logoUrl: "",
             academicYear: "",
             currency: "XAF",
+            levels: [],
+            sectors: [],
         },
+    });
+
+    const { fields: levelFields, append: appendLevel, remove: removeLevel } = useFieldArray({
+        control: form.control,
+        name: "levels",
+    });
+     const { fields: sectorFields, append: appendSector, remove: removeSector } = useFieldArray({
+        control: form.control,
+        name: "sectors",
     });
 
     useEffect(() => {
         const settingsRef = doc(db, "settings", "system");
         const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
             if (docSnap.exists()) {
-                form.reset(docSnap.data() as Settings);
+                const data = docSnap.data() as Settings;
+                form.reset({
+                    ...data,
+                    levels: data.levels || [{value: "Licence 1"}, {value: "Licence 2"}, {value: "Licence 3"}, {value: "Master 1"}, {value: "Master 2"}],
+                    sectors: data.sectors || [],
+                });
             }
             setLoading(false);
         });
@@ -79,21 +101,21 @@ export default function AdminManagementPage() {
                     Gérez les paramètres globaux de la plateforme de l'institut.
                 </p>
             </div>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Paramètres Généraux</CardTitle>
-                    <CardDescription>
-                        Configuration de l'année académique, du nom de l'établissement et d'autres paramètres essentiels.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loading && !form.formState.isDirty ? (
-                         <div className="flex items-center justify-center h-48">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                         </div>
-                    ) : (
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+             {loading && !form.formState.isDirty ? (
+                 <div className="flex items-center justify-center h-96">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                 </div>
+            ) : (
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-12">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Paramètres Généraux</CardTitle>
+                                <CardDescription>
+                                    Configuration de l'année académique, du nom de l'établissement et d'autres paramètres essentiels.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-8">
                                 <FormField control={form.control} name="schoolName" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Nom de l'établissement</FormLabel>
@@ -124,17 +146,86 @@ export default function AdminManagementPage() {
                                         </FormItem>
                                     )}/>
                                 </div>
-                                <div className="flex justify-end">
-                                    <Button type="submit" disabled={loading}>
-                                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Enregistrer les paramètres
-                                    </Button>
-                                </div>
-                            </form>
-                        </Form>
-                    )}
-                </CardContent>
-            </Card>
+                            </CardContent>
+                        </Card>
+                        
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Niveaux Académiques</CardTitle>
+                                <CardDescription>Gérez les niveaux d'études disponibles dans l'établissement.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {levelFields.map((field, index) => (
+                                    <div key={field.id} className="flex items-center gap-2">
+                                        <FormField
+                                            control={form.control}
+                                            name={`levels.${index}.value`}
+                                            render={({ field }) => (
+                                                <FormItem className="flex-1">
+                                                    <FormControl><Input {...field} placeholder="Ex: Licence 1" /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeLevel(index)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm" onClick={() => appendLevel({ value: '' })}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un niveau
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                             <CardHeader>
+                                <CardTitle>Secteurs d'Activité</CardTitle>
+                                <CardDescription>Gérez les grands secteurs de formation de votre institut.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {sectorFields.map((field, index) => (
+                                    <div key={field.id} className="flex items-center gap-2">
+                                        <FormField
+                                            control={form.control}
+                                            name={`sectors.${index}.id`}
+                                            render={({ field }) => (
+                                                <FormItem className="flex-1">
+                                                     <FormControl><Input {...field} placeholder="ID (ex: technologie)" /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`sectors.${index}.name`}
+                                            render={({ field }) => (
+                                                <FormItem className="flex-1">
+                                                    <FormControl><Input {...field} placeholder="Nom (ex: TECHNOLOGIE)" /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeSector(index)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm" onClick={() => appendSector({ id: '', name: '' })}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un secteur
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <div className="flex justify-end pt-4">
+                            <Button type="submit" disabled={loading}>
+                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Enregistrer les paramètres
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
+            )}
         </div>
     );
 }
