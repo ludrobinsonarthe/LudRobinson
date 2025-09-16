@@ -88,11 +88,15 @@ export default function FeeManagementPage() {
   useEffect(() => {
     const q = query(collection(db, "fee_structures"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const structures: FeeStructure[] = [];
-      snapshot.forEach((doc) => {
-        structures.push({ id: doc.id, ...doc.data() } as FeeStructure);
-      });
-      form.reset({ feeStructures: structures });
+      if (snapshot.empty) {
+        form.reset({ feeStructures: [] });
+      } else {
+        const structures: FeeStructure[] = [];
+        snapshot.forEach((doc) => {
+          structures.push({ id: doc.id, ...doc.data() } as FeeStructure);
+        });
+        form.reset({ feeStructures: structures });
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -168,14 +172,15 @@ export default function FeeManagementPage() {
           ) : (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <div className="border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cycle</TableHead>
-                      <TableHead>Niveau</TableHead>
-                      <TableHead>Frais d'inscription (XAF)</TableHead>
-                      <TableHead>Frais de scolarité (XAF)</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="w-[200px]">Cycle</TableHead>
+                      <TableHead className="w-[200px]">Niveau</TableHead>
+                      <TableHead>Frais d'inscription</TableHead>
+                      <TableHead>Frais de scolarité</TableHead>
+                      <TableHead className="w-[50px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -187,7 +192,9 @@ export default function FeeManagementPage() {
                             name={`feeStructures.${index}.cycle`}
                             render={({ field }) => (
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
+                                </FormControl>
                                 <SelectContent>
                                   {cycles.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
                                 </SelectContent>
@@ -201,7 +208,9 @@ export default function FeeManagementPage() {
                             name={`feeStructures.${index}.level`}
                             render={({ field }) => (
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
+                                </FormControl>
                                 <SelectContent>
                                   {levels.map((l) => (<SelectItem key={l} value={l}>{l}</SelectItem>))}
                                 </SelectContent>
@@ -213,18 +222,28 @@ export default function FeeManagementPage() {
                           <FormField
                             control={form.control}
                             name={`feeStructures.${index}.registration`}
-                            render={({ field }) => ( <Input type="number" {...field} /> )}
+                            render={({ field }) => ( 
+                                <div className="relative">
+                                    <Input type="number" {...field} className="pl-8"/> 
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">XAF</span>
+                                </div>
+                            )}
                           />
                         </TableCell>
                         <TableCell>
                           <FormField
                             control={form.control}
                             name={`feeStructures.${index}.tuition`}
-                            render={({ field }) => ( <Input type="number" {...field} /> )}
+                            render={({ field }) => (
+                                <div className="relative">
+                                     <Input type="number" {...field} className="pl-8"/> 
+                                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">XAF</span>
+                                </div>
+                            )}
                           />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
@@ -232,15 +251,16 @@ export default function FeeManagementPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
                 
-                <div className="flex justify-between items-center mt-4">
+                <div className="flex justify-between items-center pt-4">
                     <Button type="button" variant="outline" onClick={addNewFeeStructure}>
                         <PlusCircle className="mr-2 h-4 w-4" />
-                        Ajouter une configuration
+                        Ajouter une ligne
                     </Button>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Enregistrer les modifications
+                    <Button type="submit" disabled={form.formState.isSubmitting || loading}>
+                        {(form.formState.isSubmitting || loading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Enregistrer les frais
                     </Button>
                 </div>
               </form>
