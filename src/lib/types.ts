@@ -167,16 +167,25 @@ export interface OfficialDocument {
   issuedAt: string;
 }
 
+export type StudentAttendanceStatus = 'present' | 'absent' | 'justified';
+
+export interface StudentAttendance {
+    studentId: string;
+    status: StudentAttendanceStatus;
+    comment?: string;
+}
+
 export interface Attendance {
-    id: string;
+    id: string; // YYYY-MM-DD-courseId
     date: string; // YYYY-MM-DD
     courseId: string;
     teacherId: string;
-    studentIds: string[]; // list of students present
-    status: 'present' | 'absent';
+    teacherStatus: 'present' | 'absent';
+    studentAttendances: StudentAttendance[];
     validatedBy: string; // admin_uid
+    createdAt: string;
+    updatedAt: string;
 }
-
 
 export interface Settings {
   id: 'system';
