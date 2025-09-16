@@ -1,4 +1,5 @@
 
+
 "use client"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -77,6 +78,7 @@ function MainSidebar() {
     { href: "/dashboard/students", label: "Étudiants", icon: Users },
     { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
     { href: "/dashboard/course-management", label: "Gestion Cours & Horaires", icon: BookMarked },
+    { href: "/dashboard/grade-management", label: "Gestion des notes", icon: ClipboardList },
     { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt },
     { href: "/dashboard/fee-management", label: "Gestion des frais", icon: FileCog },
     { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote },
@@ -145,7 +147,7 @@ function MainSidebar() {
               <SidebarMenuItem key={item.href + item.label}>
                   <SidebarMenuButton
                       asChild
-                      isActive={pathname === item.href}
+                      isActive={pathname.startsWith(item.href)}
                       tooltip={item.label}
                   >
                       <Link href={item.href}>

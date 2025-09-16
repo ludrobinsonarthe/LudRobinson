@@ -1,7 +1,9 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -14,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Course, Field, Sector, Cycle } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
@@ -249,6 +251,12 @@ export default function CourseManagementPage() {
                                                     <Edit className="mr-2 h-4 w-4" />
                                                     Modifier
                                                </DropdownMenuItem>
+                                               <DropdownMenuItem asChild>
+                                                    <Link href={`/dashboard/grade-management?courseId=${course.id}`}>
+                                                        <ClipboardList className="mr-2 h-4 w-4" />
+                                                        Gérer les notes
+                                                    </Link>
+                                                </DropdownMenuItem>
                                                <DropdownMenuItem onClick={() => handleDelete(course)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer

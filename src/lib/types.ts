@@ -102,6 +102,7 @@ export interface Grade {
   total: number;
   academicYear: string;
   createdAt: string;
+  comment?: string;
 }
 
 export interface Payment {
