@@ -32,7 +32,7 @@ function AppLogo() {
         <Bot className="h-6 w-6" />
       </div>
       <h1 className="font-headline text-lg font-bold tracking-tight text-foreground">
-        eSchool-ISGI
+        ISGI
       </h1>
     </Link>
   );
