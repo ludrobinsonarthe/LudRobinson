@@ -5,19 +5,21 @@ export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
 
 export const adminPermissions = {
-  manage_students: "Gérer les étudiants",
-  manage_teachers: "Gérer les professeurs",
-  manage_users: "Gérer les utilisateurs admin",
-  manage_courses: "Gérer les cours et horaires",
-  manage_grades: "Gérer les notes",
-  manage_tuition: "Gérer la scolarité",
-  manage_fees: "Gérer les frais",
-  manage_salaries: "Gérer les salaires",
-  manage_attendance: "Gérer les présences",
-  manage_cash_flow: "Gérer la caisse",
-  view_reporting: "Voir les rapports",
-  manage_settings: "Gérer les paramètres administratifs",
+  view_reporting: "Voir le Tableau de Bord",
+  manage_students: "Gérer les Étudiants",
+  manage_teachers: "Gérer les Professeurs",
+  manage_course: "Gérer les Cours & Horaires",
+  manage_grades: "Gérer les Notes",
+  manage_tuition: "Gérer la Scolarité",
+  manage_fees: "Gérer les Frais",
+  manage_salaries: "Gérer les Salaires",
+  manage_attendance: "Gérer les Présences",
+  manage_cash_flow: "Gérer la Caisse",
+  manage_users: "Gérer le Personnel (Utilisateurs)",
+  manage_roles: "Gérer les Rôles & Permissions",
+  manage_admin_settings: "Gérer les Paramètres de l'Institut",
 };
+
 
 export type AdminPermission = keyof typeof adminPermissions;
 

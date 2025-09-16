@@ -28,6 +28,8 @@ import { useToast } from "@/hooks/use-toast";
 import { AdminRole, adminPermissions, AdminPermission } from "@/lib/types";
 import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormDescription } from "@/components/ui/form";
+import { Separator } from "@/components/ui/separator";
 
 const roleSchema = z.object({
   id: z.string(),
@@ -41,6 +43,12 @@ const rolesFormSchema = z.object({
 
 type RolesFormValues = z.infer<typeof rolesFormSchema>;
 
+const permissionGroups = {
+    'Pédagogie': ['manage_students', 'manage_teachers', 'manage_course', 'manage_grades', 'manage_attendance'],
+    'Finances': ['manage_tuition', 'manage_fees', 'manage_salaries', 'manage_cash_flow'],
+    'Administration Système': ['manage_users', 'manage_roles', 'manage_admin_settings', 'view_reporting']
+}
+
 export default function RolesPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -52,7 +60,7 @@ export default function RolesPage() {
     },
   });
 
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "roles",
   });
@@ -152,7 +160,7 @@ export default function RolesPage() {
                                         </FormItem>
                                     )}
                                 />
-                                <CardDescription>ID: {field.id}</CardDescription>
+                                <CardDescription>ID du rôle: {field.id}</CardDescription>
                              </div>
                              <Button type="button" variant="ghost" size="icon" onClick={() => removeRole(index)}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -168,23 +176,31 @@ export default function RolesPage() {
                                             <FormLabel className="text-base">Permissions</FormLabel>
                                             <FormDescription>Cochez les accès que ce rôle doit avoir.</FormDescription>
                                         </div>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                            {(Object.keys(adminPermissions) as AdminPermission[]).map((permission) => (
-                                                <div key={permission} className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                                                    <FormControl>
-                                                        <Checkbox
-                                                            checked={value.includes(permission)}
-                                                            onCheckedChange={(checked) => {
-                                                                return checked
-                                                                ? onChange([...value, permission])
-                                                                : onChange(value.filter((p) => p !== permission))
-                                                            }}
-                                                        />
-                                                    </FormControl>
-                                                    <FormLabel className="font-normal text-sm">{adminPermissions[permission]}</FormLabel>
+                                        <div className="space-y-6">
+                                            {Object.entries(permissionGroups).map(([groupName, groupPermissions]) => (
+                                                <div key={groupName}>
+                                                    <h4 className="font-medium text-sm text-foreground mb-2">{groupName}</h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        {groupPermissions.map((permission) => (
+                                                            <div key={permission} className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                                                <FormControl>
+                                                                    <Checkbox
+                                                                        checked={value.includes(permission)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            return checked
+                                                                            ? onChange([...value, permission])
+                                                                            : onChange(value.filter((p) => p !== permission))
+                                                                        }}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormLabel className="font-normal text-sm">{adminPermissions[permission as AdminPermission]}</FormLabel>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
+
                                         <FormMessage />
                                     </FormItem>
                                 )}
