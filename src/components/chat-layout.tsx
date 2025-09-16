@@ -6,6 +6,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CornerUpLeft,
+  MessageSquarePlus,
   Mic,
   Paperclip,
   Phone,
@@ -39,6 +40,7 @@ import { useUser } from "@/hooks/use-user";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import MessageSummarizer from "./message-summarizer";
+import NewMessageDialog from "./new-message-dialog";
 
 interface ChatLayoutProps {
   defaultLayout: number[] | undefined;
@@ -55,6 +57,7 @@ export default function ChatLayout({
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
+  const [isNewMessageDialogOpen, setIsNewMessageDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -86,7 +89,7 @@ export default function ChatLayout({
             .filter(m => (m.senderId === partnerId && m.receiverId === currentUser.uid) || (m.senderId === currentUser.uid && m.receiverId === partnerId))
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         return { partner, lastMessage };
-    }).sort((a, b) => new Date(b.lastMessage?.createdAt || 0).getTime() - new Date(a.lastMessage?.createdAt || 0).getTime());
+    }).filter(c => c.partner).sort((a, b) => new Date(b.lastMessage?.createdAt || 0).getTime() - new Date(a.lastMessage?.createdAt || 0).getTime());
   }, [messages, currentUser, users, isMounted]);
 
   React.useEffect(() => {
@@ -107,11 +110,17 @@ export default function ChatLayout({
 
   const selectedUser = users.find(u => u.uid === selectedConversation);
 
+  const handleStartNewConversation = (userId: string) => {
+    setSelectedConversation(userId);
+    setIsNewMessageDialogOpen(false);
+  }
+
   if (!isMounted) {
       return null;
   }
 
   return (
+    <>
     <div className="z-10 h-[calc(100vh-12rem)] w-full text-sm lg:flex">
       <div
         className={cn(
@@ -121,8 +130,12 @@ export default function ChatLayout({
         )}
       >
         <div className={cn("flex flex-col bg-card rounded-lg border h-full", isCollapsed && "hidden")}>
-          <div className="p-4">
+          <div className="flex items-center justify-between p-4">
             <h2 className="text-xl font-bold font-headline">Discussions</h2>
+            <Button variant="ghost" size="icon" onClick={() => setIsNewMessageDialogOpen(true)}>
+                <MessageSquarePlus className="h-5 w-5"/>
+                <span className="sr-only">Nouveau message</span>
+            </Button>
           </div>
           <Separator />
           <ScrollArea className="flex-1">
@@ -270,5 +283,12 @@ export default function ChatLayout({
         </div>
       </div>
     </div>
+    <NewMessageDialog
+        isOpen={isNewMessageDialogOpen}
+        setIsOpen={setIsNewMessageDialogOpen}
+        onSelectUser={handleStartNewConversation}
+        users={users.filter(u => u.uid !== currentUser?.uid)}
+    />
+    </>
   );
 }
