@@ -2,13 +2,14 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
 import { collection, query, where, onSnapshot, documentId } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { BookOpenCheck } from 'lucide-react';
+import { BookOpenCheck, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 
 export default function CoursesPage() {
     const { user: currentUser, users } = useUser();
@@ -138,6 +139,16 @@ export default function CoursesPage() {
                                         {course.description || "Aucune description pour ce cours."}
                                     </p>
                                 </CardContent>
+                                {course.documents && course.documents.length > 0 && (
+                                    <CardFooter>
+                                        <Button asChild variant="secondary" className="w-full">
+                                            <a href={course.documents[0]} target="_blank" rel="noopener noreferrer">
+                                                <FileText className="mr-2 h-4 w-4" />
+                                                Voir le document du cours
+                                            </a>
+                                        </Button>
+                                    </CardFooter>
+                                )}
                             </Card>
                         ))}
                     </div>

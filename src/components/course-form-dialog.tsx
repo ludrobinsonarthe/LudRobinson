@@ -33,6 +33,7 @@ const courseFormSchema = z.object({
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
+  documents: z.string().url("Veuillez entrer une URL valide.").optional().or(z.literal('')),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -56,6 +57,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         teacherId: '',
         sectorId: '',
         fieldId: '',
+        documents: '',
     }
   });
 
@@ -76,6 +78,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             teacherId: course.teacherId,
             sectorId: courseSectorId,
             fieldId: course.fieldId,
+            documents: course.documents?.[0] || '',
           });
         } else {
           form.reset({
@@ -84,6 +87,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             teacherId: '',
             sectorId: '',
             fieldId: '',
+            documents: '',
           });
         }
     }
@@ -98,8 +102,12 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
    }, [selectedSector, form, fields]);
 
   const onSubmit = (data: CourseFormValues) => {
-    const { sectorId, ...courseData} = data;
-    onSave(courseData);
+    const { sectorId, documents, ...courseData} = data;
+    const finalCourseData: Partial<Course> = {
+        ...courseData,
+        documents: documents ? [documents] : []
+    };
+    onSave(finalCourseData);
     setIsOpen(false);
   };
 
@@ -130,6 +138,14 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                 <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl><Textarea placeholder="Brève description du cours..." {...field} /></FormControl>
+                <FormMessage />
+                </FormItem>
+            )}/>
+
+             <FormField control={form.control} name="documents" render={({ field }) => (
+                <FormItem>
+                <FormLabel>Document du cours (URL)</FormLabel>
+                <FormControl><Input placeholder="https://lien/vers/votre/document.pdf" {...field} /></FormControl>
                 <FormMessage />
                 </FormItem>
             )}/>
