@@ -134,22 +134,3 @@ export const mockMessages: Message[] = [
     createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
   },
 ];
-
-export const mockDocuments: OfficialDocument[] = [
-  {
-    id: 'doc01',
-    studentId: 'student01',
-    type: 'bulletin',
-    fileUrl: '#',
-    issuedBy: 'admin01',
-    issuedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'doc02',
-    studentId: 'student01',
-    type: 'certificat',
-    fileUrl: '#',
-    issuedBy: 'admin01',
-    issuedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];

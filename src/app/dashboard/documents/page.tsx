@@ -1,3 +1,6 @@
+
+"use client";
+
 import {
   Table,
   TableBody,
@@ -9,20 +12,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockDocuments, mockUsers } from "@/lib/mock-data";
-import { OfficialDocument, User, UserRole } from "@/lib/types";
+import { OfficialDocument } from "@/lib/types";
 import { Download } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-
-// This would come from an auth context in a real app
-const getCurrentUser = async (): Promise<User> => {
-    return mockUsers.find(u => u.role === 'student')!;
-}
-
-const getDocumentsForStudent = async (studentId: string): Promise<OfficialDocument[]> => {
-    return mockDocuments.filter(doc => doc.studentId === studentId);
-}
+import { useUser } from "@/hooks/use-user";
+import { useState, useEffect } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const documentTypeTranslation: {[key: string]: string} = {
     'bulletin': 'Bulletin de notes',
@@ -31,11 +28,36 @@ const documentTypeTranslation: {[key: string]: string} = {
 }
 
 
-export default async function DocumentsPage() {
-    const currentUser = await getCurrentUser();
+export default function DocumentsPage() {
+    const { user: currentUser } = useUser();
+    const [documents, setDocuments] = useState<OfficialDocument[]>([]);
+    const [loading, setLoading] = useState(true);
     
-    // For the demo, we are hardcoding a student user. Let's imagine this check for other roles.
-    if (currentUser.role !== 'student') {
+    useEffect(() => {
+        if (!currentUser || currentUser.role !== 'student') {
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        const q = query(collection(db, "documents"), where("studentId", "==", currentUser.uid));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const userDocuments: OfficialDocument[] = [];
+            snapshot.forEach((doc) => {
+                userDocuments.push({ id: doc.id, ...doc.data() } as OfficialDocument);
+            });
+            setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching documents: ", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [currentUser]);
+
+    if (currentUser?.role !== 'student') {
         return (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[calc(100vh-12rem)]">
                 <h3 className="text-2xl font-bold tracking-tight">Accès non autorisé</h3>
@@ -45,8 +67,6 @@ export default async function DocumentsPage() {
             </div>
         );
     }
-
-    const documents = await getDocumentsForStudent(currentUser.uid);
 
     return (
         <div className="space-y-6">
@@ -73,7 +93,13 @@ export default async function DocumentsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {documents.length > 0 ? documents.map(doc => (
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">
+                                        Chargement...
+                                    </TableCell>
+                                </TableRow>
+                            ) : documents.length > 0 ? documents.map(doc => (
                                 <TableRow key={doc.id}>
                                     <TableCell className="font-medium">
                                         <Badge variant="secondary">{documentTypeTranslation[doc.type] || doc.type}</Badge>
