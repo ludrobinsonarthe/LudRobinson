@@ -71,7 +71,6 @@ export interface Course {
   name: string;
   description: string;
   teacherId: string; // teacher_uid
-  classId: string;
   programId: string;
   documents?: string[];
   schedule?: {

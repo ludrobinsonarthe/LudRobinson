@@ -87,7 +87,6 @@ export const mockCourses: Course[] = [
         name: "Mathématiques pour l'ingénieur",
         description: "Cours de Licence 3",
         teacherId: "teacher01",
-        classId: "class01",
         programId: "prog01",
     }
 ]
