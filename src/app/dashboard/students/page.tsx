@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, UserRole, Class, Sector, Field, Cycle } from "@/lib/types";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -157,33 +158,57 @@ export default function StudentsPage() {
         return parent ? `${parent.firstName} ${parent.lastName}` : 'Inconnu';
     };
 
-    const handleExport = () => {
-        const doc = new jsPDF();
+    const getExportData = () => {
+        return filteredStudents.map(student => {
+            const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student.parentUid) : null;
+            return {
+                "Prénom": student.firstName,
+                "Nom": student.lastName,
+                "Email": student.email,
+                "Matricule": student.student?.matricule,
+                "Niveau": student.student?.level,
+                "Cycle": cycles.find(c => c.value === student.student?.cycle)?.label,
+                "Filière": student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A',
+                "Secteur": student.student?.fieldId ? sectorsById[fieldsById[student.student.fieldId]?.sectorId]?.name : 'N/A',
+                "Date d'inscription": format(new Date(student.createdAt), 'd MMMM yyyy', { locale: fr }),
+                "Tuteur": parent ? `${parent.firstName} ${parent.lastName}` : 'N/A',
+                "Email Tuteur": parent?.email,
+                "Téléphone Tuteur": parent?.phone,
+                "Lien Parental": student.student?.parentalLink
+            };
+        });
+    }
+
+    const handleExportPDF = () => {
+        const doc = new jsPDF({ orientation: "landscape" });
         doc.text("Liste des Étudiants", 14, 16);
         
-        const tableColumn = ["Nom", "Email", "Niveau", "Filière", "Cycle"];
-        const tableRows: (string|undefined)[][] = [];
-
-        filteredStudents.forEach(student => {
-            const studentData = [
-                `${student.firstName} ${student.lastName}`,
-                student.email,
-                student.student?.level,
-                student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A',
-                cycles.find(c => c.value === student.student?.cycle)?.label
-            ];
-            tableRows.push(studentData);
-        });
+        const exportData = getExportData();
+        const tableColumn = Object.keys(exportData[0] || {});
+        const tableRows = exportData.map(row => Object.values(row));
 
         autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: 20,
+            theme: 'striped',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [41, 128, 185] },
         });
         
         doc.save("liste_etudiants.pdf");
-        toast({ title: "Exportation réussie", description: "La liste des étudiants a été exportée en PDF." });
+        toast({ title: "Exportation PDF réussie", description: `${filteredStudents.length} étudiants exportés.` });
     };
+    
+    const handleExportXLSX = () => {
+        const exportData = getExportData();
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Étudiants");
+        XLSX.writeFile(workbook, "liste_etudiants.xlsx");
+        toast({ title: "Exportation XLSX réussie", description: `${filteredStudents.length} étudiants exportés.` });
+    };
+
 
     const handleImportClick = () => {
         fileInputRef.current?.click();
@@ -261,7 +286,7 @@ export default function StudentsPage() {
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                     <Button variant="outline" onClick={handleImportClick}>
-                        <FileUp className="mr-2 h-4 w-4" /> Importer (.xls)
+                        <FileUp className="mr-2 h-4 w-4" /> Importer
                     </Button>
                     <input
                         type="file"
@@ -270,7 +295,16 @@ export default function StudentsPage() {
                         className="hidden"
                         accept=".xlsx, .xls"
                     />
-                    <Button variant="outline" onClick={handleExport}><FileDown className="mr-2 h-4 w-4" /> Exporter (.pdf)</Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline"><FileDown className="mr-2 h-4 w-4" /> Exporter</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={handleExportPDF}>Exporter en PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportXLSX}>Exporter en Excel</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
                     <Button onClick={handleAdd}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Ajouter un étudiant
@@ -403,3 +437,5 @@ export default function StudentsPage() {
         </div>
     );
 }
+
+    
