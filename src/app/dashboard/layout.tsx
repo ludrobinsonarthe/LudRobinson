@@ -35,6 +35,7 @@ import {
   Receipt,
   Banknote,
   Landmark,
+  FileCog,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -76,6 +77,7 @@ function MainSidebar() {
     { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap },
     { href: "/dashboard/course-management", label: "Gestion des cours", icon: BookMarked },
     { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt },
+    { href: "/dashboard/fee-management", label: "Gestion des frais", icon: FileCog },
     { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote },
     { href: "/dashboard/cash-flow", label: "Suivi de caisse", icon: Landmark },
     { href: "/dashboard/users", label: "Utilisateurs", icon: UserCog },
@@ -87,8 +89,8 @@ function MainSidebar() {
     { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
   ];
   
-  const showStudentMenu = isMounted && (user?.role === 'student' || user?.role === 'admin');
-  const showAdminMenu = isMounted && user?.role === 'admin';
+  const showStudentMenu = true;
+  const showAdminMenu = true;
 
 
   return (
@@ -117,7 +119,7 @@ function MainSidebar() {
             ))}
           </SidebarGroup>
 
-          <SidebarGroup>
+        {showStudentMenu && <SidebarGroup>
             <SidebarGroupLabel>Étudiant</SidebarGroupLabel>
              {studentMenuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -133,9 +135,9 @@ function MainSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-          </SidebarGroup>
+          </SidebarGroup>}
 
-          <SidebarGroup>
+          {showAdminMenu && <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             {adminManagementItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -151,7 +153,7 @@ function MainSidebar() {
                   </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-          </SidebarGroup>
+          </SidebarGroup>}
 
         </SidebarMenu>}
       </SidebarContent>

@@ -65,6 +65,13 @@ export interface Field {
   sectorId: string;
 }
 
+export interface FeeStructure {
+    id: 'school_fees';
+    registration: number;
+    tuition: number;
+    currency: string;
+}
+
 
 export interface Course {
   id: string;
@@ -163,5 +170,3 @@ export interface Settings {
   currency: string;
   adminContacts: string[];
 }
-
-    
