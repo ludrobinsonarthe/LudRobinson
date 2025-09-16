@@ -93,7 +93,7 @@ function SalaryManagementContent() {
     const calculateHours = (teacherId: string, month: number, year: number): number => {
         const teacherAttendances = attendances.filter(a => 
             a.teacherId === teacherId &&
-            a.status === 'present' &&
+            a.teacherStatus === 'present' &&
             getMonth(new Date(a.date)) === month &&
             getYear(new Date(a.date)) === year
         );
