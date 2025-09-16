@@ -39,6 +39,7 @@ const userFormSchema = z.object({
   email: z.string().email("Adresse e-mail invalide."),
   role: z.enum(["admin", "teacher", "student", "parent"]),
   photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
+  specialty: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -48,19 +49,25 @@ interface UserFormDialogProps {
   setIsOpen: (isOpen: boolean) => void;
   onSave: (data: Partial<User>) => void;
   user: User | null;
+  defaultRole?: UserRole;
+  allowedRoles?: UserRole[];
 }
 
-export default function UserFormDialog({ isOpen, setIsOpen, onSave, user }: UserFormDialogProps) {
+export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, defaultRole = 'student', allowedRoles }: UserFormDialogProps) {
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
         firstName: '',
         lastName: '',
         email: '',
-        role: 'student',
-        photoUrl: 'https://picsum.photos/seed/newuser/100/100',
+        role: defaultRole,
+        photoUrl: '',
+        specialty: '',
     }
   });
+
+  const displayableRoles = allowedRoles ? roleOptions.filter(r => allowedRoles.includes(r.value)) : roleOptions;
+  const showSpecialty = form.watch('role') === 'teacher';
 
   useEffect(() => {
     if (user) {
@@ -70,20 +77,28 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user }: User
         email: user.email,
         role: user.role,
         photoUrl: user.photoUrl,
+        specialty: user.teacher?.specialty,
       });
     } else {
       form.reset({
         firstName: '',
         lastName: '',
         email: '',
-        role: 'student',
+        role: defaultRole,
         photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
+        specialty: '',
       });
     }
-  }, [user, form.reset, isOpen]);
+  }, [user, form.reset, isOpen, defaultRole]);
 
   const onSubmit = (data: UserFormValues) => {
-    onSave(data);
+    const userData: Partial<User> = {...data};
+    if (data.role === 'teacher') {
+        userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
+    }
+    delete (userData as any).specialty;
+
+    onSave(userData);
     setIsOpen(false);
   };
 
@@ -152,14 +167,14 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user }: User
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Rôle</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={displayableRoles.length === 1}>
                         <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Sélectionner un rôle..." />
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            {roleOptions.map(option => (
+                            {displayableRoles.map(option => (
                                 <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                             ))}
                         </SelectContent>
@@ -168,6 +183,23 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user }: User
                     </FormItem>
                 )}
             />
+            
+            {showSpecialty && (
+                 <FormField
+                    control={form.control}
+                    name="specialty"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Spécialité</FormLabel>
+                        <FormControl>
+                            <Input placeholder="Mathématiques, Physique..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
+
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
