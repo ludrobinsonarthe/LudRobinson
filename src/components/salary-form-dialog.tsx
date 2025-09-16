@@ -43,13 +43,14 @@ interface SalaryFormDialogProps {
   onSave: (data: Omit<TeacherSalary, 'id' | 'createdAt' | 'status'>) => void;
   teachers: User[];
   salary?: TeacherSalary | null;
+  initialTeacherId?: string | null;
 }
 
 const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}`);
 
-export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, salary }: SalaryFormDialogProps) {
+export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, salary, initialTeacherId }: SalaryFormDialogProps) {
   const form = useForm<SalaryFormValues>({
     resolver: zodResolver(salaryFormSchema),
     defaultValues: {
@@ -77,7 +78,7 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
             form.reset(salary);
         } else {
             form.reset({
-                teacherId: '',
+                teacherId: initialTeacherId || '',
                 hourlyRate: 0,
                 hoursWorked: 0,
                 totalSalary: 0,
@@ -87,7 +88,7 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
             });
         }
     }
-  }, [salary, isOpen, form]);
+  }, [salary, isOpen, form, initialTeacherId]);
 
   const onSubmit = (data: SalaryFormValues) => {
     onSave(data);
@@ -110,7 +111,7 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-6">
                 <FormField control={form.control} name="teacherId" render={({ field }) => (
                     <FormItem><FormLabel>Professeur</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!initialTeacherId}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un professeur..." /></SelectTrigger></FormControl>
                         <SelectContent>{teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.firstName} {t.lastName}</SelectItem>)}</SelectContent>
                     </Select>

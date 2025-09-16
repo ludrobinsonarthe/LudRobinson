@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -25,9 +26,11 @@ import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 
-
-export default function SalaryManagementPage() {
+function SalaryManagementContent() {
     const { users, loading: usersLoading } = useUser();
+    const searchParams = useSearchParams();
+    const teacherIdFilter = searchParams.get('teacherId');
+
     const [salaries, setSalaries] = useState<TeacherSalary[]>([]);
     const [loadingSalaries, setLoadingSalaries] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -48,10 +51,24 @@ export default function SalaryManagementPage() {
     }, []);
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(s => s.uid === teacherId);
-        return teacher ? `${'\'\'\''} ${teacher.firstName} ${teacher.lastName}` : 'Inconnu';
+        return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Inconnu';
     }
+
+    const filteredSalaries = useMemo(() => {
+        if (!teacherIdFilter) return salaries;
+        return salaries.filter(s => s.teacherId === teacherIdFilter);
+    }, [salaries, teacherIdFilter]);
+
+    const pageTitle = useMemo(() => {
+        if (teacherIdFilter) {
+            return `Salaires pour ${getTeacherName(teacherIdFilter)}`;
+        }
+        return "Gestion des Salaires";
+    }, [teacherIdFilter, teachers]);
+
 
     const handleAdd = () => {
         setSelectedSalary(null);
@@ -145,7 +162,7 @@ export default function SalaryManagementPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-start">
                 <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Salaires</h1>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">{pageTitle}</h1>
                     <p className="text-muted-foreground">
                         Suivez et gérez la paie des professeurs.
                     </p>
@@ -166,7 +183,7 @@ export default function SalaryManagementPage() {
                      <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Professeur</TableHead>
+                                {!teacherIdFilter && <TableHead>Professeur</TableHead>}
                                 <TableHead>Mois/Année</TableHead>
                                 <TableHead>Taux Horaire</TableHead>
                                 <TableHead>Heures</TableHead>
@@ -182,9 +199,9 @@ export default function SalaryManagementPage() {
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
-                            ) : salaries.length > 0 ? salaries.map(salary => (
+                            ) : filteredSalaries.length > 0 ? filteredSalaries.map(salary => (
                                 <TableRow key={salary.id}>
-                                    <TableCell className="font-medium">{getTeacherName(salary.teacherId)}</TableCell>
+                                    {!teacherIdFilter && <TableCell className="font-medium">{getTeacherName(salary.teacherId)}</TableCell>}
                                     <TableCell>{salary.month} {salary.year}</TableCell>
                                     <TableCell>{formatCurrency(salary.hourlyRate, salary.currency)}</TableCell>
                                     <TableCell>{salary.hoursWorked}h</TableCell>
@@ -232,6 +249,7 @@ export default function SalaryManagementPage() {
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
                 teachers={teachers}
+                initialTeacherId={teacherIdFilter}
             />
 
             {selectedSalary && (
@@ -246,4 +264,10 @@ export default function SalaryManagementPage() {
     );
 }
 
-    
+export default function SalaryManagementPage() {
+    return (
+        <Suspense fallback={<div>Chargement...</div>}>
+            <SalaryManagementContent />
+        </Suspense>
+    )
+}
