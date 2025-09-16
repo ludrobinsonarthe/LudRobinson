@@ -26,26 +26,15 @@ import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-
-const roleTranslation: { [key in UserRole]: string } = {
-  admin: "Administrateur",
-  teacher: "Enseignant",
-  student: "Étudiant",
-  parent: "Parent",
-};
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
     active: "default",
     suspended: "destructive",
-    graduated: "secondary",
 }
 
 const statusTranslation: { [key: string]: string } = {
     active: "Actif",
     suspended: "Suspendu",
-    graduated: "Diplômé",
 }
 
 
@@ -59,14 +48,10 @@ export default function UsersPage() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const { toast } = useToast();
-    const [activeTab, setActiveTab] = useState<"all" | UserRole>("all");
 
-    const filteredUsers = useMemo(() => {
-        if (activeTab === "all") {
-            return users;
-        }
-        return users.filter(user => user.role === activeTab);
-    }, [users, activeTab]);
+    const admins = useMemo(() => {
+        return users.filter(user => user.role === 'admin');
+    }, [users]);
 
     const handleAdd = () => {
         setSelectedUser(null);
@@ -89,7 +74,7 @@ export default function UsersPage() {
                 // Edit
                 const userRef = doc(db, "users", selectedUser.uid);
                 await updateDoc(userRef, userData);
-                toast({ title: "Utilisateur mis à jour", description: "Les informations ont été mises à jour." });
+                toast({ title: "Administrateur mis à jour", description: "Les informations ont été mises à jour." });
             } else {
                 // Add
                 const newUserId = doc(collection(db, "users")).id;
@@ -97,10 +82,11 @@ export default function UsersPage() {
                     uid: newUserId,
                     createdAt: new Date().toISOString(),
                     status: 'active',
+                    role: 'admin',
                     ...userData
                 } as User;
                 await setDoc(doc(db, "users", newUserId), newUser);
-                toast({ title: "Utilisateur ajouté", description: "Le nouvel utilisateur a été ajouté." });
+                toast({ title: "Administrateur ajouté", description: "Le nouvel utilisateur a été ajouté." });
             }
         } catch (error) {
             console.error("Error saving user:", error);
@@ -122,113 +108,93 @@ export default function UsersPage() {
         }
     }
 
-    const tabs: {value: "all" | UserRole, label: string}[] = [
-        {value: 'all', label: 'Tous'},
-        {value: 'admin', label: 'Administrateurs'},
-        {value: 'teacher', label: 'Enseignants'},
-        {value: 'student', label: 'Étudiants'},
-        {value: 'parent', label: 'Parents'}
-    ];
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
                 <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Utilisateurs</h1>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion du Personnel</h1>
                     <p className="text-muted-foreground">
-                        Gérez tous les comptes utilisateurs du système.
+                        Gérez les comptes du personnel administratif.
                     </p>
                 </div>
                 <Button onClick={handleAdd}>
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter un utilisateur
+                    Ajouter un administrateur
                 </Button>
             </div>
             <Card>
                 <CardHeader>
-                    <CardTitle>Liste des utilisateurs</CardTitle>
+                    <CardTitle>Liste du personnel</CardTitle>
                     <CardDescription>
-                        Recherchez, ajoutez, ou modifiez les profils des utilisateurs.
+                        Recherchez, ajoutez, ou modifiez les profils du personnel administratif.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "all" | UserRole)}>
-                        <TabsList className="mb-4">
-                            {tabs.map(tab => (
-                                <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>
-                            ))}
-                        </TabsList>
-                        
-                        <Table>
-                            <TableHeader>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nom</TableHead>
+                                <TableHead className="hidden lg:table-cell">Statut</TableHead>
+                                <TableHead className="hidden lg:table-cell">Date de création</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
                                 <TableRow>
-                                    <TableHead>Nom</TableHead>
-                                    <TableHead className="hidden md:table-cell">Rôle</TableHead>
-                                    <TableHead className="hidden lg:table-cell">Statut</TableHead>
-                                    <TableHead className="hidden lg:table-cell">Date de création</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        Chargement...
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
-                                            Chargement...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : filteredUsers.length > 0 ? filteredUsers.map(user => (
-                                    <TableRow key={user.uid}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-9 w-9">
-                                                    <AvatarImage src={user.photoUrl} alt={user.firstName} />
-                                                    <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="grid gap-0.5">
-                                                    <span className="font-semibold">{user.firstName} {user.lastName}</span>
-                                                    <span className="text-sm text-muted-foreground">{user.email}</span>
-                                                </div>
+                            ) : admins.length > 0 ? admins.map(user => (
+                                <TableRow key={user.uid}>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-9 w-9">
+                                                <AvatarImage src={user.photoUrl} alt={user.firstName} />
+                                                <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="grid gap-0.5">
+                                                <span className="font-semibold">{user.firstName} {user.lastName}</span>
+                                                <span className="text-sm text-muted-foreground">{user.email}</span>
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell">
-                                            <Badge variant="outline">{roleTranslation[user.role]}</Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden lg:table-cell">
-                                            <Badge variant={statusVariant[user.status]}>{statusTranslation[user.status]}</Badge>
-                                        </TableCell>
-                                        <TableCell className="hidden lg:table-cell">
-                                            {format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr })}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => handleEdit(user)}>
-                                                        <Edit className="mr-2 h-4 w-4" />
-                                                        Modifier
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleDelete(user)} className="text-destructive">
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Supprimer
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                )) : (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
-                                            Aucun utilisateur trouvé.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </Tabs>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="hidden lg:table-cell">
+                                        <Badge variant={statusVariant[user.status]}>{statusTranslation[user.status]}</Badge>
+                                    </TableCell>
+                                    <TableCell className="hidden lg:table-cell">
+                                        {format(new Date(user.createdAt), 'd MMMM yyyy', { locale: fr })}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => handleEdit(user)}>
+                                                    <Edit className="mr-2 h-4 w-4" />
+                                                    Modifier
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleDelete(user)} className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Supprimer
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        Aucun administrateur trouvé.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
 
@@ -237,6 +203,7 @@ export default function UsersPage() {
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
                 user={selectedUser}
+                userType="admin"
             />
             <UserDeleteDialog
                 isOpen={isDeleteOpen}

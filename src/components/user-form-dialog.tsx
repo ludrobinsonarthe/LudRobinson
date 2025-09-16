@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -14,30 +14,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { User, UserRole } from "@/lib/types";
+import type { User } from "@/lib/types";
 import { useEffect } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-
-const roleOptions: {value: UserRole, label: string}[] = [
-    { value: "admin", label: "Administrateur" },
-    { value: "teacher", label: "Enseignant" },
-    { value: "student", label: "Étudiant" },
-    { value: "parent", label: "Parent" },
-];
 
 const userFormSchema = z.object({
   firstName: z.string().min(2, "Le prénom est requis."),
   lastName: z.string().min(2, "Le nom est requis."),
   email: z.string().email("Adresse e-mail invalide."),
-  role: z.enum(["admin", "teacher", "student", "parent"]),
   photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
   specialty: z.string().optional(),
 });
@@ -49,51 +33,56 @@ interface UserFormDialogProps {
   setIsOpen: (isOpen: boolean) => void;
   onSave: (data: Partial<User>) => void;
   user: User | null;
-  defaultRole?: UserRole;
-  allowedRoles?: UserRole[];
+  userType: 'admin' | 'teacher';
 }
 
-export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, defaultRole = 'student', allowedRoles }: UserFormDialogProps) {
+export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userType }: UserFormDialogProps) {
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
         firstName: '',
         lastName: '',
         email: '',
-        role: defaultRole,
         photoUrl: '',
         specialty: '',
     }
   });
 
-  const displayableRoles = allowedRoles ? roleOptions.filter(r => allowedRoles.includes(r.value)) : roleOptions;
-  const showSpecialty = form.watch('role') === 'teacher';
+  const showSpecialty = userType === 'teacher';
+  const dialogTitle = user 
+    ? `Modifier ${userType === 'teacher' ? 'le professeur' : 'l\'administrateur'}` 
+    : `Ajouter ${userType === 'teacher' ? 'un professeur' : 'un administrateur'}`;
+  
+  const dialogDescription = user
+    ? "Modifiez les informations ci-dessous."
+    : "Remplissez le formulaire pour créer un nouveau compte.";
+
 
   useEffect(() => {
-    if (user) {
-      form.reset({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        photoUrl: user.photoUrl,
-        specialty: user.teacher?.specialty,
-      });
-    } else {
-      form.reset({
-        firstName: '',
-        lastName: '',
-        email: '',
-        role: defaultRole,
-        photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
-        specialty: '',
-      });
+    if (isOpen) {
+        if (user) {
+        form.reset({
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            photoUrl: user.photoUrl,
+            specialty: user.teacher?.specialty,
+        });
+        } else {
+        form.reset({
+            firstName: '',
+            lastName: '',
+            email: '',
+            photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
+            specialty: '',
+        });
+        }
     }
-  }, [user, form.reset, isOpen, defaultRole]);
+  }, [user, form.reset, isOpen]);
 
   const onSubmit = (data: UserFormValues) => {
     const userData: Partial<User> = {...data};
-    if (data.role === 'teacher') {
+    if (userType === 'teacher') {
         userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
     }
     delete (userData as any).specialty;
@@ -108,14 +97,8 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, defaul
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <DialogHeader>
-              <DialogTitle className="font-headline">
-                {user ? "Modifier l'utilisateur" : "Ajouter un nouvel utilisateur"}
-              </DialogTitle>
-              <DialogDescription>
-                {user
-                  ? "Modifiez les informations de l'utilisateur ci-dessous."
-                  : "Remplissez le formulaire pour créer un nouveau compte."}
-              </DialogDescription>
+              <DialogTitle className="font-headline">{dialogTitle}</DialogTitle>
+              <DialogDescription>{dialogDescription}</DialogDescription>
             </DialogHeader>
             
             <div className="grid grid-cols-2 gap-4">
@@ -160,29 +143,6 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, defaul
                     </FormItem>
                 )}
             />
-
-            <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Rôle</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={displayableRoles.length === 1}>
-                        <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner un rôle..." />
-                            </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {displayableRoles.map(option => (
-                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
             
             {showSpecialty && (
                  <FormField
@@ -206,7 +166,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, defaul
                 Annuler
               </Button>
               <Button type="submit">
-                {user ? "Enregistrer" : "Créer l'utilisateur"}
+                {user ? "Enregistrer" : "Créer le compte"}
               </Button>
             </DialogFooter>
           </form>

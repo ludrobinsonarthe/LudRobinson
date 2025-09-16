@@ -191,8 +191,7 @@ export default function TeachersPage() {
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
                 user={selectedTeacher}
-                defaultRole="teacher"
-                allowedRoles={["teacher"]}
+                userType="teacher"
             />
             <UserDeleteDialog
                 isOpen={isDeleteOpen}
