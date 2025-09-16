@@ -18,6 +18,8 @@ export interface User {
     matricule: string;
     programId: string;
     classId: string;
+    level?: string;
+    fieldId?: string;
     enrollmentDate: string;
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user
@@ -47,6 +49,18 @@ export interface Class {
   students: string[]; // student_uids
   createdAt: string;
 }
+
+export interface Sector {
+  id: string;
+  name: string;
+}
+
+export interface Field {
+  id: string;
+  name: string;
+  sectorId: string;
+}
+
 
 export interface Course {
   id: string;

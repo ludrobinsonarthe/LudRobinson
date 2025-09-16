@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -22,10 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { User, Class } from "@/lib/types";
-import { useEffect, useState } from "react";
+import type { User, Class, Sector, Field } from "@/lib/types";
+import { useEffect, useState, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
+import { mockSectors, mockFields } from "@/lib/mock-data";
+
 
 const studentFormSchema = z.object({
   // Student Info
@@ -33,8 +34,11 @@ const studentFormSchema = z.object({
   lastName: z.string().min(2, "Le nom est requis."),
   email: z.string().email("Adresse e-mail invalide."),
   photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
-  classId: z.string().min(1, "Veuillez sélectionner une classe."),
   matricule: z.string().min(1, "Le matricule est requis."),
+  level: z.string().min(1, "Le niveau est requis."),
+  sectorId: z.string().min(1, "Le secteur est requis."),
+  fieldId: z.string().min(1, "La filière est requise."),
+  classId: z.string().min(1, "Veuillez sélectionner une classe."),
   
   // Parent/Tutor Info
   parentSelection: z.enum(['existing', 'new']).default('existing'),
@@ -73,6 +77,8 @@ interface StudentFormDialogProps {
   classes: Class[];
 }
 
+const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
+
 export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, parents, classes }: StudentFormDialogProps) {
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema),
@@ -81,8 +87,11 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         lastName: '',
         email: '',
         photoUrl: '',
-        classId: '',
         matricule: '',
+        level: '',
+        sectorId: '',
+        fieldId: '',
+        classId: '',
         parentSelection: 'existing',
         parentUid: '',
         parentFirstName: '',
@@ -92,17 +101,27 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
   });
 
   const parentSelection = form.watch('parentSelection');
+  const selectedSector = form.watch('sectorId');
+
+  const availableFields = useMemo(() => {
+      if (!selectedSector) return [];
+      return mockFields.filter(f => f.sectorId === selectedSector);
+  }, [selectedSector]);
 
   useEffect(() => {
     if (isOpen) {
+        const studentSectorId = mockFields.find(f => f.id === student?.student?.fieldId)?.sectorId || '';
         if (student) {
           form.reset({
             firstName: student.firstName,
             lastName: student.lastName,
             email: student.email,
             photoUrl: student.photoUrl,
-            classId: student.student?.classId,
             matricule: student.student?.matricule,
+            level: student.student?.level,
+            sectorId: studentSectorId,
+            fieldId: student.student?.fieldId,
+            classId: student.student?.classId,
             parentUid: student.student?.parentUid,
             parentSelection: student.student?.parentUid ? 'existing' : 'new'
           });
@@ -112,8 +131,11 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             lastName: '',
             email: '',
             photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
-            classId: '',
             matricule: `ISGI-${new Date().getFullYear()}-L1-${Math.floor(100 + Math.random() * 900)}`,
+            level: '',
+            sectorId: '',
+            fieldId: '',
+            classId: '',
             parentSelection: 'existing',
             parentUid: '',
             parentFirstName: '',
@@ -123,6 +145,11 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         }
     }
   }, [student, form.reset, isOpen]);
+  
+   useEffect(() => {
+    form.setValue('fieldId', '');
+   }, [selectedSector, form.setValue]);
+
 
   const onSubmit = (data: StudentFormValues) => {
     const studentData: Partial<User> = {
@@ -134,6 +161,8 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             ...student?.student,
             matricule: data.matricule,
             classId: data.classId,
+            level: data.level,
+            fieldId: data.fieldId,
             parentUid: data.parentSelection === 'existing' ? data.parentUid : undefined,
         }
     };
@@ -154,7 +183,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <DialogHeader>
@@ -185,16 +214,48 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
                      <FormField control={form.control} name="matricule" render={({ field }) => (
                         <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
-                    <FormField control={form.control} name="classId" render={({ field }) => (
-                        <FormItem><FormLabel>Classe</FormLabel>
+                     <FormField control={form.control} name="level" render={({ field }) => (
+                        <FormItem><FormLabel>Niveau</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une classe..." /></SelectTrigger></FormControl>
-                            <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un niveau..." /></SelectTrigger></FormControl>
+                            <SelectContent>{levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage />
                         </FormItem>
                     )}/>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="sectorId" render={({ field }) => (
+                        <FormItem><FormLabel>Secteur</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un secteur..." /></SelectTrigger></FormControl>
+                            <SelectContent>{mockSectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="fieldId" render={({ field }) => (
+                        <FormItem><FormLabel>Filière</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={!selectedSector}>
+                            <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Sélectionner une filière..."} /></SelectTrigger></FormControl>
+                            <SelectContent>{availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}/>
+                </div>
+                
+                 <FormField control={form.control} name="classId" render={({ field }) => (
+                    <FormItem><FormLabel>Classe</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une classe..." /></SelectTrigger></FormControl>
+                        <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
+
 
                 <Separator className="my-6"/>
 

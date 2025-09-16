@@ -1,4 +1,4 @@
-import type { User, Class, Message, OfficialDocument, Program, Course } from './types';
+import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field } from './types';
 
 export const mockUsers: User[] = [
   {
@@ -41,6 +41,8 @@ export const mockUsers: User[] = [
       enrollmentDate: '2022-09-01',
       endDate: '2025-07-30',
       parentUid: 'parent01',
+      level: 'Licence 3',
+      fieldId: 'gl'
     },
   },
   {
@@ -58,6 +60,8 @@ export const mockUsers: User[] = [
       classId: 'class01',
       enrollmentDate: '2022-09-01',
       endDate: '2025-07-30',
+      level: 'Licence 3',
+      fieldId: 'gl'
     },
   },
   {
@@ -74,6 +78,24 @@ export const mockUsers: User[] = [
     }
   },
 ];
+
+export const mockSectors: Sector[] = [
+  { id: 'gestion', name: 'GESTION' },
+  { id: 'indus_tech', name: 'INDUSTRIE ET TECHNOLOGIE' },
+];
+
+export const mockFields: Field[] = [
+  // GESTION
+  { id: 'cca', name: 'Contrôle Comptabilité et Audit', sectorId: 'gestion' },
+  { id: 'grh', name: 'Gestion des Ressources Humaines', sectorId: 'gestion' },
+  { id: 'mcf', name: 'Management et Commerce des Affaires', sectorId: 'gestion' },
+  
+  // INDUSTRIE ET TECHNOLOGIE
+  { id: 'gl', name: 'Génie Logiciel', sectorId: 'indus_tech' },
+  { id: 'rsi', name: 'Réseaux et Systèmes Informatiques', sectorId: 'indus_tech' },
+  { id: 'mi', name: 'Maintenance Industrielle', sectorId: 'indus_tech' },
+];
+
 
 export const mockPrograms: Program[] = [
     {
