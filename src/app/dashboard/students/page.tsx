@@ -41,9 +41,9 @@ export default function StudentsPage() {
 
     // Filters state
     const [nameFilter, setNameFilter] = useState("");
-    const [levelFilter, setLevelFilter] = useState("");
-    const [sectorFilter, setSectorFilter] = useState("");
-    const [fieldFilter, setFieldFilter] = useState("");
+    const [levelFilter, setLevelFilter] = useState("all");
+    const [sectorFilter, setSectorFilter] = useState("all");
+    const [fieldFilter, setFieldFilter] = useState("all");
     
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const parents = useMemo(() => users.filter(u => u.role === 'parent'), [users]);
@@ -52,12 +52,12 @@ export default function StudentsPage() {
     const sectorsById = useMemo(() => mockSectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), []);
 
     const availableFields = useMemo(() => {
-        if (!sectorFilter) return mockFields;
+        if (sectorFilter === 'all') return mockFields;
         return mockFields.filter(f => f.sectorId === sectorFilter);
     }, [sectorFilter]);
 
     useEffect(() => {
-        setFieldFilter("");
+        setFieldFilter("all");
     }, [sectorFilter]);
 
     const filteredStudents = useMemo(() => {
@@ -68,9 +68,9 @@ export default function StudentsPage() {
 
             return (
                 (nameFilter === "" || fullName.includes(nameFilter.toLowerCase())) &&
-                (levelFilter === "" || student.student?.level === levelFilter) &&
-                (sectorFilter === "" || studentSectorId === sectorFilter) &&
-                (fieldFilter === "" || student.student?.fieldId === fieldFilter)
+                (levelFilter === "all" || student.student?.level === levelFilter) &&
+                (sectorFilter === "all" || studentSectorId === sectorFilter) &&
+                (fieldFilter === "all" || student.student?.fieldId === fieldFilter)
             );
         });
     }, [studentsFromUsers, nameFilter, levelFilter, sectorFilter, fieldFilter, fieldsById]);
@@ -186,7 +186,7 @@ export default function StudentsPage() {
                                 <SelectValue placeholder="Filtrer par niveau" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Tous les niveaux</SelectItem>
+                                <SelectItem value="all">Tous les niveaux</SelectItem>
                                 {levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -195,16 +195,16 @@ export default function StudentsPage() {
                                 <SelectValue placeholder="Filtrer par secteur" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Tous les secteurs</SelectItem>
+                                <SelectItem value="all">Tous les secteurs</SelectItem>
                                 {mockSectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={!sectorFilter}>
+                        <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
                             <SelectTrigger className="w-[240px]">
                                 <SelectValue placeholder="Filtrer par filière" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Toutes les filières</SelectItem>
+                                <SelectItem value="all">Toutes les filières</SelectItem>
                                 {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
