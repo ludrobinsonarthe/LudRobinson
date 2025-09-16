@@ -33,7 +33,7 @@ const courseFormSchema = z.object({
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
-  documents: z.string().url("Veuillez entrer une URL valide.").optional().or(z.literal('')),
+  documentFile: z.instanceof(FileList).optional(),
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -57,7 +57,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         teacherId: '',
         sectorId: '',
         fieldId: '',
-        documents: '',
     }
   });
 
@@ -78,7 +77,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             teacherId: course.teacherId,
             sectorId: courseSectorId,
             fieldId: course.fieldId,
-            documents: course.documents?.[0] || '',
           });
         } else {
           form.reset({
@@ -87,7 +85,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             teacherId: '',
             sectorId: '',
             fieldId: '',
-            documents: '',
           });
         }
     }
@@ -102,10 +99,13 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
    }, [selectedSector, form, fields]);
 
   const onSubmit = (data: CourseFormValues) => {
-    const { sectorId, documents, ...courseData} = data;
+    // NOTE: File upload logic is not implemented yet.
+    // This will require setting up Firebase Storage and handling the upload.
+    const { sectorId, documentFile, ...courseData} = data;
     const finalCourseData: Partial<Course> = {
         ...courseData,
-        documents: documents ? [documents] : []
+        // When upload is implemented, the uploaded file URL will be saved here.
+        documents: course?.documents || [] 
     };
     onSave(finalCourseData);
     setIsOpen(false);
@@ -142,10 +142,17 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                 </FormItem>
             )}/>
 
-             <FormField control={form.control} name="documents" render={({ field }) => (
+             <FormField control={form.control} name="documentFile" render={({ field: { onChange, value, ...rest } }) => (
                 <FormItem>
-                <FormLabel>Document du cours (URL)</FormLabel>
-                <FormControl><Input placeholder="https://lien/vers/votre/document.pdf" {...field} /></FormControl>
+                <FormLabel>Document du cours (PDF)</FormLabel>
+                <FormControl>
+                    <Input 
+                        type="file" 
+                        accept=".pdf"
+                        onChange={(e) => onChange(e.target.files)}
+                        {...rest}
+                    />
+                </FormControl>
                 <FormMessage />
                 </FormItem>
             )}/>
