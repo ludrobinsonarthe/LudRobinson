@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import type { User, AdminRole, AdminPermission } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
+import { adminPermissions } from '@/lib/types';
 
 type UserContextType = {
   user: User | null;
@@ -75,14 +76,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [allUsers, currentUser, loading]);
 
 
-  const userPermissions = useMemo(() => {
-      if (currentUser?.role !== 'admin' || !currentUser.admin?.roleId) {
+  const userPermissions = useMemo((): AdminPermission[] => {
+      if (currentUser?.role !== 'admin') {
           return [];
       }
+      
       // Super admin has all permissions
-      if (currentUser.admin.position?.toLowerCase().includes('super')) {
-          return Object.keys(require('@/lib/types').adminPermissions) as AdminPermission[];
+      if (currentUser.admin?.position?.toLowerCase().includes('super')) {
+          return Object.keys(adminPermissions) as AdminPermission[];
       }
+
+      if (!currentUser.admin?.roleId) {
+          return [];
+      }
+
       const userRole = roles.find(r => r.id === currentUser.admin?.roleId);
       return userRole ? userRole.permissions : [];
   }, [currentUser, roles]);
