@@ -21,6 +21,7 @@ import { useState, useEffect, useMemo } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { mockDocuments } from "@/lib/mock-data";
 
 const documentTypeTranslation: {[key: string]: string} = {
     'bulletin': 'Bulletin de notes',
@@ -53,30 +54,14 @@ export default function DocumentsPage() {
     }, [currentUser, children, selectedChildId]);
     
     useEffect(() => {
-        async function fetchDocuments() {
-            if (!studentToView || !studentToView.uid) {
-                setLoading(false);
-                setDocuments([]);
-                return;
-            }
-
-            setLoading(true);
-            try {
-                const q = query(collection(db, "documents"), where("studentId", "==", studentToView.uid));
-                const snapshot = await getDocs(q);
-                const userDocuments: OfficialDocument[] = [];
-                snapshot.forEach((doc) => {
-                    userDocuments.push({ id: doc.id, ...doc.data() } as OfficialDocument);
-                });
-                setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
-            } catch (error) {
-                 console.error("Error fetching documents: ", error);
-            } finally {
-                setLoading(false);
-            }
+        setLoading(true);
+        if (!studentToView || !studentToView.uid) {
+            setDocuments([]);
+        } else {
+            const userDocuments = mockDocuments.filter(doc => doc.studentId === studentToView.uid);
+            setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
         }
-
-        fetchDocuments();
+        setLoading(false);
     }, [studentToView]);
 
      const handleChildChange = (studentId: string) => {

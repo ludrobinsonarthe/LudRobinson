@@ -10,6 +10,7 @@ import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
 import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { mockMessages } from "@/lib/mock-data";
 
 export default function DashboardPage() {
     const { user: currentUser } = useUser();
@@ -21,32 +22,17 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!currentUser) return;
         
-        async function fetchAnnouncements() {
-            setLoading(true);
-            try {
-                const targetReceivers = ['all', currentUser.role];
-                
-                const q = query(
-                    collection(db, "announcements"), 
-                    orderBy("createdAt", "desc")
-                );
-
-                const snapshot = await getDocs(q);
-                const allAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-                
-                const filtered = currentUser.role === 'admin' 
-                    ? allAnnouncements
-                    : allAnnouncements.filter(ann => targetReceivers.includes(ann.receiverId));
-
-                setAnnouncements(filtered);
-            } catch (error) {
-                console.error("Error fetching announcements: ", error);
-            } finally {
-                setLoading(false);
-            }
-        }
+        setLoading(true);
+        const targetReceivers = ['all', currentUser.role];
         
-        fetchAnnouncements();
+        const allAnnouncements = mockMessages.filter(m => m.type === 'announcement');
+        
+        const filtered = currentUser.role === 'admin' 
+            ? allAnnouncements
+            : allAnnouncements.filter(ann => targetReceivers.includes(ann.receiverId));
+
+        setAnnouncements(filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setLoading(false);
 
     }, [currentUser]);
 

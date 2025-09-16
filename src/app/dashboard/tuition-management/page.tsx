@@ -24,7 +24,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import PaymentFormDialog from '@/components/payment-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
-
+import { mockPayments } from '@/lib/mock-data';
 
 export default function TuitionManagementPage() {
     const { users, loading: usersLoading } = useUser();
@@ -36,17 +36,9 @@ export default function TuitionManagementPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        async function fetchPayments() {
-            setLoadingPayments(true);
-            const snapshot = await getDocs(collection(db, "payments"));
-            const paymentsFromDb: Payment[] = [];
-            snapshot.forEach((doc) => {
-                paymentsFromDb.push({ id: doc.id, ...doc.data() } as Payment);
-            });
-            setPayments(paymentsFromDb.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setLoadingPayments(false);
-        }
-        fetchPayments();
+        setLoadingPayments(true);
+        setPayments(mockPayments.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setLoadingPayments(false);
     }, []);
     
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -61,53 +53,21 @@ export default function TuitionManagementPage() {
     }
 
     const handleSave = async (paymentData: Omit<Payment, 'id' | 'createdAt' | 'status' | 'balance'>) => {
-         try {
-            const newPaymentId = doc(collection(db, "payments")).id;
-            const newPayment: Payment = {
-                id: newPaymentId,
-                createdAt: new Date().toISOString(),
-                status: 'pending',
-                balance: paymentData.amountExpected - paymentData.amountPaid,
-                ...paymentData
-            };
-            await setDoc(doc(db, "payments", newPaymentId), newPayment);
-            setPayments(prev => [newPayment, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            toast({ title: "Paiement enregistré", description: "Le paiement a été enregistré avec succès et est en attente de validation." });
-            setIsFormOpen(false);
-        } catch (error) {
-            console.error("Error saving payment:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le paiement." });
-        }
+        const newPayment: Payment = {
+            id: `pay_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            status: 'pending',
+            balance: paymentData.amountExpected - paymentData.amountPaid,
+            ...paymentData
+        };
+        setPayments(prev => [newPayment, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        toast({ title: "Paiement enregistré (Simulation)", description: "Le paiement a été enregistré localement." });
+        setIsFormOpen(false);
     }
     
     const handleUpdateStatus = async (payment: Payment, status: 'validated' | 'rejected') => {
-        try {
-            const batch = writeBatch(db);
-            const paymentRef = doc(db, "payments", payment.id);
-            batch.update(paymentRef, { status });
-
-            if(status === 'validated') {
-                const transactionRef = doc(collection(db, 'cash_transactions'));
-                batch.set(transactionRef, {
-                    id: transactionRef.id,
-                    date: new Date().toISOString(),
-                    type: 'income',
-                    category: 'tuition',
-                    description: `Frais de scolarité - ${getStudentName(payment.studentId)} - ${payment.month} ${payment.year}`,
-                    amount: payment.amountPaid,
-                    currency: payment.currency,
-                    createdBy: 'admin', // This should be the current admin's UID
-                    relatedDocId: payment.id,
-                });
-            }
-
-            await batch.commit();
-            setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status } : p));
-            toast({ title: "Statut mis à jour", description: `Le paiement a été marqué comme ${status === 'validated' ? 'validé' : 'rejeté'}.` });
-        } catch (error) {
-            console.error("Error updating status:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour le statut." });
-        }
+        setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status } : p));
+        toast({ title: "Statut mis à jour (Simulation)", description: `Le paiement a été marqué comme ${status === 'validated' ? 'validé' : 'rejeté'}.` });
     }
 
     const handleDelete = (payment: Payment) => {
@@ -117,16 +77,10 @@ export default function TuitionManagementPage() {
 
     const confirmDelete = async () => {
         if(selectedPayment) {
-            try {
-                await deleteDoc(doc(db, "payments", selectedPayment.id));
-                setPayments(prev => prev.filter(p => p.id !== selectedPayment.id));
-                toast({ title: "Paiement supprimé", description: "L'enregistrement du paiement a été supprimé." });
-                setIsDeleteOpen(false);
-                setSelectedPayment(null);
-            } catch (error) {
-                console.error("Error deleting payment: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le paiement." });
-            }
+            setPayments(prev => prev.filter(p => p.id !== selectedPayment.id));
+            toast({ title: "Paiement supprimé (Simulation)" });
+            setIsDeleteOpen(false);
+            setSelectedPayment(null);
         }
     }
 

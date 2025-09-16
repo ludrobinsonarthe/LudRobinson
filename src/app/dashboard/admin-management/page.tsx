@@ -31,20 +31,23 @@ const settingsFormSchema = z.object({
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
+const defaultSettings: Settings = {
+    id: 'system',
+    schoolName: "Institut Supérieur de Gestion et d'Ingénierie",
+    logoUrl: "",
+    academicYear: "2024-2025",
+    currency: "XAF",
+    levels: [{value: "Licence 1"}, {value: "Licence 2"}, {value: "Licence 3"}, {value: "Master 1"}, {value: "Master 2"}],
+    sectors: [],
+};
+
 export default function AdminManagementPage() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
-        defaultValues: {
-            schoolName: "",
-            logoUrl: "",
-            academicYear: "",
-            currency: "XAF",
-            levels: [],
-            sectors: [],
-        },
+        defaultValues: defaultSettings,
     });
 
     const { fields: levelFields, append: appendLevel, remove: removeLevel } = useFieldArray({
@@ -57,20 +60,9 @@ export default function AdminManagementPage() {
     });
 
     useEffect(() => {
-        async function fetchSettings() {
-            const settingsRef = doc(db, "settings", "system");
-            const docSnap = await getDoc(settingsRef);
-            if (docSnap.exists()) {
-                const data = docSnap.data() as Settings;
-                form.reset({
-                    ...data,
-                    levels: data.levels || [{value: "Licence 1"}, {value: "Licence 2"}, {value: "Licence 3"}, {value: "Master 1"}, {value: "Master 2"}],
-                    sectors: data.sectors || [],
-                });
-            }
-            setLoading(false);
-        }
-        fetchSettings();
+        setLoading(true);
+        form.reset(defaultSettings);
+        setLoading(false);
     }, [form]);
 
     const onSubmit = async (data: SettingsFormValues) => {
@@ -79,15 +71,15 @@ export default function AdminManagementPage() {
             const settingsRef = doc(db, "settings", "system");
             await setDoc(settingsRef, { id: 'system', ...data }, { merge: true });
             toast({
-                title: "Paramètres enregistrés",
-                description: "Les informations de l'établissement ont été mises à jour.",
+                title: "Paramètres enregistrés (Simulation)",
+                description: "En mode démo, les changements ne sont pas persistants.",
             });
         } catch (error) {
             console.error("Error saving settings:", error);
             toast({
                 variant: "destructive",
                 title: "Erreur",
-                description: "Impossible d'enregistrer les paramètres.",
+                description: "Impossible d'enregistrer les paramètres. L'application est en mode démo.",
             });
         } finally {
             setLoading(false);

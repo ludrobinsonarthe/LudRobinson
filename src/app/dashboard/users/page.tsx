@@ -43,29 +43,12 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { users, loading, setUsers } = useUser();
-    const [roles, setRoles] = useState<AdminRole[]>([]);
-    const [loadingRoles, setLoadingRoles] = useState(true);
+    const { users, loading, setUsers, roles, loading: loadingRoles } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const { toast } = useToast();
-
-    useEffect(() => {
-        async function fetchRoles() {
-            setLoadingRoles(true);
-            const q = query(collection(db, "admin_roles"));
-            const snapshot = await getDocs(q);
-            const rolesFromDb: AdminRole[] = [];
-            snapshot.forEach((doc) => {
-                rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
-            });
-            setRoles(rolesFromDb);
-            setLoadingRoles(false);
-        }
-        fetchRoles();
-    }, []);
-
+    
     const admins = useMemo(() => {
         return users.filter(user => user.role === 'admin');
     }, [users]);
@@ -93,63 +76,38 @@ export default function UsersPage() {
     }
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
-        try {
-            let userUid = selectedUser?.uid;
-            if (!userUid) {
-                userUid = doc(collection(db, "users")).id;
-            }
-            
-            let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
+        let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
+        if (photoFile) {
+            photoUrl = URL.createObjectURL(photoFile);
+        }
 
-            if (photoFile && userUid) {
-                 const storageRef = ref(storage, `profile-pictures/${userUid}/profile.jpg`);
-                 const uploadResult = await uploadBytes(storageRef, photoFile, { contentType: 'image/jpeg' });
-                 photoUrl = await getDownloadURL(uploadResult.ref);
-            }
-            
-            const finalUserData: User = {
-                ...selectedUser,
-                ...userData,
-                photoUrl: photoUrl || `https://picsum.photos/seed/${userUid}/100/100`,
+        const finalUserData = {
+            ...userData,
+            photoUrl: photoUrl,
+        };
+
+        if (selectedUser) {
+            setUsers(prev => prev.map(u => u.uid === selectedUser.uid ? { ...selectedUser, ...finalUserData } as User : u));
+            toast({ title: "Administrateur mis à jour (Simulation)" });
+        } else {
+            const newUser: User = {
+                uid: `admin_${Date.now()}`,
+                createdAt: new Date().toISOString(),
+                status: 'active',
+                role: 'admin',
+                ...finalUserData,
             } as User;
-
-            if (selectedUser) {
-                // Edit
-                const userRef = doc(db, "users", selectedUser.uid);
-                await updateDoc(userRef, finalUserData);
-                setUsers(prev => prev.map(u => u.uid === selectedUser.uid ? finalUserData : u));
-                toast({ title: "Administrateur mis à jour", description: "Les informations ont été mises à jour." });
-            } else {
-                // Add
-                const newUser: User = {
-                    uid: userUid,
-                    createdAt: new Date().toISOString(),
-                    status: 'active',
-                    role: 'admin',
-                    ...finalUserData,
-                } as User;
-                await setDoc(doc(db, "users", userUid), newUser);
-                setUsers(prev => [...prev, newUser]);
-                toast({ title: "Administrateur ajouté", description: "Le nouvel utilisateur a été ajouté." });
-            }
-        } catch (error) {
-            console.error("Error saving user:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'utilisateur." });
+            setUsers(prev => [...prev, newUser]);
+            toast({ title: "Administrateur ajouté (Simulation)" });
         }
     }
     
     const confirmDelete = async () => {
         if(selectedUser) {
-            try {
-                await deleteDoc(doc(db, "users", selectedUser.uid));
-                setUsers(prev => prev.filter(u => u.uid !== selectedUser.uid));
-                toast({ title: "Utilisateur supprimé", description: "L'utilisateur a été supprimé." });
-                setIsDeleteOpen(false);
-                setSelectedUser(null);
-            } catch (error) {
-                console.error("Error deleting user: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'utilisateur." });
-            }
+            setUsers(prev => prev.filter(u => u.uid !== selectedUser.uid));
+            toast({ title: "Utilisateur supprimé (Simulation)" });
+            setIsDeleteOpen(false);
+            setSelectedUser(null);
         }
     }
 

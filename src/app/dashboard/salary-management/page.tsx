@@ -25,6 +25,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
+import { mockSalaries, mockAttendances, mockCourses } from '@/lib/mock-data';
 
 function SalaryManagementContent() {
     const { users, loading: usersLoading } = useUser();
@@ -41,30 +42,11 @@ function SalaryManagementContent() {
     const { toast } = useToast();
 
     useEffect(() => {
-        async function fetchData() {
-            setLoadingData(true);
-            try {
-                const salariesSnap = await getDocs(collection(db, "salaries"));
-                const salariesData: TeacherSalary[] = [];
-                salariesSnap.forEach((doc) => salariesData.push({ id: doc.id, ...doc.data() } as TeacherSalary));
-                setSalaries(salariesData.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-
-                const attendancesSnap = await getDocs(collection(db, "attendances"));
-                const attendancesData: Attendance[] = [];
-                attendancesSnap.forEach((doc) => attendancesData.push({ id: doc.id, ...doc.data() } as Attendance));
-                setAttendances(attendancesData);
-
-                const coursesSnap = await getDocs(collection(db, "courses"));
-                const coursesData: Course[] = [];
-                coursesSnap.forEach((doc) => coursesData.push({ id: doc.id, ...doc.data() } as Course));
-                setCourses(coursesData);
-            } catch (error) {
-                console.error("Error fetching salary data:", error);
-            } finally {
-                setLoadingData(false);
-            }
-        }
-        fetchData();
+        setLoadingData(true);
+        setSalaries(mockSalaries.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setAttendances(mockAttendances);
+        setCourses(mockCourses);
+        setLoadingData(false);
     }, []);
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
@@ -125,54 +107,21 @@ function SalaryManagementContent() {
 
 
     const handleSave = async (salaryData: Omit<TeacherSalary, 'id' | 'createdAt' | 'status'>) => {
-         try {
-            const newSalaryId = doc(collection(db, "salaries")).id;
-            const newSalary: TeacherSalary = {
-                id: newSalaryId,
-                createdAt: new Date().toISOString(),
-                status: 'pending',
-                ...salaryData
-            };
-            await setDoc(doc(db, "salaries", newSalaryId), newSalary);
-            setSalaries(prev => [newSalary, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            toast({ title: "Fiche de paie générée", description: "La fiche de paie a été enregistrée avec succès." });
-            setIsFormOpen(false);
-        } catch (error) {
-            console.error("Error saving salary:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la fiche de paie." });
-        }
+        const newSalary: TeacherSalary = {
+            id: `salary_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            status: 'pending',
+            ...salaryData
+        };
+        setSalaries(prev => [newSalary, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        toast({ title: "Fiche de paie générée (Simulation)", description: "La fiche de paie a été enregistrée localement." });
+        setIsFormOpen(false);
     }
     
     const handleUpdateStatus = async (salary: TeacherSalary, status: 'paid') => {
-        try {
-            const batch = writeBatch(db);
-            const salaryRef = doc(db, "salaries", salary.id);
-            const updatedSalaryData = { status, paidAt: new Date().toISOString() };
-            batch.update(salaryRef, updatedSalaryData);
-            
-            if(status === 'paid') {
-                const transactionRef = doc(collection(db, 'cash_transactions'));
-                batch.set(transactionRef, {
-                    id: transactionRef.id,
-                    date: new Date().toISOString(),
-                    type: 'expense',
-                    category: 'salary',
-                    description: `Paiement salaire - ${getTeacherName(salary.teacherId)} - ${salary.month} ${salary.year}`,
-                    amount: salary.totalSalary,
-                    currency: salary.currency,
-                    createdBy: 'admin', // This should be the current admin's UID
-                    relatedDocId: salary.id,
-                });
-            }
-
-            await batch.commit();
-
-            setSalaries(prev => prev.map(s => s.id === salary.id ? { ...s, ...updatedSalaryData } : s));
-            toast({ title: "Statut mis à jour", description: `Le salaire a été marqué comme payé et enregistré en caisse.` });
-        } catch (error) {
-            console.error("Error updating status:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour le statut." });
-        }
+        const updatedSalaryData = { status, paidAt: new Date().toISOString() };
+        setSalaries(prev => prev.map(s => s.id === salary.id ? { ...s, ...updatedSalaryData } : s));
+        toast({ title: "Statut mis à jour (Simulation)", description: `Le salaire a été marqué comme payé.` });
     }
 
     const handleDelete = (salary: TeacherSalary) => {
@@ -182,16 +131,10 @@ function SalaryManagementContent() {
 
     const confirmDelete = async () => {
         if(selectedSalary) {
-            try {
-                await deleteDoc(doc(db, "salaries", selectedSalary.id));
-                setSalaries(prev => prev.filter(s => s.id !== selectedSalary.id));
-                toast({ title: "Fiche de paie supprimée", description: "L'enregistrement a été supprimé." });
-                setIsDeleteOpen(false);
-                setSelectedSalary(null);
-            } catch (error) {
-                console.error("Error deleting salary: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer la fiche de paie." });
-            }
+            setSalaries(prev => prev.filter(s => s.id !== selectedSalary.id));
+            toast({ title: "Fiche de paie supprimée (Simulation)" });
+            setIsDeleteOpen(false);
+            setSelectedSalary(null);
         }
     }
 

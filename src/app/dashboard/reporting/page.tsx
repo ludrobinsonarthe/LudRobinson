@@ -11,7 +11,7 @@ import { Course, CashTransaction, User, Payment } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
 import StudentFieldDistributionChart from '@/components/charts/student-field-distribution-chart';
 import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
-import { mockFields } from '@/lib/mock-data';
+import { mockFields, mockCourses, mockCashTransactions, mockPayments } from '@/lib/mock-data';
 
 export default function ReportingPage() {
     const { users, loading: usersLoading } = useUser();
@@ -21,24 +21,11 @@ export default function ReportingPage() {
     const [loadingData, setLoadingData] = useState(true);
 
     useEffect(() => {
-        async function fetchData() {
-            setLoadingData(true);
-            try {
-                const coursesSnap = await getDocs(collection(db, 'courses'));
-                setCourses(coursesSnap.docs.map(doc => doc.data() as Course));
-
-                const transactionsSnap = await getDocs(collection(db, 'cash_transactions'));
-                setTransactions(transactionsSnap.docs.map(doc => doc.data() as CashTransaction));
-                
-                const paymentsSnap = await getDocs(collection(db, 'payments'));
-                setPayments(paymentsSnap.docs.map(doc => doc.data() as Payment));
-            } catch(error) {
-                console.error("Error fetching reporting data: ", error);
-            } finally {
-                setLoadingData(false);
-            }
-        }
-        fetchData();
+        setLoadingData(true);
+        setCourses(mockCourses);
+        setTransactions(mockCashTransactions);
+        setPayments(mockPayments);
+        setLoadingData(false);
     }, []);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);

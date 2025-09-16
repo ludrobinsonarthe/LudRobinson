@@ -21,7 +21,7 @@ import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
-import { mockClasses, mockSectors, mockFields } from "@/lib/mock-data";
+import { mockClasses, mockSectors, mockFields, mockPayments } from "@/lib/mock-data";
 import StudentFormDialog from "@/components/student-form-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -62,18 +62,9 @@ export default function StudentsPage() {
     const [fieldFilter, setFieldFilter] = useState("all");
     
     useEffect(() => {
-        async function fetchPayments() {
-            setLoadingPayments(true);
-            const q = query(collection(db, "payments"));
-            const snapshot = await getDocs(q);
-            const paymentsFromDb: Payment[] = [];
-            snapshot.forEach((doc) => {
-                paymentsFromDb.push({ id: doc.id, ...doc.data() } as Payment);
-            });
-            setPayments(paymentsFromDb);
-            setLoadingPayments(false);
-        }
-        fetchPayments();
+        setLoadingPayments(true);
+        setPayments(mockPayments);
+        setLoadingPayments(false);
     }, []);
 
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -135,32 +126,22 @@ export default function StudentsPage() {
     const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => {
         try {
             let studentUid = selectedStudent?.uid;
-            if (!studentUid) {
-                studentUid = doc(collection(db, "users")).id;
-            }
-
             let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl;
+            
             if (photoFile && studentUid) {
-                const storageRef = ref(storage, `profile-pictures/${studentUid}/profile.jpg`);
-                const uploadResult = await uploadBytes(storageRef, photoFile, { contentType: 'image/jpeg' });
-                photoUrl = await getDownloadURL(uploadResult.ref);
+                photoUrl = URL.createObjectURL(photoFile);
             }
             
             const finalStudentData = { ...studentData, photoUrl: photoUrl || `https://picsum.photos/seed/${studentUid}/100/100` };
 
             if (selectedStudent) {
-                // Edit existing student
-                const studentRef = doc(db, "users", selectedStudent.uid);
-                await updateDoc(studentRef, finalStudentData);
                 setUsers(prev => prev.map(u => u.uid === selectedStudent.uid ? { ...u, ...finalStudentData } : u));
-                toast({ title: "Étudiant mis à jour", description: "Les informations de l'étudiant ont été mises à jour." });
+                toast({ title: "Étudiant mis à jour (Simulation)" });
             } else {
-                 // Add new student and potentially a new parent
-                const batch = writeBatch(db);
                 let allNewUsers: User[] = [];
-                
+                const newStudentUid = `student_${Date.now()}`;
                 const newStudent: User = {
-                    uid: studentUid,
+                    uid: newStudentUid,
                     createdAt: new Date().toISOString(),
                     status: 'active',
                     role: 'student',
@@ -168,10 +149,8 @@ export default function StudentsPage() {
                 } as User;
                 allNewUsers.push(newStudent);
 
-                let newParentId: string | undefined;
-
                 if (parentData && parentData.email) {
-                    newParentId = doc(collection(db, "users")).id;
+                    const newParentId = `parent_${Date.now()}`;
                     const newParent : User = {
                        uid: newParentId,
                        createdAt: new Date().toISOString(),
@@ -181,25 +160,19 @@ export default function StudentsPage() {
                        parent: { childrenUids: [newStudent.uid] }
                     } as User;
                     newStudent.student!.parentUid = newParent.uid;
-                    batch.set(doc(db, "users", newParentId), newParent);
                     allNewUsers.push(newParent);
-
                 } else if (studentData.student?.parentUid) {
-                    const parentRef = doc(db, "users", studentData.student.parentUid);
-                    const parentSnap = await getDoc(parentRef);
-                    if(parentSnap.exists()) {
-                        const parent = parentSnap.data() as User;
-                        const childrenUids = [...(parent.parent?.childrenUids || []), newStudent.uid];
-                        batch.update(parentRef, { "parent.childrenUids": childrenUids });
-                        // Optimistic update for parent
-                        setUsers(prev => prev.map(u => u.uid === parent.uid ? {...u, parent: {childrenUids}} : u));
-                    }
+                     setUsers(prev => prev.map(u => {
+                        if (u.uid === studentData.student?.parentUid) {
+                            const childrenUids = [...(u.parent?.childrenUids || []), newStudent.uid];
+                            return {...u, parent: {childrenUids}};
+                        }
+                        return u;
+                     }));
                 }
                 
-                batch.set(doc(db, "users", studentUid), newStudent);
-                await batch.commit();
                 setUsers(prev => [...prev, ...allNewUsers]);
-                toast({ title: "Étudiant ajouté", description: "Le nouvel étudiant a été ajouté avec succès." });
+                toast({ title: "Étudiant ajouté (Simulation)" });
             }
         } catch (error) {
             console.error("Error saving student:", error);
@@ -209,16 +182,10 @@ export default function StudentsPage() {
     
     const confirmDelete = async () => {
         if(selectedStudent) {
-            try {
-                await deleteDoc(doc(db, "users", selectedStudent.uid));
-                setUsers(prev => prev.filter(u => u.uid !== selectedStudent.uid));
-                toast({ title: "Étudiant supprimé", description: "L'étudiant a été supprimé avec succès." });
-                setIsDeleteOpen(false);
-                setSelectedStudent(null);
-            } catch (error) {
-                console.error("Error deleting student: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'étudiant." });
-            }
+            setUsers(prev => prev.filter(u => u.uid !== selectedStudent.uid));
+            toast({ title: "Étudiant supprimé (Simulation)" });
+            setIsDeleteOpen(false);
+            setSelectedStudent(null);
         }
     }
     
@@ -308,13 +275,11 @@ export default function StudentsPage() {
                     return studentRow;
                 });
 
-                const batch = writeBatch(db);
-                let importedCount = 0;
                 let newUsersForState: User[] = [];
                 
                 for (const studentRow of importedStudentsData) {
                     const field = mockFields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase());
-                    const newId = doc(collection(db, "users")).id;
+                    const newId = `student_${Date.now()}_${Math.random()}`;
 
                     const newUser: User = {
                         uid: newId,
@@ -336,15 +301,11 @@ export default function StudentsPage() {
                            endDate: ''
                         }
                     };
-                    batch.set(doc(db, "users", newId), newUser);
                     newUsersForState.push(newUser);
-                    importedCount++;
                 }
                 
-                await batch.commit();
-
                 setUsers(prev => [...prev, ...newUsersForState]);
-                toast({ title: "Importation réussie", description: `${importedCount} étudiants ont été importés.` });
+                toast({ title: "Importation réussie (Simulation)", description: `${newUsersForState.length} étudiants ont été importés localement.` });
             } catch (error) {
                 console.error("Error importing file:", error);
                 toast({ variant: "destructive", title: "Erreur d'importation", description: "Le fichier est peut-être corrompu ou mal formaté." });

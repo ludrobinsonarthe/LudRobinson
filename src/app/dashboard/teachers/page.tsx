@@ -35,7 +35,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function TeachersPage() {
-    const { users, loading } = useUser();
+    const { users, loading, setUsers } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
@@ -59,56 +59,35 @@ export default function TeachersPage() {
     }
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
-        try {
-            let userUid = selectedTeacher?.uid;
-            if (!userUid) {
-                userUid = doc(collection(db, "users")).id;
-            }
+        let photoUrl = userData.photoUrl || selectedTeacher?.photoUrl;
+        if (photoFile) {
+            photoUrl = URL.createObjectURL(photoFile);
+        }
+        
+        const finalUserData = { ...userData, photoUrl };
 
-            let photoUrl = userData.photoUrl || selectedTeacher?.photoUrl;
-            if (photoFile && userUid) {
-                const storageRef = ref(storage, `profile-pictures/${userUid}/profile.jpg`);
-                const uploadResult = await uploadBytes(storageRef, photoFile, { contentType: 'image/jpeg' });
-                photoUrl = await getDownloadURL(uploadResult.ref);
-            }
-            
-            const finalUserData = { ...userData, photoUrl: photoUrl || `https://picsum.photos/seed/${userUid}/100/100` };
-
-            if (selectedTeacher) {
-                // Edit existing teacher
-                const teacherRef = doc(db, "users", selectedTeacher.uid);
-                await updateDoc(teacherRef, finalUserData);
-                toast({ title: "Professeur mis à jour", description: "Les informations du professeur ont été mises à jour." });
-            } else {
-                // Add new teacher
-                const newTeacher: User = {
-                    uid: userUid,
-                    createdAt: new Date().toISOString(),
-                    status: 'active',
-                    role: 'teacher',
-                    ...finalUserData,
-                } as User;
-                
-                await setDoc(doc(db, "users", userUid), newTeacher);
-                toast({ title: "Professeur ajouté", description: "Le nouveau professeur a été ajouté avec succès." });
-            }
-        } catch (error) {
-            console.error("Error saving teacher:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le professeur." });
+        if (selectedTeacher) {
+            setUsers(prev => prev.map(u => u.uid === selectedTeacher.uid ? { ...u, ...finalUserData } as User : u));
+            toast({ title: "Professeur mis à jour (Simulation)" });
+        } else {
+            const newTeacher: User = {
+                uid: `teacher_${Date.now()}`,
+                createdAt: new Date().toISOString(),
+                status: 'active',
+                role: 'teacher',
+                ...finalUserData,
+            } as User;
+            setUsers(prev => [...prev, newTeacher]);
+            toast({ title: "Professeur ajouté (Simulation)"});
         }
     }
     
     const confirmDelete = async () => {
         if(selectedTeacher) {
-            try {
-                await deleteDoc(doc(db, "users", selectedTeacher.uid));
-                toast({ title: "Professeur supprimé", description: "Le professeur a été supprimé avec succès." });
-                setIsDeleteOpen(false);
-                setSelectedTeacher(null);
-            } catch (error) {
-                console.error("Error deleting teacher: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le professeur." });
-            }
+            setUsers(prev => prev.filter(u => u.uid !== selectedTeacher.uid));
+            toast({ title: "Professeur supprimé (Simulation)" });
+            setIsDeleteOpen(false);
+            setSelectedTeacher(null);
         }
     }
 

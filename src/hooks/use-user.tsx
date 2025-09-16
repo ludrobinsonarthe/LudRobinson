@@ -6,7 +6,7 @@ import type { User, AdminRole, AdminPermission } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockUsers } from '@/lib/mock-data';
+import { mockUsers, mockAdminRoles } from '@/lib/mock-data';
 
 type UserContextType = {
   user: User | null;
@@ -30,30 +30,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function fetchData() {
         setLoading(true);
-        // Fallback to mock data to prevent permission errors from blocking the UI
+        
         const usersFromDb = mockUsers;
         
-        // Find the first admin and make them super-admin for demo purposes
         const firstAdminIndex = usersFromDb.findIndex(u => u.role === 'admin');
         if (firstAdminIndex !== -1 && !usersFromDb[firstAdminIndex].admin?.position?.toLowerCase().includes('super')) {
             usersFromDb[firstAdminIndex].admin = {...usersFromDb[firstAdminIndex].admin, position: 'Super-Administrateur'};
         }
         setAllUsers(usersFromDb);
 
-        try {
-            const rolesQuery = query(collection(db, "admin_roles"));
-            const rolesSnapshot = await getDocs(rolesQuery);
-            const rolesFromDb: AdminRole[] = [];
-            rolesSnapshot.forEach((doc) => {
-                rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
-            });
-            setRoles(rolesFromDb);
-        } catch (error) {
-            console.warn("Could not fetch roles from Firestore, using empty list. This might be due to security rules.", error);
-            setRoles([]);
-        }
+        setRoles(mockAdminRoles);
         
-        // Set initial user after fetching all data
         if (currentUser === null) {
              const adminUser = usersFromDb.find(u => u.role === 'admin' && u.admin?.position?.toLowerCase().includes('super'));
              if (adminUser) {
@@ -66,6 +53,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
     }
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   useEffect(() => {

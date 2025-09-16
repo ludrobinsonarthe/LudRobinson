@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { BookOpenCheck, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { mockCourses } from '@/lib/mock-data';
 
 export default function CoursesPage() {
     const { user: currentUser, users } = useUser();
@@ -43,29 +44,14 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
-        async function fetchCourses() {
-            if (!studentToView || !studentToView.student?.fieldId) {
-                setLoading(false);
-                setCourses([]);
-                return;
-            }
-
-            setLoading(true);
-            try {
-                const q = query(collection(db, "courses"), where("fieldId", "==", studentToView.student.fieldId));
-                const snapshot = await getDocs(q);
-                const studentCourses: Course[] = [];
-                snapshot.forEach((doc) => {
-                    studentCourses.push({ id: doc.id, ...doc.data() } as Course);
-                });
-                setCourses(studentCourses);
-            } catch (error) {
-                console.error("Error fetching student courses: ", error);
-            } finally {
-                setLoading(false);
-            }
+        setLoading(true);
+        if (!studentToView || !studentToView.student?.fieldId) {
+            setCourses([]);
+        } else {
+            const studentCourses = mockCourses.filter(c => c.fieldId === studentToView.student?.fieldId);
+            setCourses(studentCourses);
         }
-        fetchCourses();
+        setLoading(false);
     }, [studentToView]);
 
     const handleChildChange = (studentId: string) => {

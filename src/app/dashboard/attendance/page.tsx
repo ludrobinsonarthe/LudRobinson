@@ -15,7 +15,7 @@ import { Course, User, Attendance, Field, StudentAttendance } from '@/lib/types'
 import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { mockFields } from '@/lib/mock-data';
+import { mockFields, mockCourses, mockAttendances } from '@/lib/mock-data';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
 
@@ -37,17 +37,10 @@ function AttendanceContent() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
     useEffect(() => {
-        async function fetchData() {
-            setLoadingData(true);
-            const coursesSnapshot = await getDocs(collection(db, 'courses'));
-            setCourses(coursesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-            
-            const attendancesSnapshot = await getDocs(collection(db, 'attendances'));
-            setAttendances(attendancesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendance)));
-            
-            setLoadingData(false);
-        }
-        fetchData();
+        setLoadingData(true);
+        setCourses(mockCourses);
+        setAttendances(mockAttendances);
+        setLoadingData(false);
     }, []);
     
     useEffect(() => {
@@ -91,60 +84,31 @@ function AttendanceContent() {
     const handleSaveAttendance = async (data: { teacherStatus: 'present' | 'absent', studentAttendances: StudentAttendance[]}) => {
         if (!selectedCourse || !selectedDate || !users.length) return;
 
-        const adminUser = users.find(u => u.role === 'admin');
-        if (!adminUser) {
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Aucun administrateur trouvé pour valider.' });
-            return;
-        }
-
+        toast({ title: 'Présences enregistrées (Simulation)', description: 'Les fiches de présence ont été mises à jour localement.' });
+        
         const attendanceId = `${selectedDate}-${selectedCourse.id}`;
         
-        try {
-            const docRef = doc(db, 'attendances', attendanceId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                await setDoc(docRef, { ...data, updatedAt: new Date().toISOString() }, { merge: true });
-            } else {
-                const newAttendance: Attendance = {
-                    id: attendanceId,
-                    date: selectedDate,
-                    courseId: selectedCourse.id,
-                    teacherId: selectedCourse.teacherId,
-                    teacherStatus: data.teacherStatus,
-                    studentAttendances: data.studentAttendances,
-                    validatedBy: adminUser.uid,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                await setDoc(docRef, newAttendance);
+        setAttendances(prev => {
+            const existingIndex = prev.findIndex(a => a.id === attendanceId);
+            const newAttendanceRecord = {
+                ...data,
+                id: attendanceId,
+                date: selectedDate!,
+                courseId: selectedCourse!.id,
+                teacherId: selectedCourse!.teacherId,
+                validatedBy: 'admin01',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             }
-            toast({ title: 'Présences enregistrées', description: 'Les fiches de présence ont été mises à jour.' });
-            setAttendances(prev => {
-                const existingIndex = prev.findIndex(a => a.id === attendanceId);
-                const newAttendanceRecord = {
-                    ...data,
-                    id: attendanceId,
-                    date: selectedDate!,
-                    courseId: selectedCourse!.id,
-                    teacherId: selectedCourse!.teacherId,
-                    validatedBy: adminUser.uid,
-                    createdAt: docSnap.exists() ? docSnap.data().createdAt : new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                }
-                if (existingIndex > -1) {
-                    const newAttendances = [...prev];
-                    newAttendances[existingIndex] = newAttendanceRecord;
-                    return newAttendances;
-                } else {
-                    return [...prev, newAttendanceRecord];
-                }
-            });
-            setIsDialogOpen(false);
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder les présences.' });
-        }
+            if (existingIndex > -1) {
+                const newAttendances = [...prev];
+                newAttendances[existingIndex] = newAttendanceRecord;
+                return newAttendances;
+            } else {
+                return [...prev, newAttendanceRecord];
+            }
+        });
+        setIsDialogOpen(false);
     };
     
     const getAttendanceForCourse = useCallback((courseId: string, date: string): Attendance | undefined => {

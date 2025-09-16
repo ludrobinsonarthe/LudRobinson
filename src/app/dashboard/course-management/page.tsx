@@ -23,7 +23,7 @@ import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "firebase
 import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import CourseFormDialog from "@/components/course-form-dialog";
-import { mockSectors, mockFields } from "@/lib/mock-data";
+import { mockSectors, mockFields, mockCourses } from "@/lib/mock-data";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -51,17 +51,9 @@ export default function CourseManagementPage() {
     const [cycleFilter, setCycleFilter] = useState("all");
     
     useEffect(() => {
-      async function fetchCourses() {
-        setLoading(true);
-        const snapshot = await getDocs(collection(db, "courses"));
-        const coursesFromDb: Course[] = [];
-        snapshot.forEach((doc) => {
-          coursesFromDb.push({ id: doc.id, ...doc.data() } as Course);
-        });
-        setCourses(coursesFromDb);
-        setLoading(false);
-      }
-      fetchCourses();
+      setLoading(true);
+      setCourses(mockCourses);
+      setLoading(false);
     }, []);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
@@ -120,37 +112,21 @@ export default function CourseManagementPage() {
     }
 
     const handleSave = async (courseData: Partial<Course>) => {
-        try {
-            if (selectedCourse) {
-                const courseRef = doc(db, "courses", selectedCourse.id);
-                await updateDoc(courseRef, courseData);
-                setCourses(prev => prev.map(c => c.id === selectedCourse.id ? { ...c, ...courseData } : c));
-                toast({ title: "Cours mis à jour", description: "Les informations du cours ont été mises à jour." });
-            } else {
-                const newCourseId = doc(collection(db, "courses")).id;
-                const newCourse = {id: newCourseId, ...courseData} as Course;
-                await setDoc(doc(db, "courses", newCourseId), newCourse);
-                setCourses(prev => [...prev, newCourse]);
-                toast({ title: "Cours ajouté", description: "Le nouveau cours a été ajouté avec succès." });
-            }
-        } catch (error) {
-            console.error("Error saving course:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le cours." });
+        toast({ title: "Simulation", description: "Les sauvegardes sont désactivées en mode démo." });
+        if (selectedCourse) {
+            setCourses(prev => prev.map(c => c.id === selectedCourse.id ? { ...c, ...courseData } : c));
+        } else {
+            const newCourse = {id: `course_${Date.now()}`, ...courseData} as Course;
+            setCourses(prev => [...prev, newCourse]);
         }
     }
     
     const confirmDelete = async () => {
         if(selectedCourse) {
-            try {
-                await deleteDoc(doc(db, "courses", selectedCourse.id));
-                setCourses(prev => prev.filter(c => c.id !== selectedCourse.id));
-                toast({ title: "Cours supprimé", description: "Le cours a été supprimé avec succès." });
-                setIsDeleteOpen(false);
-                setSelectedCourse(null);
-            } catch (error) {
-                console.error("Error deleting course: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le cours." });
-            }
+            setCourses(prev => prev.filter(c => c.id !== selectedCourse.id));
+            toast({ title: "Cours supprimé (Simulation)" });
+            setIsDeleteOpen(false);
+            setSelectedCourse(null);
         }
     }
 

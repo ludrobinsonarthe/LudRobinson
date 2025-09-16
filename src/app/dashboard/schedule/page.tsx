@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Course, Field, Sector } from '@/lib/types';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { mockSectors, mockFields } from '@/lib/mock-data';
+import { mockSectors, mockFields, mockCourses } from '@/lib/mock-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -41,23 +41,9 @@ function ScheduleContent() {
     }, [fieldIdFromParams, currentUser]);
 
     useEffect(() => {
-        async function fetchCourses() {
-            setLoading(true);
-            try {
-                const q = query(collection(db, "courses"));
-                const snapshot = await getDocs(q);
-                const coursesFromDb: Course[] = [];
-                snapshot.forEach((doc) => {
-                    coursesFromDb.push({ id: doc.id, ...doc.data() } as Course);
-                });
-                setCourses(coursesFromDb);
-            } catch (error) {
-                console.error("Error fetching courses:", error);
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchCourses();
+        setLoading(true);
+        setCourses(mockCourses);
+        setLoading(false);
     }, []);
 
     const filteredCourses = useMemo(() => {

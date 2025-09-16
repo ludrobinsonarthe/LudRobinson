@@ -29,6 +29,7 @@ import { AdminRole, adminPermissions, AdminPermission } from "@/lib/types";
 import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDescription } from "@/components/ui/form";
+import { mockAdminRoles } from "@/lib/mock-data";
 
 const roleSchema = z.object({
   id: z.string(),
@@ -60,56 +61,26 @@ export default function RolesPage() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "roles",
   });
 
   useEffect(() => {
-    async function fetchRoles() {
-        const q = query(collection(db, "admin_roles"));
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-            form.reset({ roles: [] });
-        } else {
-            const rolesFromDb: AdminRole[] = [];
-            snapshot.forEach((doc) => {
-            rolesFromDb.push({ id: doc.id, ...doc.data() } as AdminRole);
-            });
-            form.reset({ roles: rolesFromDb });
-        }
-        setLoading(false);
-    }
-    fetchRoles();
-  }, [form]);
+    setLoading(true);
+    replace(mockAdminRoles);
+    setLoading(false);
+  }, [replace]);
 
   const onSubmit = async (data: RolesFormValues) => {
-    try {
-      setLoading(true);
-      const batch = writeBatch(db);
-      data.roles.forEach((role) => {
-        const docRef = doc(db, "admin_roles", role.id);
-        batch.set(docRef, role);
-      });
-      await batch.commit();
-      toast({
-        title: "Rôles mis à jour",
-        description: "Les rôles et permissions ont été enregistrés.",
-      });
-    } catch (error) {
-      console.error("Error saving roles:", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible d'enregistrer les rôles.",
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+        title: "Rôles mis à jour (Simulation)",
+        description: "Les rôles et permissions ont été enregistrés localement.",
+    });
   };
 
   const addNewRole = () => {
-    const newId = doc(collection(db, 'admin_roles')).id;
+    const newId = `role_${Date.now()}`;
     append({
         id: newId,
         name: "",
@@ -118,14 +89,8 @@ export default function RolesPage() {
   }
 
   const removeRole = async (index: number) => {
-    const roleId = fields[index].id;
-    try {
-        await deleteDoc(doc(db, "admin_roles", roleId));
-        remove(index);
-        toast({ title: "Rôle supprimé" });
-    } catch(error) {
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer ce rôle." });
-    }
+    remove(index);
+    toast({ title: "Rôle supprimé (Simulation)" });
   }
 
   return (

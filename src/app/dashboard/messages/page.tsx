@@ -8,6 +8,7 @@ import { Message } from "@/lib/types";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
+import { mockMessages } from "@/lib/mock-data";
 
 export default function MessagesPage() {
   const { user, users } = useUser();
@@ -16,34 +17,15 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!user) return;
-
-    async function fetchMessages() {
-        setLoading(true);
-        try {
-            const q = query(
-                collection(db, "messages"),
-                where("type", "==", "private")
-            );
-
-            const snapshot = await getDocs(q);
-            const allMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-            
-            const userMessages = allMessages.filter(
-                msg => msg.senderId === user.uid || msg.receiverId === user.uid
-            );
-            
-            userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-            setMessages(userMessages);
-        } catch(error) {
-            console.error("Error fetching messages: ", error);
-        } finally {
-            setLoading(false);
-        }
-    }
+    setLoading(true);
     
-    fetchMessages();
-
+    const userMessages = mockMessages.filter(
+        msg => (msg.senderId === user.uid || msg.receiverId === user.uid) && msg.type === 'private'
+    );
+    userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    setMessages(userMessages);
+    
+    setLoading(false);
   }, [user]);
   
   const handleNewMessage = (newMessage: Message) => {
