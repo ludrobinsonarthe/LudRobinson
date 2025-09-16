@@ -5,19 +5,19 @@ export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
 
 export const adminPermissions = {
-  view_reporting: "Voir le Tableau de Bord",
-  manage_students: "Gérer les Étudiants",
-  manage_teachers: "Gérer les Professeurs",
-  manage_course: "Gérer les Cours & Horaires",
-  manage_grades: "Gérer les Notes",
-  manage_tuition: "Gérer la Scolarité",
-  manage_fees: "Gérer les Frais",
-  manage_salaries: "Gérer les Salaires",
-  manage_attendance: "Gérer les Présences",
-  manage_cash_flow: "Gérer la Caisse",
-  manage_users: "Gérer le Personnel (Utilisateurs)",
-  manage_roles: "Gérer les Rôles & Permissions",
-  manage_admin_settings: "Gérer les Paramètres de l'Institut",
+  view_reporting: "Tableau de Bord",
+  manage_students: "Étudiants",
+  manage_teachers: "Professeurs",
+  manage_course: "Gestion Cours & Horaires",
+  manage_grades: "Gestion des notes",
+  manage_tuition: "Scolarité",
+  manage_fees: "Gestion des frais",
+  manage_salaries: "Salaires",
+  manage_attendance: "Suivi des Présences",
+  manage_cash_flow: "Suivi de caisse",
+  manage_users: "Utilisateurs",
+  manage_roles: "Rôles & Permissions",
+  manage_admin_settings: "Administration",
 };
 
 

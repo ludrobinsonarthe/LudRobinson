@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -43,9 +44,10 @@ const rolesFormSchema = z.object({
 type RolesFormValues = z.infer<typeof rolesFormSchema>;
 
 const permissionGroups = {
+    'Général': ['view_reporting', 'manage_admin_settings'],
     'Pédagogie': ['manage_students', 'manage_teachers', 'manage_course', 'manage_grades', 'manage_attendance'],
     'Finances': ['manage_tuition', 'manage_fees', 'manage_salaries', 'manage_cash_flow'],
-    'Administration Système': ['manage_users', 'manage_roles', 'manage_admin_settings', 'view_reporting']
+    'Système': ['manage_users', 'manage_roles']
 }
 
 export default function RolesPage() {
@@ -180,7 +182,7 @@ export default function RolesPage() {
                                                 <div key={groupName}>
                                                     <h4 className="font-medium text-sm text-foreground mb-2">{groupName}</h4>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        {groupPermissions.map((permission) => (
+                                                        {(groupPermissions as AdminPermission[]).map((permission) => (
                                                             <div key={permission} className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                                                                 <FormControl>
                                                                     <Checkbox
@@ -192,7 +194,7 @@ export default function RolesPage() {
                                                                         }}
                                                                     />
                                                                 </FormControl>
-                                                                <FormLabel className="font-normal text-sm">{adminPermissions[permission as AdminPermission]}</FormLabel>
+                                                                <FormLabel className="font-normal text-sm">{adminPermissions[permission]}</FormLabel>
                                                             </div>
                                                         ))}
                                                     </div>
