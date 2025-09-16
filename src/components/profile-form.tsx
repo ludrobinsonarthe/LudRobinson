@@ -27,7 +27,7 @@ import { doc, updateDoc } from "firebase/firestore";
 const profileFormSchema = z.object({
   firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
   lastName: z.string().min(2, { message: "Le nom doit comporter au moins 2 caractères." }),
-  email: z.string().email({ message: "Veuillez saisir une adresse e-mail valide." }),
+  email: z.string().email({ message: "Veuillez saisir une adresse e-mail valide." }).optional().or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
   photo: z.any().optional(),
@@ -84,9 +84,10 @@ export default function ProfileForm() {
                 photoUrl = await getDownloadURL(uploadResult.ref);
             }
 
-            const updatedUserData = {
+            const updatedUserData: Partial<User> = {
                 firstName: data.firstName,
                 lastName: data.lastName,
+                email: data.email,
                 phone: data.phone,
                 address: data.address,
                 photoUrl: photoUrl,
@@ -96,7 +97,7 @@ export default function ProfileForm() {
             await updateDoc(userRef, updatedUserData);
 
             // Optimistically update user context
-            setUser({ ...user, ...updatedUserData });
+            setUser({ ...user, ...updatedUserData } as User);
 
             toast({
                 title: "Profil mis à jour",
@@ -197,10 +198,10 @@ export default function ProfileForm() {
               <FormItem>
                 <FormLabel>Adresse e-mail</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="email@example.com" {...field} disabled />
+                  <Input type="email" placeholder="email@example.com" {...field} />
                 </FormControl>
                 <FormDescription>
-                    Vous ne pouvez pas modifier votre adresse e-mail.
+                    Vous pouvez modifier votre adresse e-mail.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
