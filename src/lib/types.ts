@@ -1,6 +1,8 @@
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
+export type Cycle = 'local' | 'international' | 'entrepreneur';
 
 export interface User {
   uid: string;
@@ -18,7 +20,7 @@ export interface User {
   student?: {
     matricule: string;
     programId: string;
-    classId: string;
+    cycle?: Cycle;
     level?: string;
     fieldId?: string;
     enrollmentDate: string;
@@ -134,5 +136,3 @@ export interface Settings {
   currency: string;
   adminContacts: string[];
 }
-
-    

@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field } from "@/lib/types";
+import { User, UserRole, Class, Sector, Field, Cycle } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown } from "lucide-react";
 import { format } from 'date-fns';
@@ -32,6 +32,11 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
+const cycles: { value: Cycle, label: string }[] = [
+    { value: 'local', label: 'Cycle Local' },
+    { value: 'international', label: 'Cycle International' },
+    { value: 'entrepreneur', label: 'Cycle Entrepreneur' },
+];
 
 export default function StudentsPage() {
     const { users, setUsers } = useUser();
@@ -47,7 +52,6 @@ export default function StudentsPage() {
     
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const parents = useMemo(() => users.filter(u => u.role === 'parent'), [users]);
-    const classesById = useMemo(() => mockClasses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Class>), []);
     const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), []);
     const sectorsById = useMemo(() => mockSectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), []);
 
@@ -214,7 +218,7 @@ export default function StudentsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nom</TableHead>
-                                <TableHead className="hidden md:table-cell">Classe</TableHead>
+                                <TableHead className="hidden md:table-cell">Cycle</TableHead>
                                 <TableHead className="hidden lg:table-cell">Tuteur</TableHead>
                                 <TableHead className="hidden lg:table-cell">Date d'inscription</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -236,7 +240,7 @@ export default function StudentsPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
-                                        <Badge variant="secondary">{student.student?.classId ? classesById[student.student.classId]?.name : 'Non assigné'}</Badge>
+                                        <Badge variant="secondary">{cycles.find(c => c.value === student.student?.cycle)?.label || 'Non défini'}</Badge>
                                     </TableCell>
                                      <TableCell className="hidden lg:table-cell">
                                         {getParentName(student.student?.parentUid)}
@@ -282,7 +286,6 @@ export default function StudentsPage() {
                 onSave={handleSave}
                 student={selectedStudent}
                 parents={parents}
-                classes={mockClasses}
             />
             <UserDeleteDialog
                 isOpen={isDeleteOpen}
@@ -293,5 +296,3 @@ export default function StudentsPage() {
         </div>
     );
 }
-
-    

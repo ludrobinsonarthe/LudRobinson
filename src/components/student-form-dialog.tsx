@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { User, Class, Sector, Field } from "@/lib/types";
+import type { User, Class, Sector, Field, Cycle } from "@/lib/types";
 import { useEffect, useState, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
@@ -38,7 +38,7 @@ const studentFormSchema = z.object({
   level: z.string().min(1, "Le niveau est requis."),
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
-  classId: z.string().min(1, "Veuillez sélectionner une classe."),
+  cycle: z.enum(['local', 'international', 'entrepreneur']).optional(),
   parentalLink: z.string().optional(),
   
   // Parent/Tutor Info
@@ -77,12 +77,16 @@ interface StudentFormDialogProps {
   onSave: (studentData: Partial<User>, parentData?: Partial<User>) => void;
   student: User | null;
   parents: User[];
-  classes: Class[];
 }
 
 const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
+const cycles: { value: Cycle, label: string }[] = [
+    { value: 'local', label: 'Cycle Local' },
+    { value: 'international', label: 'Cycle International' },
+    { value: 'entrepreneur', label: 'Cycle Entrepreneur' },
+];
 
-export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, parents, classes }: StudentFormDialogProps) {
+export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, parents }: StudentFormDialogProps) {
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
@@ -94,7 +98,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         level: '',
         sectorId: '',
         fieldId: '',
-        classId: '',
+        cycle: 'local',
         parentSelection: 'existing',
         parentUid: '',
         parentFirstName: '',
@@ -127,7 +131,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             level: student.student?.level,
             sectorId: studentSectorId,
             fieldId: student.student?.fieldId,
-            classId: student.student?.classId,
+            cycle: student.student?.cycle,
             parentUid: student.student?.parentUid,
             parentalLink: student.student?.parentalLink,
             parentSelection: student.student?.parentUid ? 'existing' : 'new'
@@ -142,7 +146,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
             level: '',
             sectorId: '',
             fieldId: '',
-            classId: '',
+            cycle: 'local',
             parentSelection: 'existing',
             parentUid: '',
             parentFirstName: '',
@@ -170,7 +174,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         student: {
             ...student?.student,
             matricule: data.matricule,
-            classId: data.classId,
+            cycle: data.cycle,
             level: data.level,
             fieldId: data.fieldId,
             parentalLink: data.parentalLink,
@@ -259,11 +263,11 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
                     )}/>
                 </div>
                 
-                 <FormField control={form.control} name="classId" render={({ field }) => (
-                    <FormItem><FormLabel>Classe</FormLabel>
+                 <FormField control={form.control} name="cycle" render={({ field }) => (
+                    <FormItem><FormLabel>Cycle</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une classe..." /></SelectTrigger></FormControl>
-                        <SelectContent>{classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un cycle..." /></SelectTrigger></FormControl>
+                        <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                     <FormMessage />
                     </FormItem>
@@ -334,5 +338,3 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
     </Dialog>
   );
 }
-
-    
