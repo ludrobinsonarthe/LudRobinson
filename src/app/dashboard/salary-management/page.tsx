@@ -15,12 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
-import { TeacherSalary } from "@/lib/types";
+import { TeacherSalary, Attendance, Course } from "@/lib/types";
 import { MoreHorizontal, PlusCircle, Trash2, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
+import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
@@ -32,22 +32,36 @@ function SalaryManagementContent() {
     const teacherIdFilter = searchParams.get('teacherId');
 
     const [salaries, setSalaries] = useState<TeacherSalary[]>([]);
-    const [loadingSalaries, setLoadingSalaries] = useState(true);
+    const [attendances, setAttendances] = useState<Attendance[]>([]);
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedSalary, setSelectedSalary] = useState<TeacherSalary | null>(null);
     const { toast } = useToast();
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, "salaries"), (snapshot) => {
-            const salariesFromDb: TeacherSalary[] = [];
-            snapshot.forEach((doc) => {
-                salariesFromDb.push({ id: doc.id, ...doc.data() } as TeacherSalary);
-            });
-            setSalaries(salariesFromDb.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setLoadingSalaries(false);
+        const unsubSalaries = onSnapshot(collection(db, "salaries"), (snapshot) => {
+            const data: TeacherSalary[] = [];
+            snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() } as TeacherSalary));
+            setSalaries(data.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         });
-        return () => unsubscribe();
+        const unsubAttendances = onSnapshot(collection(db, "attendances"), (snapshot) => {
+            const data: Attendance[] = [];
+            snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() } as Attendance));
+            setAttendances(data);
+        });
+        const unsubCourses = onSnapshot(collection(db, "courses"), (snapshot) => {
+            const data: Course[] = [];
+            snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() } as Course));
+            setCourses(data);
+        });
+        setLoadingData(false);
+        return () => {
+            unsubSalaries();
+            unsubAttendances();
+            unsubCourses();
+        }
     }, []);
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
@@ -74,6 +88,28 @@ function SalaryManagementContent() {
         setSelectedSalary(null);
         setIsFormOpen(true);
     }
+    
+    const calculateHours = (teacherId: string, month: number, year: number): number => {
+        const teacherAttendances = attendances.filter(a => 
+            a.teacherId === teacherId &&
+            a.status === 'present' &&
+            getMonth(new Date(a.date)) === month &&
+            getYear(new Date(a.date)) === year
+        );
+
+        let totalHours = 0;
+        teacherAttendances.forEach(att => {
+            const course = courses.find(c => c.id === att.courseId);
+            const scheduleEntry = course?.schedule?.find(s => format(new Date(att.date), 'EEEE', {locale: fr}) === s.day);
+            if(scheduleEntry) {
+                 const start = parseFloat(scheduleEntry.start.replace(':', '.'));
+                 const end = parseFloat(scheduleEntry.end.replace(':', '.'));
+                 totalHours += (end - start);
+            }
+        });
+        return totalHours;
+    }
+
 
     const handleSave = async (salaryData: Omit<TeacherSalary, 'id' | 'createdAt' | 'status'>) => {
          try {
@@ -151,7 +187,7 @@ function SalaryManagementContent() {
         pending: "En attente",
     }
 
-    const loading = usersLoading || loadingSalaries;
+    const loading = usersLoading || loadingData;
 
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
@@ -250,6 +286,7 @@ function SalaryManagementContent() {
                 onSave={handleSave}
                 teachers={teachers}
                 initialTeacherId={teacherIdFilter}
+                calculateHours={calculateHours}
             />
 
             {selectedSalary && (

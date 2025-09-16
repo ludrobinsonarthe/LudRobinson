@@ -36,6 +36,7 @@ import {
   Banknote,
   Landmark,
   FileCog,
+  ClipboardCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserProvider, useUser } from "@/hooks/use-user";
@@ -79,6 +80,7 @@ function MainSidebar() {
     { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt },
     { href: "/dashboard/fee-management", label: "Gestion des frais", icon: FileCog },
     { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote },
+    { href: "/dashboard/attendance", label: "Suivi des Présences", icon: ClipboardCheck },
     { href: "/dashboard/cash-flow", label: "Suivi de caisse", icon: Landmark },
     { href: "/dashboard/users", label: "Utilisateurs", icon: UserCog },
     { href: "/dashboard/admin-management", label: "Administration", icon: Building },

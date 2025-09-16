@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote, ClipboardCheck } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -171,6 +171,12 @@ export default function TeachersPage() {
                                                     <Link href={`/dashboard/salary-management?teacherId=${teacher.uid}`}>
                                                         <Banknote className="mr-2 h-4 w-4" />
                                                         Gérer les salaires
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem asChild>
+                                                    <Link href={`/dashboard/attendance?teacherId=${teacher.uid}`}>
+                                                        <ClipboardCheck className="mr-2 h-4 w-4" />
+                                                        Voir les présences
                                                     </Link>
                                                 </DropdownMenuItem>
                                                <DropdownMenuItem onClick={() => handleDelete(teacher)} className="text-destructive">

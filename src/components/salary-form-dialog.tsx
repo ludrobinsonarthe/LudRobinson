@@ -22,13 +22,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { User, TeacherSalary } from "@/lib/types";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { getMonth } from "date-fns";
 
 const salaryFormSchema = z.object({
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
   hourlyRate: z.coerce.number().min(1, "Le taux horaire est requis."),
-  hoursWorked: z.coerce.number().min(1, "Le nombre d'heures est requis."),
+  hoursWorked: z.coerce.number().min(0, "Le nombre d'heures est requis."),
   totalSalary: z.coerce.number(),
   month: z.string().min(1, "Le mois est requis."),
   year: z.string().min(4, "L'année est requise."),
@@ -44,13 +45,14 @@ interface SalaryFormDialogProps {
   teachers: User[];
   salary?: TeacherSalary | null;
   initialTeacherId?: string | null;
+  calculateHours: (teacherId: string, month: number, year: number) => number;
 }
 
 const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}`);
 
-export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, salary, initialTeacherId }: SalaryFormDialogProps) {
+export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, salary, initialTeacherId, calculateHours }: SalaryFormDialogProps) {
   const form = useForm<SalaryFormValues>({
     resolver: zodResolver(salaryFormSchema),
     defaultValues: {
@@ -66,11 +68,28 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
 
   const hourlyRate = form.watch('hourlyRate');
   const hoursWorked = form.watch('hoursWorked');
+  const teacherId = form.watch('teacherId');
+  const month = form.watch('month');
+  const year = form.watch('year');
 
   useEffect(() => {
     const total = (hourlyRate || 0) * (hoursWorked || 0);
     form.setValue('totalSalary', total);
   }, [hourlyRate, hoursWorked, form]);
+
+  const updateHours = useCallback(() => {
+    if (teacherId && month && year) {
+        const monthIndex = months.indexOf(month);
+        const calculatedHours = calculateHours(teacherId, monthIndex, parseInt(year));
+        form.setValue('hoursWorked', calculatedHours);
+    }
+  }, [teacherId, month, year, calculateHours, form]);
+
+  useEffect(() => {
+    if(isOpen) {
+        updateHours();
+    }
+  }, [teacherId, month, year, isOpen, updateHours]);
 
   useEffect(() => {
     if (isOpen) {
@@ -104,7 +123,7 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
                 {salary ? "Modifier la fiche de paie" : "Générer une fiche de paie"}
               </DialogTitle>
               <DialogDescription>
-                Remplissez les informations ci-dessous pour générer la fiche de paie.
+                Remplissez les informations ci-dessous pour générer la fiche de paie. Les heures sont pré-calculées depuis le suivi des présences.
               </DialogDescription>
             </DialogHeader>
 

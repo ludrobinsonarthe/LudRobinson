@@ -83,9 +83,9 @@ export interface Course {
   fieldId: string;
   documents?: string[];
   schedule?: {
-    day: string;
-    start: string;
-    end: string;
+    day: 'Lundi' | 'Mardi' | 'Mercredi' | 'Jeudi' | 'Vendredi' | 'Samedi';
+    start: string; // "HH:MM"
+    end: string; // "HH:MM"
     room: string;
   }[];
 }
@@ -163,6 +163,17 @@ export interface OfficialDocument {
   issuedBy: string; // admin_uid
   issuedAt: string;
 }
+
+export interface Attendance {
+    id: string;
+    date: string; // YYYY-MM-DD
+    courseId: string;
+    teacherId: string;
+    studentIds: string[]; // list of students present
+    status: 'present' | 'absent' | 'late';
+    validatedBy: string; // admin_uid
+}
+
 
 export interface Settings {
   id: 'system';
