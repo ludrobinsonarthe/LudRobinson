@@ -6,18 +6,17 @@ import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, ArrowLeft, ArrowRight, Save } from "lucide-react";
-import { format, startOfWeek, addDays, eachDayOfInterval, isSameDay } from 'date-fns';
+import { ArrowLeft, ArrowRight, Save } from "lucide-react";
+import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import { Course, User, Attendance } from '@/lib/types';
-import { collection, onSnapshot, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+
+const timeSlots = ['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00'];
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -27,7 +26,6 @@ function AttendanceContent() {
     const [courses, setCourses] = useState<Course[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
-    const [selectedDate, setSelectedDate] = useState(new Date());
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [selectedTeacher, setSelectedTeacher] = useState(teacherIdFilter || 'all');
     const [changes, setChanges] = useState<any>({});
@@ -48,9 +46,12 @@ function AttendanceContent() {
             unsubscribeAttendances();
         }
     }, []);
+    
+    useEffect(() => {
+        setSelectedTeacher(teacherIdFilter || 'all');
+    }, [teacherIdFilter]);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
-    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
 
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
@@ -110,7 +111,7 @@ function AttendanceContent() {
         const id = `${date}-${courseId}`;
         if (changes[id]) return changes[id].status;
         const attendance = attendances.find(a => a.id === id);
-        return attendance?.status as any;
+        return attendance?.status;
     }
 
 
@@ -161,11 +162,11 @@ function AttendanceContent() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Cours</TableHead>
-                                    <TableHead>Professeur</TableHead>
+                                    <TableHead className="w-48">Cours</TableHead>
+                                    <TableHead className="w-48">Professeur</TableHead>
                                     <TableHead>Heure</TableHead>
                                     {weekDays.map(day => (
-                                        <TableHead key={day.toString()} className="text-center">
+                                        <TableHead key={day.toString()} className="text-center w-40">
                                             {format(day, 'EEE d', { locale: fr })}
                                         </TableHead>
                                     ))}
@@ -174,13 +175,17 @@ function AttendanceContent() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow><TableCell colSpan={8} className="h-48 text-center">Chargement...</TableCell></TableRow>
-                                ) : Object.keys(scheduleByDay).length === 0 || Object.values(scheduleByDay).every(v => v.length === 0) ? (
+                                ) : Object.values(scheduleByDay).every(v => v.length === 0) ? (
                                     <TableRow><TableCell colSpan={8} className="h-48 text-center">Aucun cours planifié pour cette semaine/ce filtre.</TableCell></TableRow>
                                 ) : (
                                     timeSlots.flatMap(slot => {
-                                        const coursesInSlot = weekDays.flatMap(day => scheduleByDay[format(day, 'yyyy-MM-dd')]?.filter(c => c.scheduleInfo.start.startsWith(slot.split(':')[0])) || []);
+                                        const coursesInSlot = weekDays.flatMap(day => {
+                                            const dateStr = format(day, 'yyyy-MM-dd');
+                                            return scheduleByDay[dateStr]?.filter(c => c.scheduleInfo.start.startsWith(slot.split(':')[0])) || [];
+                                        });
                                         const uniqueCourses = Array.from(new Set(coursesInSlot.map(c => c.id))).map(id => coursesInSlot.find(c => c.id === id)!);
-
+                                        if (uniqueCourses.length === 0) return [];
+                                        
                                         return uniqueCourses.map(course => (
                                             <TableRow key={`${course.id}-${slot}`}>
                                                 <TableCell className="font-semibold">{course.name}</TableCell>
@@ -188,7 +193,7 @@ function AttendanceContent() {
                                                 <TableCell>{course.scheduleInfo.start} - {course.scheduleInfo.end}</TableCell>
                                                 {weekDays.map(day => {
                                                     const dateStr = format(day, 'yyyy-MM-dd');
-                                                    const courseOnThisDay = scheduleByDay[dateStr]?.find(c => c.id === course.id && c.scheduleInfo.start.startsWith(slot.split(':')[0]));
+                                                    const courseOnThisDay = scheduleByDay[dateStr]?.find(c => c.id === course.id && c.scheduleInfo.start === course.scheduleInfo.start);
                                                     
                                                     if (!courseOnThisDay) return <TableCell key={dateStr} />;
                                                     

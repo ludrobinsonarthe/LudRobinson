@@ -170,7 +170,7 @@ export interface Attendance {
     courseId: string;
     teacherId: string;
     studentIds: string[]; // list of students present
-    status: 'present' | 'absent' | 'late';
+    status: 'present' | 'absent';
     validatedBy: string; // admin_uid
 }
 
