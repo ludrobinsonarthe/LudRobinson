@@ -24,7 +24,7 @@ const userFormSchema = z.object({
   firstName: z.string().min(2, "Le prénom est requis."),
   lastName: z.string().min(2, "Le nom est requis."),
   email: z.string().email("Adresse e-mail invalide."),
-  photoUrl: z.string().url("L'URL de la photo est invalide.").optional().or(z.literal('')),
+  photo: z.any().optional(),
   specialty: z.string().optional(),
   roleId: z.string().optional(),
   position: z.string().optional(),
@@ -48,7 +48,6 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         firstName: '',
         lastName: '',
         email: '',
-        photoUrl: '',
         specialty: '',
         roleId: '',
         position: '',
@@ -73,7 +72,6 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             firstName: user.firstName || '',
             lastName: user.lastName || '',
             email: user.email || '',
-            photoUrl: user.photoUrl || '',
             specialty: user.teacher?.specialty || '',
             roleId: user.admin?.roleId || '',
             position: user.admin?.position || '',
@@ -83,7 +81,6 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             firstName: '',
             lastName: '',
             email: '',
-            photoUrl: `https://picsum.photos/seed/${Date.now()}/100/100`,
             specialty: '',
             roleId: '',
             position: '',
@@ -97,7 +94,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
-        photoUrl: data.photoUrl,
+        // photoUrl will be handled by upload logic
     };
     if (userType === 'teacher') {
         userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };

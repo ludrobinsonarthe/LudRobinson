@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useRef, useState } from "react";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
@@ -25,6 +27,7 @@ const profileFormSchema = z.object({
   email: z.string().email({ message: "Veuillez saisir une adresse e-mail valide." }),
   phone: z.string().optional(),
   address: z.string().optional(),
+  photo: z.any().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -36,6 +39,9 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 export default function ProfileForm() {
   const { user } = useUser();
   const { toast } = useToast();
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.photoUrl || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -48,6 +54,18 @@ export default function ProfileForm() {
     },
     mode: "onChange",
   });
+  
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      form.setValue('photo', file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   function onSubmit(data: ProfileFormValues) {
     // In a real app, you would send this data to your server.
@@ -68,15 +86,27 @@ export default function ProfileForm() {
         <div className="flex items-center gap-6">
             <div className="relative">
                 <Avatar className="h-24 w-24 border">
-                    <AvatarImage src={user.photoUrl} alt="User avatar" data-ai-hint="user portrait"/>
+                    <AvatarImage src={avatarPreview || undefined} alt="User avatar" data-ai-hint="user portrait"/>
                     <AvatarFallback className="text-3xl">
                         {getInitials(user.firstName, user.lastName)}
                     </AvatarFallback>
                 </Avatar>
-                <Button size="icon" className="absolute -bottom-2 -right-2 rounded-full h-8 w-8">
+                <Button 
+                    type="button"
+                    size="icon" 
+                    className="absolute -bottom-2 -right-2 rounded-full h-8 w-8"
+                    onClick={() => fileInputRef.current?.click()}
+                >
                     <Camera className="h-4 w-4"/>
                     <span className="sr-only">Changer la photo</span>
                 </Button>
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handlePhotoChange}
+                />
             </div>
             <div className="space-y-1">
                 <h2 className="text-2xl font-bold font-headline">{`${user.firstName} ${user.lastName}`}</h2>
