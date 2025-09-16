@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -25,6 +25,10 @@ import { mockClasses, mockSectors, mockFields } from "@/lib/mock-data";
 import StudentFormDialog from "@/components/student-form-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { useToast } from "@/hooks/use-toast";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -43,6 +47,8 @@ export default function StudentsPage() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+    const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Filters state
     const [nameFilter, setNameFilter] = useState("");
@@ -149,7 +155,99 @@ export default function StudentsPage() {
         if (!parentUid) return 'N/A';
         const parent = parents.find(p => p.uid === parentUid);
         return parent ? `${parent.firstName} ${parent.lastName}` : 'Inconnu';
-    }
+    };
+
+    const handleExport = () => {
+        const doc = new jsPDF();
+        doc.text("Liste des Étudiants", 14, 16);
+        
+        const tableColumn = ["Nom", "Email", "Niveau", "Filière", "Cycle"];
+        const tableRows: (string|undefined)[][] = [];
+
+        filteredStudents.forEach(student => {
+            const studentData = [
+                `${student.firstName} ${student.lastName}`,
+                student.email,
+                student.student?.level,
+                student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A',
+                cycles.find(c => c.value === student.student?.cycle)?.label
+            ];
+            tableRows.push(studentData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 20,
+        });
+        
+        doc.save("liste_etudiants.pdf");
+        toast({ title: "Exportation réussie", description: "La liste des étudiants a été exportée en PDF." });
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+    
+    const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const bstr = event.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                
+                // Assuming header is in the first row
+                const headers = data[0] as string[];
+                const importedStudents = (data.slice(1) as string[][]).map(row => {
+                    const studentRow: any = {};
+                    headers.forEach((header, index) => {
+                        studentRow[header] = row[index];
+                    });
+                    
+                    const field = mockFields.find(f => f.name.toLowerCase() === studentRow['Filiere']?.toLowerCase());
+
+                    const newUser: User = {
+                        uid: `user${Date.now()}${Math.random()}`,
+                        firstName: studentRow['Prenom'] || '',
+                        lastName: studentRow['Nom'] || '',
+                        email: studentRow['Email'] || '',
+                        role: 'student',
+                        status: 'active',
+                        createdAt: new Date().toISOString(),
+                        photoUrl: `https://picsum.photos/seed/${Date.now()}${Math.random()}/100/100`,
+                        student: {
+                           matricule: studentRow['Matricule'] || `ISGI-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                           level: studentRow['Niveau'],
+                           fieldId: field?.id,
+                           cycle: cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value,
+                           programId: 'prog01', // Default programId
+                           enrollmentDate: new Date().toISOString(),
+                           endDate: ''
+                        }
+                    };
+                    return newUser;
+                });
+
+                setUsers(prevUsers => [...prevUsers, ...importedStudents]);
+                toast({ title: "Importation réussie", description: `${importedStudents.length} étudiants ont été importés.` });
+            } catch (error) {
+                console.error("Error importing file:", error);
+                toast({ variant: "destructive", title: "Erreur d'importation", description: "Le fichier est peut-être corrompu ou mal formaté." });
+            }
+        };
+        reader.readAsBinaryString(file);
+        
+        // Reset file input
+        if(fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
 
 
     return (
@@ -162,8 +260,17 @@ export default function StudentsPage() {
                     </p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                    <Button variant="outline"><FileUp className="mr-2 h-4 w-4" /> Importer (.xls)</Button>
-                    <Button variant="outline"><FileDown className="mr-2 h-4 w-4" /> Exporter (.pdf)</Button>
+                    <Button variant="outline" onClick={handleImportClick}>
+                        <FileUp className="mr-2 h-4 w-4" /> Importer (.xls)
+                    </Button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileImport}
+                        className="hidden"
+                        accept=".xlsx, .xls"
+                    />
+                    <Button variant="outline" onClick={handleExport}><FileDown className="mr-2 h-4 w-4" /> Exporter (.pdf)</Button>
                     <Button onClick={handleAdd}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Ajouter un étudiant
