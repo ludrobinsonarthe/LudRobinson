@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition } from "react";
@@ -41,6 +42,7 @@ export default function MessageSummarizer({ message }: { message: string }) {
         size="sm"
         className="mt-2 h-auto p-1 text-xs"
         onClick={handleSummarize}
+        disabled={isPending}
       >
         <Sparkles className="mr-1 h-3 w-3" />
         Résumer avec l'IA
@@ -88,3 +90,5 @@ export default function MessageSummarizer({ message }: { message: string }) {
     </>
   );
 }
+
+    

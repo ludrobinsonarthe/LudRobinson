@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -51,6 +52,11 @@ export default function ChatLayout({
   const { user: currentUser } = useUser();
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   const getInitials = (name: string) => {
     const parts = name.split(' ');
@@ -58,7 +64,7 @@ export default function ChatLayout({
   }
 
   const conversations = React.useMemo(() => {
-    if (!currentUser) return [];
+    if (!currentUser || !isMounted) return [];
     
     const privateMessages = messages.filter(m => m.type === 'private');
     const conversationPartners = new Set<string>();
@@ -79,7 +85,7 @@ export default function ChatLayout({
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         return { partner, lastMessage };
     }).sort((a, b) => new Date(b.lastMessage?.createdAt || 0).getTime() - new Date(a.lastMessage?.createdAt || 0).getTime());
-  }, [messages, currentUser, users]);
+  }, [messages, currentUser, users, isMounted]);
 
   React.useEffect(() => {
     if(conversations.length > 0 && !selectedConversation) {
@@ -98,6 +104,10 @@ export default function ChatLayout({
   }, [messages, currentUser, selectedConversation]);
 
   const selectedUser = users.find(u => u.uid === selectedConversation);
+
+  if (!isMounted) {
+      return null;
+  }
 
   return (
     <div className="z-10 h-[calc(100vh-12rem)] w-full text-sm lg:flex">
@@ -247,3 +257,5 @@ export default function ChatLayout({
     </div>
   );
 }
+
+    
