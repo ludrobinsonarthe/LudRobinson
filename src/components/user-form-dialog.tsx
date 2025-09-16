@@ -35,7 +35,7 @@ type UserFormValues = z.infer<typeof userFormSchema>;
 interface UserFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (data: Partial<User>) => void;
+  onSave: (data: Partial<User>, photoFile?: File) => void;
   user: User | null;
   userType: 'admin' | 'teacher';
   adminRoles?: AdminRole[];
@@ -90,20 +90,20 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
   }, [user, form.reset, isOpen]);
 
   const onSubmit = (data: UserFormValues) => {
+    const { photo, ...userDataValues } = data;
     const userData: Partial<User> = {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        // photo will be handled by upload logic in the onSave function
+        firstName: userDataValues.firstName,
+        lastName: userDataValues.lastName,
+        email: userDataValues.email,
     };
     if (userType === 'teacher') {
-        userData.teacher = { specialty: data.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
+        userData.teacher = { specialty: userDataValues.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
     }
      if (userType === 'admin') {
-        userData.admin = { roleId: data.roleId || '', position: data.position || '' };
+        userData.admin = { roleId: userDataValues.roleId || '', position: userDataValues.position || '' };
     }
     
-    onSave(userData);
+    onSave(userData, photo);
     setIsOpen(false);
   };
 

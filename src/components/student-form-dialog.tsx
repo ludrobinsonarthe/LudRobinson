@@ -76,7 +76,7 @@ type StudentFormValues = z.infer<typeof studentFormSchema>;
 interface StudentFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (studentData: Partial<User>, parentData?: Partial<User>) => void;
+  onSave: (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File) => void;
   student: User | null;
   parents: User[];
 }
@@ -168,12 +168,12 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
 
 
   const onSubmit = (data: StudentFormValues) => {
+    const { photo, ...studentDataValues } = data;
     const studentData: Partial<User> = {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         phone: data.phone,
-        // photo will be handled by the onSave function with upload logic
         student: {
             ...(student?.student || {}),
             matricule: data.matricule,
@@ -196,7 +196,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         }
     }
 
-    onSave(studentData, parentData);
+    onSave(studentData, parentData, photo);
     setIsOpen(false);
   };
 

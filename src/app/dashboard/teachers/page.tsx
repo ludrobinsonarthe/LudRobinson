@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -25,7 +26,8 @@ import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -56,22 +58,40 @@ export default function TeachersPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = async (userData: Partial<User>) => {
+    const handleSave = async (userData: Partial<User>, photoFile?: File) => {
         try {
+            let photoUrl = userData.photoUrl || selectedTeacher?.photoUrl || `https://picsum.photos/seed/${userData.uid}/100/100`;
+
+            if (selectedTeacher && photoFile) {
+                 const storageRef = ref(storage, `profile-pictures/${selectedTeacher.uid}/${photoFile.name}`);
+                 const uploadResult = await uploadBytes(storageRef, photoFile);
+                 photoUrl = await getDownloadURL(uploadResult.ref);
+            }
+            
+            const finalUserData = { ...userData, photoUrl };
+
             if (selectedTeacher) {
                 // Edit existing teacher
                 const teacherRef = doc(db, "users", selectedTeacher.uid);
-                await updateDoc(teacherRef, userData);
+                await updateDoc(teacherRef, finalUserData);
                 toast({ title: "Professeur mis à jour", description: "Les informations du professeur ont été mises à jour." });
             } else {
                 // Add new teacher
                 const newTeacherId = doc(collection(db, "users")).id;
+                
+                if (photoFile) {
+                    const storageRef = ref(storage, `profile-pictures/${newTeacherId}/${photoFile.name}`);
+                    const uploadResult = await uploadBytes(storageRef, photoFile);
+                    photoUrl = await getDownloadURL(uploadResult.ref);
+                }
+
                 const newTeacher: User = {
                     uid: newTeacherId,
                     createdAt: new Date().toISOString(),
                     status: 'active',
                     role: 'teacher',
-                    ...userData
+                    ...finalUserData,
+                    photoUrl,
                 } as User;
                 
                 await setDoc(doc(db, "users", newTeacherId), newTeacher);

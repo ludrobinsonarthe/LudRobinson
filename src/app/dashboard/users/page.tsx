@@ -25,7 +25,8 @@ import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection, onSnapshot, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
     active: "default",
@@ -90,22 +91,40 @@ export default function UsersPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = async (userData: Partial<User>) => {
+    const handleSave = async (userData: Partial<User>, photoFile?: File) => {
         try {
+            let photoUrl = userData.photoUrl || selectedUser?.photoUrl || `https://picsum.photos/seed/${userData.uid}/100/100`;
+
+            if (selectedUser && photoFile) {
+                 const storageRef = ref(storage, `profile-pictures/${selectedUser.uid}/${photoFile.name}`);
+                 const uploadResult = await uploadBytes(storageRef, photoFile);
+                 photoUrl = await getDownloadURL(uploadResult.ref);
+            }
+            
+            const finalUserData = { ...userData, photoUrl };
+
             if (selectedUser) {
                 // Edit
                 const userRef = doc(db, "users", selectedUser.uid);
-                await updateDoc(userRef, userData);
+                await updateDoc(userRef, finalUserData);
                 toast({ title: "Administrateur mis à jour", description: "Les informations ont été mises à jour." });
             } else {
                 // Add
                 const newUserId = doc(collection(db, "users")).id;
+                
+                 if (photoFile) {
+                    const storageRef = ref(storage, `profile-pictures/${newUserId}/${photoFile.name}`);
+                    const uploadResult = await uploadBytes(storageRef, photoFile);
+                    photoUrl = await getDownloadURL(uploadResult.ref);
+                }
+
                 const newUser: User = {
                     uid: newUserId,
                     createdAt: new Date().toISOString(),
                     status: 'active',
                     role: 'admin',
-                    ...userData
+                    ...finalUserData,
+                    photoUrl,
                 } as User;
                 await setDoc(doc(db, "users", newUserId), newUser);
                 toast({ title: "Administrateur ajouté", description: "Le nouvel utilisateur a été ajouté." });

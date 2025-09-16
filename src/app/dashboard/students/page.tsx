@@ -31,7 +31,8 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, onSnapshot, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -130,24 +131,42 @@ export default function StudentsPage() {
         setIsDeleteOpen(true);
     }
 
-    const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>) => {
+    const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File) => {
         try {
+            let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl || `https://picsum.photos/seed/${studentData.uid}/100/100`;
+
+            if (photoFile && studentData.uid) {
+                const storageRef = ref(storage, `profile-pictures/${studentData.uid}/${photoFile.name}`);
+                const uploadResult = await uploadBytes(storageRef, photoFile);
+                photoUrl = await getDownloadURL(uploadResult.ref);
+            }
+            
+            const finalStudentData = { ...studentData, photoUrl };
+
             if (selectedStudent) {
                 // Edit existing student
                 const studentRef = doc(db, "users", selectedStudent.uid);
-                await updateDoc(studentRef, studentData);
+                await updateDoc(studentRef, finalStudentData);
                 toast({ title: "Étudiant mis à jour", description: "Les informations de l'étudiant ont été mises à jour." });
             } else {
                  // Add new student and potentially a new parent
                 const batch = writeBatch(db);
                 const newStudentId = doc(collection(db, "users")).id;
                 
+                // If a new photo was uploaded for a new user
+                if (photoFile) {
+                    const storageRef = ref(storage, `profile-pictures/${newStudentId}/${photoFile.name}`);
+                    const uploadResult = await uploadBytes(storageRef, photoFile);
+                    photoUrl = await getDownloadURL(uploadResult.ref);
+                }
+
                 const newStudent: User = {
                     uid: newStudentId,
                     createdAt: new Date().toISOString(),
                     status: 'active',
                     role: 'student',
-                    ...studentData,
+                    ...finalStudentData,
+                    photoUrl,
                 } as User;
 
                 let newParentId: string | undefined;

@@ -17,9 +17,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Camera } from "lucide-react";
+import { Camera, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { storage, db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, updateDoc } from "firebase/firestore";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
@@ -37,10 +40,11 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function ProfileForm() {
-  const { user } = useUser();
+  const { user, setUser } = useUser();
   const { toast } = useToast();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.photoUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPending, startTransition] = useTransition();
 
 
   const form = useForm<ProfileFormValues>({
@@ -68,11 +72,44 @@ export default function ProfileForm() {
   };
 
   function onSubmit(data: ProfileFormValues) {
-    // In a real app, you would send this data to your server.
-    console.log(data);
-    toast({
-      title: "Profil mis à jour",
-      description: "Vos informations ont été enregistrées avec succès.",
+    if (!user) return;
+    startTransition(async () => {
+        try {
+            let photoUrl = user.photoUrl;
+            const photoFile = data.photo;
+
+            if (photoFile) {
+                const storageRef = ref(storage, `profile-pictures/${user.uid}/${photoFile.name}`);
+                const uploadResult = await uploadBytes(storageRef, photoFile);
+                photoUrl = await getDownloadURL(uploadResult.ref);
+            }
+
+            const updatedUserData = {
+                firstName: data.firstName,
+                lastName: data.lastName,
+                phone: data.phone,
+                address: data.address,
+                photoUrl: photoUrl,
+            };
+
+            const userRef = doc(db, "users", user.uid);
+            await updateDoc(userRef, updatedUserData);
+
+            // Optimistically update user context
+            setUser({ ...user, ...updatedUserData });
+
+            toast({
+                title: "Profil mis à jour",
+                description: "Vos informations ont été enregistrées avec succès.",
+            });
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast({
+                variant: "destructive",
+                title: "Erreur",
+                description: "Impossible de mettre à jour le profil.",
+            });
+        }
     });
   }
 
@@ -197,7 +234,10 @@ export default function ProfileForm() {
           />
 
         <div className="flex justify-end">
-          <Button type="submit">Enregistrer les modifications</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+            Enregistrer les modifications
+          </Button>
         </div>
       </form>
     </Form>
