@@ -23,13 +23,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { db } from "@/lib/firebase";
-import { collection, doc, writeBatch, getDocs, query, deleteDoc } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs, query, deleteDoc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AdminRole, adminPermissions, AdminPermission } from "@/lib/types";
 import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDescription } from "@/components/ui/form";
-import { mockAdminRoles } from "@/lib/mock-data";
+import { useUser } from "@/hooks/use-user";
 
 const roleSchema = z.object({
   id: z.string(),
@@ -51,6 +51,7 @@ const permissionGroups = {
 }
 
 export default function RolesPage() {
+  const { roles: initialRoles, loading: loadingRoles } = useUser();
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -67,16 +68,29 @@ export default function RolesPage() {
   });
 
   useEffect(() => {
-    setLoading(true);
-    replace(mockAdminRoles);
-    setLoading(false);
-  }, [replace]);
+    setLoading(loadingRoles);
+    if (!loadingRoles) {
+        replace(initialRoles);
+    }
+  }, [initialRoles, loadingRoles, replace]);
 
   const onSubmit = async (data: RolesFormValues) => {
-    toast({
-        title: "Rôles mis à jour (Simulation)",
-        description: "Les rôles et permissions ont été enregistrés localement.",
+    setLoading(true);
+    const batch = writeBatch(db);
+    data.roles.forEach(role => {
+        const { id, ...roleData } = role;
+        const roleRef = doc(db, 'admin_roles', id);
+        batch.set(roleRef, roleData);
     });
+    try {
+        await batch.commit();
+        toast({ title: "Rôles mis à jour", description: "Les permissions ont été enregistrées." });
+    } catch (error) {
+        console.error(error);
+        toast({ title: "Erreur", description: "Impossible d'enregistrer les rôles.", variant: "destructive" });
+    } finally {
+        setLoading(false);
+    }
   };
 
   const addNewRole = () => {
@@ -89,8 +103,17 @@ export default function RolesPage() {
   }
 
   const removeRole = async (index: number) => {
-    remove(index);
-    toast({ title: "Rôle supprimé (Simulation)" });
+    const roleId = fields[index].id;
+    try {
+        if (initialRoles.some(r => r.id === roleId)) {
+             await deleteDoc(doc(db, 'admin_roles', roleId));
+        }
+        remove(index);
+        toast({ title: "Rôle supprimé" });
+    } catch (error) {
+        console.error(error);
+        toast({ title: "Erreur", description: "Impossible de supprimer le rôle.", variant: "destructive" });
+    }
   }
 
   return (
@@ -193,5 +216,3 @@ export default function RolesPage() {
     </div>
   );
 }
-
-    

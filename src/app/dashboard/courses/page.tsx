@@ -5,12 +5,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BookOpenCheck, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { mockCourses } from '@/lib/mock-data';
 
 export default function CoursesPage() {
     const { user: currentUser, users } = useUser();
@@ -44,14 +43,24 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
-        setLoading(true);
         if (!studentToView || !studentToView.student?.fieldId) {
+            setLoading(false);
             setCourses([]);
-        } else {
-            const studentCourses = mockCourses.filter(c => c.fieldId === studentToView.student?.fieldId);
-            setCourses(studentCourses);
+            return;
         }
-        setLoading(false);
+
+        setLoading(true);
+        const q = query(collection(db, "courses"), where("fieldId", "==", studentToView.student.fieldId));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const studentCourses: Course[] = [];
+            snapshot.forEach((doc) => {
+                studentCourses.push({id: doc.id, ...doc.data()} as Course);
+            });
+            setCourses(studentCourses);
+            setLoading(false);
+        });
+        
+        return () => unsubscribe();
     }, [studentToView]);
 
     const handleChildChange = (studentId: string) => {
@@ -152,5 +161,3 @@ export default function CoursesPage() {
         </div>
     );
 }
-
-    

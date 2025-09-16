@@ -9,8 +9,8 @@ import { useUser } from "@/hooks/use-user";
 import { Grade, Course, User } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockCourses, mockGrades } from '@/lib/mock-data';
-
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface CourseWithGrades extends Course {
     grades: Grade[];
@@ -50,11 +50,26 @@ export default function GradesPage() {
         }
 
         setLoading(true);
-        const studentGrades = mockGrades.filter(g => g.studentId === studentToView.uid);
-        setGrades(studentGrades);
-        setCourses(mockCourses);
-        setLoading(false);
+        const gradesQuery = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
+        const coursesQuery = query(collection(db, "courses"));
+
+        const unsubGrades = onSnapshot(gradesQuery, (snapshot) => {
+            const studentGrades: Grade[] = [];
+            snapshot.forEach(doc => studentGrades.push({id: doc.id, ...doc.data()} as Grade));
+            setGrades(studentGrades);
+            setLoading(false);
+        });
+
+        const unsubCourses = onSnapshot(coursesQuery, (snapshot) => {
+            const allCourses: Course[] = [];
+            snapshot.forEach(doc => allCourses.push({id: doc.id, ...doc.data()} as Course));
+            setCourses(allCourses);
+        });
         
+        return () => {
+            unsubGrades();
+            unsubCourses();
+        }
     }, [studentToView]);
 
     const coursesWithGrades = useMemo((): CourseWithGrades[] => {

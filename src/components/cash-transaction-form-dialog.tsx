@@ -27,6 +27,8 @@ import { useEffect } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const transactionFormSchema = z.object({
   type: z.enum(['income', 'expense']),
@@ -41,7 +43,6 @@ type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 interface CashTransactionFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onAdd: (newTransaction: CashTransaction) => void;
 }
 
 const categories = [
@@ -50,7 +51,7 @@ const categories = [
     { value: 'other', label: "Autre"},
 ]
 
-export default function CashTransactionFormDialog({ isOpen, setIsOpen, onAdd }: CashTransactionFormDialogProps) {
+export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTransactionFormDialogProps) {
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -77,21 +78,26 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen, onAdd }: 
     }
   }, [isOpen, form]);
 
-  const onSubmit = (data: TransactionFormValues) => {
+  const onSubmit = async (data: TransactionFormValues) => {
     if(!user) {
         toast({ variant: "destructive", title: "Erreur", description: "Vous devez être connecté pour effectuer cette action." });
         return;
     }
     
-    const newTransaction: CashTransaction = {
-        id: `cash_${Date.now()}`,
+    const newTransaction = {
         date: new Date().toISOString(),
         createdBy: user.uid,
         ...data
     }
-    onAdd(newTransaction);
-    toast({ title: "Transaction enregistrée (Simulation)", description: "L'opération a été ajoutée localement à la caisse." });
-    setIsOpen(false);
+    
+    try {
+        await addDoc(collection(db, 'cash_transactions'), newTransaction);
+        toast({ title: "Transaction enregistrée", description: "L'opération a été ajoutée à la caisse." });
+        setIsOpen(false);
+    } catch (error) {
+        console.error(error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la transaction." });
+    }
   };
 
   return (

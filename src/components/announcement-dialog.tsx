@@ -28,7 +28,8 @@ import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-
+import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const announcementSchema = z.object({
   receiverId: z.string().min(1, "Veuillez sélectionner un destinataire."),
@@ -42,10 +43,9 @@ interface AnnouncementDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   announcement: Message | null;
-  onSave: (announcement: Message) => void;
 }
 
-export default function AnnouncementDialog({ isOpen, setIsOpen, announcement, onSave }: AnnouncementDialogProps) {
+export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: AnnouncementDialogProps) {
   const { user, roles } = useUser();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
@@ -83,24 +83,28 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement, on
     }
     setSubmitting(true);
     
-    let savedAnnouncement: Message;
-
-    if (announcement) {
-        savedAnnouncement = { ...announcement, ...data };
-        toast({ title: "Annonce modifiée (Simulation)", description: "L'annonce a été mise à jour localement." });
-    } else {
-        savedAnnouncement = {
-            ...data,
-            id: `anno_${Date.now()}`,
-            senderId: user.uid,
-            type: 'announcement',
-            createdAt: new Date().toISOString(),
-        } as Message;
-        toast({ title: "Annonce publiée (Simulation)", description: "La nouvelle annonce a été ajoutée localement." });
+    try {
+        if (announcement) {
+            const announcementRef = doc(db, 'messages', announcement.id);
+            await setDoc(announcementRef, data, { merge: true });
+            toast({ title: "Annonce modifiée", description: "L'annonce a été mise à jour." });
+        } else {
+            const newAnnouncement = {
+                ...data,
+                senderId: user.uid,
+                type: 'announcement',
+                createdAt: new Date().toISOString(),
+            };
+            await addDoc(collection(db, 'messages'), newAnnouncement);
+            toast({ title: "Annonce publiée", description: "La nouvelle annonce a été publiée." });
+        }
+        setSubmitting(false);
+        setIsOpen(false);
+    } catch (error) {
+        console.error("Error saving announcement:", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'annonce." });
+        setSubmitting(false);
     }
-    onSave(savedAnnouncement);
-    setSubmitting(false);
-    setIsOpen(false);
   };
 
   return (

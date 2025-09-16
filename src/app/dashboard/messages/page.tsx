@@ -5,10 +5,9 @@ import { useState, useEffect } from "react";
 import ChatLayout from "@/components/chat-layout";
 import { useUser } from "@/hooks/use-user";
 import { Message } from "@/lib/types";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, or, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
-import { mockMessages } from "@/lib/mock-data";
 
 export default function MessagesPage() {
   const { user, users } = useUser();
@@ -18,18 +17,35 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    
-    const userMessages = mockMessages.filter(
-        msg => (msg.senderId === user.uid || msg.receiverId === user.uid) && msg.type === 'private'
+
+    const q = query(
+      collection(db, "messages"),
+      where('type', '==', 'private'),
+      or(where("senderId", "==", user.uid), where("receiverId", "==", user.uid))
     );
-    userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    setMessages(userMessages);
-    
-    setLoading(false);
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const userMessages: Message[] = [];
+        snapshot.forEach(doc => {
+            userMessages.push({ id: doc.id, ...doc.data() } as Message);
+        });
+        userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        setMessages(userMessages);
+        setLoading(false);
+    }, (error) => {
+        console.error("Error fetching messages:", error);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [user]);
   
-  const handleNewMessage = (newMessage: Message) => {
-    setMessages(prev => [...prev, newMessage].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+  const handleNewMessage = async (newMessage: Omit<Message, 'id'>) => {
+    try {
+        await addDoc(collection(db, "messages"), newMessage);
+    } catch (error) {
+        console.error("Error sending message:", error);
+    }
   }
 
   return (
@@ -56,5 +72,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-
-    

@@ -18,10 +18,9 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from "@/hooks/use-user";
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockDocuments } from "@/lib/mock-data";
 
 const documentTypeTranslation: {[key: string]: string} = {
     'bulletin': 'Bulletin de notes',
@@ -54,14 +53,25 @@ export default function DocumentsPage() {
     }, [currentUser, children, selectedChildId]);
     
     useEffect(() => {
-        setLoading(true);
         if (!studentToView || !studentToView.uid) {
+            setLoading(false);
             setDocuments([]);
-        } else {
-            const userDocuments = mockDocuments.filter(doc => doc.studentId === studentToView.uid);
-            setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
+            return;
         }
-        setLoading(false);
+
+        setLoading(true);
+        const q = query(collection(db, "documents"), where("studentId", "==", studentToView.uid));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const userDocuments: OfficialDocument[] = [];
+            snapshot.forEach((doc) => {
+                userDocuments.push({id: doc.id, ...doc.data()} as OfficialDocument);
+            });
+            setDocuments(userDocuments.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()));
+            setLoading(false);
+        });
+        
+        return () => unsubscribe();
     }, [studentToView]);
 
      const handleChildChange = (studentId: string) => {
@@ -158,5 +168,3 @@ export default function DocumentsPage() {
         </div>
     );
 }
-
-    

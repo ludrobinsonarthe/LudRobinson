@@ -8,12 +8,11 @@ import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { mockMessages } from "@/lib/mock-data";
 
 export default function DashboardPage() {
-    const { user: currentUser } = useUser();
+    const { user: currentUser, userPermissions } = useUser();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<Message | null>(null);
     const [announcements, setAnnouncements] = useState<Message[]>([]);
@@ -24,15 +23,30 @@ export default function DashboardPage() {
         
         setLoading(true);
         const targetReceivers = ['all', currentUser.role];
-        
-        const allAnnouncements = mockMessages.filter(m => m.type === 'announcement');
-        
-        const filtered = currentUser.role === 'admin' 
-            ? allAnnouncements
-            : allAnnouncements.filter(ann => targetReceivers.includes(ann.receiverId));
+        if (currentUser.admin?.roleId) {
+            targetReceivers.push(currentUser.admin.roleId);
+        }
 
-        setAnnouncements(filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        setLoading(false);
+        const q = query(
+            collection(db, "messages"),
+            where('type', '==', 'announcement'),
+            where('receiverId', 'in', targetReceivers),
+            orderBy("createdAt", "desc")
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedAnnouncements: Message[] = [];
+            snapshot.forEach((doc) => {
+                fetchedAnnouncements.push({ id: doc.id, ...doc.data() } as Message);
+            });
+            setAnnouncements(fetchedAnnouncements);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching announcements: ", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
 
     }, [currentUser]);
 
@@ -46,20 +60,6 @@ export default function DashboardPage() {
         setEditingAnnouncement(announcement);
         setIsDialogOpen(true);
     };
-    
-    const handleAnnouncementSaved = (announcement: Message) => {
-        const index = announcements.findIndex(a => a.id === announcement.id);
-        if (index > -1) {
-            // Edit
-            const newAnnouncements = [...announcements];
-            newAnnouncements[index] = announcement;
-            setAnnouncements(newAnnouncements);
-        } else {
-            // New
-            setAnnouncements([announcement, ...announcements]);
-        }
-    }
-
 
     return (
         <div className="space-y-6">
@@ -100,10 +100,7 @@ export default function DashboardPage() {
                 isOpen={isDialogOpen}
                 setIsOpen={setIsDialogOpen}
                 announcement={editingAnnouncement}
-                onSave={handleAnnouncementSaved}
             />
         </div>
     );
 }
-
-    

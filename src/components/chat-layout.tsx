@@ -31,7 +31,7 @@ interface ChatLayoutProps {
   defaultLayout: number[] | undefined;
   messages: Message[];
   users: User[];
-  onNewMessage: (message: Message) => void;
+  onNewMessage: (message: Omit<Message, 'id'>) => void;
 }
 
 export default function ChatLayout({
@@ -94,7 +94,7 @@ export default function ChatLayout({
       (msg) =>
         (msg.senderId === currentUser.uid && msg.receiverId === selectedConversation) ||
         (msg.senderId === selectedConversation && msg.receiverId === currentUser.uid)
-    ).sort((a,b) => new Date(a.createdAt).getTime() - new Date(a.createdAt).getTime());
+    ).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [messages, currentUser, selectedConversation]);
   
   React.useEffect(() => {
@@ -118,8 +118,7 @@ export default function ChatLayout({
       if (!messageContent.trim() || !currentUser || !selectedConversation) return;
 
       setIsSending(true);
-      const newMessage: Message = {
-          id: `msg_${Date.now()}`,
+      const newMessage: Omit<Message, 'id'> = {
           senderId: currentUser.uid,
           receiverId: selectedConversation,
           content: messageContent,
@@ -127,13 +126,21 @@ export default function ChatLayout({
           createdAt: new Date().toISOString(),
       };
 
-      onNewMessage(newMessage);
-      setMessageContent("");
-      toast({
-          title: "Message envoyé (Simulation)",
-          description: "Votre message a été ajouté à la conversation locale."
+      try {
+        await onNewMessage(newMessage);
+        setMessageContent("");
+        toast({
+          title: "Message envoyé",
+        });
+      } catch (error) {
+          toast({
+          title: "Erreur",
+          description: "Le message n'a pas pu être envoyé.",
+          variant: 'destructive',
       });
-      setIsSending(false);
+      } finally {
+        setIsSending(false);
+      }
   }
 
   if (!isMounted || !currentUser) {

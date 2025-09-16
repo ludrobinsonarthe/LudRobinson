@@ -60,9 +60,18 @@ export default function AdminManagementPage() {
     });
 
     useEffect(() => {
-        setLoading(true);
-        form.reset(defaultSettings);
-        setLoading(false);
+        async function fetchSettings() {
+            setLoading(true);
+            const settingsRef = doc(db, "settings", "system");
+            const docSnap = await getDoc(settingsRef);
+            if (docSnap.exists()) {
+                form.reset(docSnap.data() as SettingsFormValues);
+            } else {
+                form.reset(defaultSettings);
+            }
+            setLoading(false);
+        }
+        fetchSettings();
     }, [form]);
 
     const onSubmit = async (data: SettingsFormValues) => {
@@ -71,15 +80,15 @@ export default function AdminManagementPage() {
             const settingsRef = doc(db, "settings", "system");
             await setDoc(settingsRef, { id: 'system', ...data }, { merge: true });
             toast({
-                title: "Paramètres enregistrés (Simulation)",
-                description: "En mode démo, les changements ne sont pas persistants.",
+                title: "Paramètres enregistrés",
+                description: "Les paramètres globaux de l'application ont été mis à jour.",
             });
         } catch (error) {
             console.error("Error saving settings:", error);
             toast({
                 variant: "destructive",
                 title: "Erreur",
-                description: "Impossible d'enregistrer les paramètres. L'application est en mode démo.",
+                description: "Impossible d'enregistrer les paramètres. Vérifiez vos permissions.",
             });
         } finally {
             setLoading(false);

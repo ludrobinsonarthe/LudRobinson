@@ -12,10 +12,9 @@ import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import { Course, User, Attendance, Field, StudentAttendance } from '@/lib/types';
-import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { mockFields, mockCourses, mockAttendances } from '@/lib/mock-data';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
 
@@ -25,6 +24,7 @@ function AttendanceContent() {
 
     const { users, loading: usersLoading } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
+    const [fields, setFields] = useState<Field[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -38,9 +38,28 @@ function AttendanceContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        setCourses(mockCourses);
-        setAttendances(mockAttendances);
-        setLoadingData(false);
+        const unsubCourses = onSnapshot(collection(db, 'courses'), (snap) => {
+            const data: Course[] = [];
+            snap.forEach(doc => data.push({id: doc.id, ...doc.data()} as Course));
+            setCourses(data);
+            setLoadingData(false);
+        });
+        const unsubFields = onSnapshot(collection(db, 'fields'), (snap) => {
+            const data: Field[] = [];
+            snap.forEach(doc => data.push({id: doc.id, ...doc.data()} as Field));
+            setFields(data);
+        });
+        const unsubAttendances = onSnapshot(collection(db, 'attendances'), (snap) => {
+            const data: Attendance[] = [];
+            snap.forEach(doc => data.push({id: doc.id, ...doc.data()} as Attendance));
+            setAttendances(data);
+        });
+
+        return () => {
+            unsubCourses();
+            unsubFields();
+            unsubAttendances();
+        }
     }, []);
     
     useEffect(() => {
@@ -49,7 +68,7 @@ function AttendanceContent() {
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), []);
+    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
 
 
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
@@ -83,31 +102,29 @@ function AttendanceContent() {
 
     const handleSaveAttendance = async (data: { teacherStatus: 'present' | 'absent', studentAttendances: StudentAttendance[]}) => {
         if (!selectedCourse || !selectedDate || !users.length) return;
-
-        toast({ title: 'Présences enregistrées (Simulation)', description: 'Les fiches de présence ont été mises à jour localement.' });
         
         const attendanceId = `${selectedDate}-${selectedCourse.id}`;
-        
-        setAttendances(prev => {
-            const existingIndex = prev.findIndex(a => a.id === attendanceId);
+        const attendanceRef = doc(db, 'attendances', attendanceId);
+
+        try {
             const newAttendanceRecord = {
                 ...data,
                 id: attendanceId,
-                date: selectedDate!,
-                courseId: selectedCourse!.id,
-                teacherId: selectedCourse!.teacherId,
-                validatedBy: 'admin01',
-                createdAt: new Date().toISOString(),
+                date: selectedDate,
+                courseId: selectedCourse.id,
+                teacherId: selectedCourse.teacherId,
+                validatedBy: 'admin01', // Should be current user
+                createdAt: existingAttendance ? existingAttendance.createdAt : new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }
-            if (existingIndex > -1) {
-                const newAttendances = [...prev];
-                newAttendances[existingIndex] = newAttendanceRecord;
-                return newAttendances;
-            } else {
-                return [...prev, newAttendanceRecord];
-            }
-        });
+            await setDoc(attendanceRef, newAttendanceRecord, { merge: true });
+
+            toast({ title: 'Présences enregistrées', description: 'La fiche de présence a été mise à jour.' });
+        } catch (error) {
+            console.error("Error saving attendance: ", error);
+            toast({ title: 'Erreur', description: "Impossible d'enregistrer la fiche de présence.", variant: 'destructive'});
+        }
+        
         setIsDialogOpen(false);
     };
     
@@ -115,6 +132,8 @@ function AttendanceContent() {
         const id = `${date}-${courseId}`;
         return attendances.find(a => a.id === id);
     }, [attendances]);
+    
+    const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
 
 
     const studentsForSelectedCourse = useMemo(() => {
@@ -262,7 +281,7 @@ function AttendanceContent() {
                 course={selectedCourse}
                 date={selectedDate}
                 students={studentsForSelectedCourse}
-                existingAttendance={selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined}
+                existingAttendance={existingAttendance}
             />
         </div>
     );
@@ -275,5 +294,3 @@ export default function AttendancePage() {
         </Suspense>
     );
 }
-
-    
