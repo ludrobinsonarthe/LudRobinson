@@ -16,7 +16,7 @@ import { collection, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
-const timeSlots = ['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '14:00 - 16:00', '16:00 - 18:00'];
+const timeSlots = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -162,11 +162,11 @@ function AttendanceContent() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-48">Cours</TableHead>
-                                    <TableHead className="w-48">Professeur</TableHead>
-                                    <TableHead>Heure</TableHead>
+                                    <TableHead className="w-[200px]">Cours</TableHead>
+                                    <TableHead className="w-[200px]">Professeur</TableHead>
+                                    <TableHead className="w-[150px]">Heure</TableHead>
                                     {weekDays.map(day => (
-                                        <TableHead key={day.toString()} className="text-center w-40">
+                                        <TableHead key={day.toString()} className="text-center">
                                             {format(day, 'EEE d', { locale: fr })}
                                         </TableHead>
                                     ))}
@@ -175,32 +175,41 @@ function AttendanceContent() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow><TableCell colSpan={8} className="h-48 text-center">Chargement...</TableCell></TableRow>
-                                ) : Object.values(scheduleByDay).every(v => v.length === 0) ? (
+                                ) : Object.values(scheduleByDay).flat().length === 0 ? (
                                     <TableRow><TableCell colSpan={8} className="h-48 text-center">Aucun cours planifié pour cette semaine/ce filtre.</TableCell></TableRow>
                                 ) : (
-                                    timeSlots.flatMap(slot => {
-                                        const coursesInSlot = weekDays.flatMap(day => {
-                                            const dateStr = format(day, 'yyyy-MM-dd');
-                                            return scheduleByDay[dateStr]?.filter(c => c.scheduleInfo.start.startsWith(slot.split(':')[0])) || [];
-                                        });
-                                        const uniqueCourses = Array.from(new Set(coursesInSlot.map(c => c.id))).map(id => coursesInSlot.find(c => c.id === id)!);
-                                        if (uniqueCourses.length === 0) return [];
-                                        
-                                        return uniqueCourses.map(course => (
-                                            <TableRow key={`${course.id}-${slot}`}>
+                                    Object.values(scheduleByDay)
+                                        .flat()
+                                        .sort((a, b) => {
+                                            const timeA = a.scheduleInfo.start;
+                                            const timeB = b.scheduleInfo.start;
+                                            if (timeA < timeB) return -1;
+                                            if (timeA > timeB) return 1;
+                                            return a.name.localeCompare(b.name);
+                                        })
+                                        .filter((course, index, self) => 
+                                            index === self.findIndex(c => c.id === course.id && c.scheduleInfo.start === course.scheduleInfo.start)
+                                        )
+                                        .map(course => (
+                                            <TableRow key={`${course.id}-${course.scheduleInfo.start}`}>
                                                 <TableCell className="font-semibold">{course.name}</TableCell>
                                                 <TableCell>{course.teacher?.firstName} {course.teacher?.lastName}</TableCell>
                                                 <TableCell>{course.scheduleInfo.start} - {course.scheduleInfo.end}</TableCell>
                                                 {weekDays.map(day => {
                                                     const dateStr = format(day, 'yyyy-MM-dd');
-                                                    const courseOnThisDay = scheduleByDay[dateStr]?.find(c => c.id === course.id && c.scheduleInfo.start === course.scheduleInfo.start);
+                                                    const dayName = format(day, 'EEEE', { locale: fr });
+                                                    const courseOnThisDay = scheduleByDay[dateStr]?.find(c => 
+                                                        c.id === course.id && 
+                                                        c.scheduleInfo.start === course.scheduleInfo.start &&
+                                                        c.scheduleInfo.day === dayName
+                                                    );
                                                     
-                                                    if (!courseOnThisDay) return <TableCell key={dateStr} />;
+                                                    if (!courseOnThisDay) return <TableCell key={dateStr} className="p-2" />;
                                                     
                                                     const status = getAttendanceStatus(course.id, dateStr);
 
                                                     return (
-                                                        <TableCell key={dateStr} className="text-center">
+                                                        <TableCell key={dateStr} className="text-center p-2">
                                                             <div className="flex items-center justify-center gap-2">
                                                                 <Button 
                                                                     size="sm" 
@@ -223,8 +232,7 @@ function AttendanceContent() {
                                                     );
                                                 })}
                                             </TableRow>
-                                        ));
-                                    })
+                                        ))
                                 )}
                             </TableBody>
                         </Table>
