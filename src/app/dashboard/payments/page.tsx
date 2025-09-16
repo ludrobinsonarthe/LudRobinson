@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,10 +9,11 @@ import { Button } from '@/components/ui/button';
 import { useUser } from "@/hooks/use-user";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Payment } from '@/lib/types';
+import { Payment, User } from '@/lib/types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Download, FileText } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
     validated: "default",
@@ -32,18 +32,37 @@ const methodTranslation: { [key: string]: string } = {
 }
 
 export default function PaymentsPage() {
-    const { user: currentUser } = useUser();
+    const { user: currentUser, users } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+    const children = useMemo(() => {
+        if (currentUser?.role !== 'parent') return [];
+        return users.filter(u => currentUser.parent?.childrenUids.includes(u.uid));
+    }, [currentUser, users]);
+
+    const studentToView = useMemo(() => {
+        if (currentUser?.role === 'student') return currentUser;
+        if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedChildId);
+        return null;
+    }, [currentUser, users, selectedChildId]);
+    
+     useEffect(() => {
+        if (currentUser?.role === 'parent' && children.length > 0 && !selectedChildId) {
+            setSelectedChildId(children[0].uid);
+        }
+    }, [currentUser, children, selectedChildId]);
 
     useEffect(() => {
-        if (!currentUser || !currentUser.uid) {
+        if (!studentToView || !studentToView.uid) {
             setLoading(false);
+            setPayments([]);
             return;
         }
 
         setLoading(true);
-        const q = query(collection(db, "payments"), where("studentId", "==", currentUser.uid));
+        const q = query(collection(db, "payments"), where("studentId", "==", studentToView.uid));
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const userPayments: Payment[] = [];
@@ -58,13 +77,10 @@ export default function PaymentsPage() {
         });
 
         return () => unsubscribe();
-    }, [currentUser]);
+    }, [studentToView]);
 
      const { totalExpected, totalPaid, totalBalance } = useMemo(() => {
-        // We calculate balance based on ALL payments, regardless of status, 
-        // to show the student the total due.
         const totalExpected = payments.reduce((acc, p) => acc + p.amountExpected, 0);
-        // We calculate total paid based only on VALIDATED payments.
         const totalPaid = payments.filter(p => p.status === 'validated').reduce((acc, p) => acc + p.amountPaid, 0);
         return {
             totalExpected: totalExpected,
@@ -73,15 +89,8 @@ export default function PaymentsPage() {
         };
     }, [payments]);
 
-    if (currentUser?.role === 'parent') {
-        return (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[calc(100vh-12rem)]">
-                <h3 className="text-2xl font-bold tracking-tight">Accès non autorisé</h3>
-                <p className="text-sm text-muted-foreground">
-                    Cette section est réservée aux étudiants et administrateurs.
-                </p>
-            </div>
-        );
+    const handleChildChange = (studentId: string) => {
+        setSelectedChildId(studentId);
     }
     
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
@@ -97,6 +106,34 @@ export default function PaymentsPage() {
                     Suivez l'état de vos paiements de frais de scolarité.
                 </p>
             </div>
+             {currentUser?.role === 'parent' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Sélection de l'enfant</CardTitle>
+                        <CardDescription>
+                            Choisissez l'enfant dont vous souhaitez consulter les paiements.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       {children.length > 0 ? (
+                            <Select onValueChange={handleChildChange} value={selectedChildId || ""}>
+                                <SelectTrigger className="w-[280px]">
+                                    <SelectValue placeholder="Sélectionner un enfant..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {children.map(child => (
+                                        <SelectItem key={child.uid} value={child.uid}>
+                                            {child.firstName} {child.lastName}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                       ) : (
+                           <p className="text-sm text-muted-foreground">Aucun enfant n'est associé à votre compte.</p>
+                       )}
+                    </CardContent>
+                </Card>
+            )}
             <Card>
                 <CardHeader>
                     <CardTitle>Historique des paiements</CardTitle>
@@ -107,7 +144,7 @@ export default function PaymentsPage() {
                 <CardContent>
                     {loading ? (
                          <div className="flex items-center justify-center h-48">
-                            <p>Chargement de vos paiements...</p>
+                            <p>Chargement des paiements...</p>
                         </div>
                     ) : payments.length > 0 ? (
                         <Table>
@@ -144,7 +181,7 @@ export default function PaymentsPage() {
                             <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
                             <h3 className="mt-4 text-lg font-semibold">Aucun paiement trouvé</h3>
                             <p className="mb-4 mt-2 text-sm text-muted-foreground">
-                                L'historique de vos paiements apparaîtra ici.
+                                {currentUser?.role === 'parent' ? "Veuillez d'abord sélectionner un enfant." : "L'historique de vos paiements apparaîtra ici."}
                             </p>
                         </div>
                     )}
@@ -167,5 +204,3 @@ export default function PaymentsPage() {
         </div>
     );
 }
-
-    

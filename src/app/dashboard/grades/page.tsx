@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Grade, Course } from '@/lib/types';
+import { Grade, Course, User } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 interface CourseWithGrades extends Course {
     grades: Grade[];
@@ -17,31 +19,51 @@ interface CourseWithGrades extends Course {
 }
 
 export default function GradesPage() {
-    const { user: currentUser } = useUser();
+    const { user: currentUser, users } = useUser();
     const [grades, setGrades] = useState<Grade[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+     const children = useMemo(() => {
+        if (currentUser?.role !== 'parent') return [];
+        return users.filter(u => currentUser.parent?.childrenUids.includes(u.uid));
+    }, [currentUser, users]);
+
+    const studentToView = useMemo(() => {
+        if (currentUser?.role === 'student') return currentUser;
+        if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedChildId);
+        return null;
+    }, [currentUser, users, selectedChildId]);
+    
+    useEffect(() => {
+        if (currentUser?.role === 'parent' && children.length > 0 && !selectedChildId) {
+            setSelectedChildId(children[0].uid);
+        }
+    }, [currentUser, children, selectedChildId]);
 
     useEffect(() => {
-        if (!currentUser || !currentUser.uid) {
+        if (!studentToView || !studentToView.uid) {
             setLoading(false);
+            setGrades([]);
             return;
         }
 
         setLoading(true);
-        // Fetch grades for the current student
-        const gradesQuery = query(collection(db, "grades"), where("studentId", "==", currentUser.uid));
+        const gradesQuery = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
         const unsubscribeGrades = onSnapshot(gradesQuery, (snapshot) => {
             const studentGrades: Grade[] = [];
             snapshot.forEach((doc) => {
                 studentGrades.push({ id: doc.id, ...doc.data() } as Grade);
             });
             setGrades(studentGrades);
+            setLoading(false);
         }, (error) => {
             console.error("Error fetching grades: ", error);
+            setLoading(false);
         });
 
-        // Fetch all courses to get course names
+        // Fetch all courses to get course names - this is inefficient but works for now.
         const coursesQuery = query(collection(db, "courses"));
         const unsubscribeCourses = onSnapshot(coursesQuery, (snapshot) => {
             const allCourses: Course[] = [];
@@ -49,17 +71,15 @@ export default function GradesPage() {
                 allCourses.push({ id: doc.id, ...doc.data() } as Course);
             });
             setCourses(allCourses);
-            setLoading(false);
         }, (error) => {
             console.error("Error fetching courses: ", error);
-            setLoading(false);
         });
 
         return () => {
             unsubscribeGrades();
             unsubscribeCourses();
         };
-    }, [currentUser]);
+    }, [studentToView]);
 
     const coursesWithGrades = useMemo((): CourseWithGrades[] => {
         if (grades.length === 0 || courses.length === 0) return [];
@@ -98,15 +118,8 @@ export default function GradesPage() {
     }, [coursesWithGrades]);
 
 
-     if (currentUser?.role === 'parent') {
-        return (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[calc(100vh-12rem)]">
-                <h3 className="text-2xl font-bold tracking-tight">Accès non autorisé</h3>
-                <p className="text-sm text-muted-foreground">
-                    Cette section est réservée aux étudiants et administrateurs.
-                </p>
-            </div>
-        );
+    const handleChildChange = (studentId: string) => {
+        setSelectedChildId(studentId);
     }
 
     return (
@@ -117,17 +130,46 @@ export default function GradesPage() {
                     Consultez vos notes et résultats pour chaque matière.
                 </p>
             </div>
+             {currentUser?.role === 'parent' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Sélection de l'enfant</CardTitle>
+                        <CardDescription>
+                            Choisissez l'enfant dont vous souhaitez consulter les notes.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       {children.length > 0 ? (
+                            <Select onValueChange={handleChildChange} value={selectedChildId || ""}>
+                                <SelectTrigger className="w-[280px]">
+                                    <SelectValue placeholder="Sélectionner un enfant..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {children.map(child => (
+                                        <SelectItem key={child.uid} value={child.uid}>
+                                            {child.firstName} {child.lastName}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                       ) : (
+                           <p className="text-sm text-muted-foreground">Aucun enfant n'est associé à votre compte.</p>
+                       )}
+                    </CardContent>
+                </Card>
+            )}
+
             <Card>
                 <CardHeader>
                     <CardTitle>Relevé de notes</CardTitle>
                     <CardDescription>
-                        Voici le résumé de vos performances académiques.
+                        Voici le résumé des performances académiques.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                    {loading ? (
                        <div className="flex items-center justify-center h-48">
-                            <p>Chargement de vos notes...</p>
+                            <p>Chargement des notes...</p>
                         </div>
                    ) : coursesWithGrades.length > 0 ? (
                         <Accordion type="single" collapsible className="w-full" defaultValue={coursesWithGrades[0]?.id}>
@@ -169,7 +211,7 @@ export default function GradesPage() {
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
                         <h3 className="text-xl font-bold tracking-tight">Aucune note disponible</h3>
                         <p className="text-sm text-muted-foreground">
-                           Vos notes n'ont pas encore été publiées, ou vous n'êtes pas un étudiant.
+                           {currentUser?.role === 'parent' ? "Veuillez d'abord sélectionner un enfant." : "Vos notes n'ont pas encore été publiées, ou vous n'êtes pas un étudiant."}
                         </p>
                     </div>
                    )}

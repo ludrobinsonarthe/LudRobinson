@@ -89,8 +89,8 @@ function MainSidebar() {
     { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
   ];
   
-  const showStudentMenu = true;
-  const showAdminMenu = true;
+  const showStudentMenu = user?.role === 'student' || user?.role === 'admin' || user?.role === 'parent';
+  const showAdminMenu = user?.role === 'admin';
 
 
   return (
@@ -120,7 +120,7 @@ function MainSidebar() {
           </SidebarGroup>
 
         {showStudentMenu && <SidebarGroup>
-            <SidebarGroupLabel>Étudiant</SidebarGroupLabel>
+            <SidebarGroupLabel>Espace Personnel</SidebarGroupLabel>
              {studentMenuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
