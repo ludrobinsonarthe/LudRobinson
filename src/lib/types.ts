@@ -66,7 +66,9 @@ export interface Field {
 }
 
 export interface FeeStructure {
-    id: 'school_fees';
+    id: string; // e.g., local-licence_1
+    cycle: Cycle;
+    level: string;
     registration: number;
     tuition: number;
     currency: string;

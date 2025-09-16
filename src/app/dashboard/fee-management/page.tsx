@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -22,57 +22,91 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, doc, writeBatch, onSnapshot, query } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { FeeStructure } from "@/lib/types";
-import { Loader2 } from "lucide-react";
+import { FeeStructure, Cycle } from "@/lib/types";
+import { Loader2, PlusCircle, Trash2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const feeFormSchema = z.object({
+const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
+const cycles: { value: Cycle; label: string }[] = [
+  { value: "local", label: "Cycle Local" },
+  { value: "international", label: "Cycle International" },
+  { value: "entrepreneur", label: "Cycle Entrepreneur" },
+];
+
+const feeStructureSchema = z.object({
+  id: z.string(),
+  cycle: z.nativeEnum({
+    local: "local",
+    international: "international",
+    entrepreneur: "entrepreneur",
+  }),
+  level: z.string(),
   registration: z.coerce.number().min(0, "Les frais d'inscription sont requis."),
   tuition: z.coerce.number().min(0, "Les frais de scolarité sont requis."),
+  currency: z.string().default("XAF"),
 });
 
-type FeeFormValues = z.infer<typeof feeFormSchema>;
+const feeManagementFormSchema = z.object({
+  feeStructures: z.array(feeStructureSchema),
+});
+
+type FeeManagementFormValues = z.infer<typeof feeManagementFormSchema>;
 
 export default function FeeManagementPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const form = useForm<FeeFormValues>({
-    resolver: zodResolver(feeFormSchema),
+  const form = useForm<FeeManagementFormValues>({
+    resolver: zodResolver(feeManagementFormSchema),
     defaultValues: {
-      registration: 0,
-      tuition: 0,
+      feeStructures: [],
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "feeStructures",
+  });
+
   useEffect(() => {
-    const fetchFees = async () => {
-      const feeRef = doc(db, "fees", "school_fees");
-      const feeSnap = await getDoc(feeRef);
-      if (feeSnap.exists()) {
-        const feeData = feeSnap.data() as FeeStructure;
-        form.reset({
-          registration: feeData.registration,
-          tuition: feeData.tuition,
-        });
-      }
+    const q = query(collection(db, "fee_structures"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const structures: FeeStructure[] = [];
+      snapshot.forEach((doc) => {
+        structures.push({ id: doc.id, ...doc.data() } as FeeStructure);
+      });
+      form.reset({ feeStructures: structures });
       setLoading(false);
-    };
-    fetchFees();
+    });
+    return () => unsubscribe();
   }, [form]);
 
-  const onSubmit = async (data: FeeFormValues) => {
+  const onSubmit = async (data: FeeManagementFormValues) => {
     try {
       setLoading(true);
-      const feeRef = doc(db, "fees", "school_fees");
-      const feeData: FeeStructure = {
-        id: 'school_fees',
-        ...data,
-        currency: 'XAF',
-      };
-      await setDoc(feeRef, feeData, { merge: true });
+      const batch = writeBatch(db);
+      data.feeStructures.forEach((structure) => {
+        const docRef = doc(db, "fee_structures", structure.id);
+        batch.set(docRef, structure);
+      });
+      await batch.commit();
       toast({
         title: "Frais mis à jour",
         description: "La structure des frais a été enregistrée avec succès.",
@@ -88,13 +122,34 @@ export default function FeeManagementPage() {
       setLoading(false);
     }
   };
+  
+  const addNewFeeStructure = () => {
+    const existingIds = fields.map(f => f.id);
+    const newCycle = cycles[0].value;
+    const newLevel = levels[0];
+    let newId = `${newCycle}-${newLevel.toLowerCase().replace(" ", "_")}`;
+    let counter = 1;
+    while(existingIds.includes(newId)) {
+        newId = `${newCycle}-${newLevel.toLowerCase().replace(" ", "_")}_${counter}`;
+        counter++;
+    }
+
+    append({
+        id: newId,
+        cycle: newCycle,
+        level: newLevel,
+        registration: 0,
+        tuition: 0,
+        currency: 'XAF'
+    });
+  }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Frais</h1>
         <p className="text-muted-foreground">
-          Définissez les montants standards pour les frais d'inscription et de scolarité.
+          Définissez les frais de scolarité et d'inscription par niveau et par cycle.
         </p>
       </div>
 
@@ -102,7 +157,7 @@ export default function FeeManagementPage() {
         <CardHeader>
           <CardTitle>Structure des Frais Académiques</CardTitle>
           <CardDescription>
-            Ces montants seront utilisés par défaut lors de la création de nouveaux paiements.
+            Ces montants seront utilisés par défaut lors de la création de nouveaux paiements pour les étudiants correspondants.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -113,38 +168,80 @@ export default function FeeManagementPage() {
           ) : (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <FormField
-                  control={form.control}
-                  name="registration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Frais d'inscription (XAF)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="50000" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="tuition"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Frais de scolarité mensuels (XAF)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="150000" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Enregistrer les modifications
-                  </Button>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cycle</TableHead>
+                      <TableHead>Niveau</TableHead>
+                      <TableHead>Frais d'inscription (XAF)</TableHead>
+                      <TableHead>Frais de scolarité (XAF)</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fields.map((field, index) => (
+                      <TableRow key={field.id}>
+                        <TableCell>
+                          <FormField
+                            control={form.control}
+                            name={`feeStructures.${index}.cycle`}
+                            render={({ field }) => (
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {cycles.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell>
+                           <FormField
+                            control={form.control}
+                            name={`feeStructures.${index}.level`}
+                            render={({ field }) => (
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {levels.map((l) => (<SelectItem key={l} value={l}>{l}</SelectItem>))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <FormField
+                            control={form.control}
+                            name={`feeStructures.${index}.registration`}
+                            render={({ field }) => ( <Input type="number" {...field} /> )}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <FormField
+                            control={form.control}
+                            name={`feeStructures.${index}.tuition`}
+                            render={({ field }) => ( <Input type="number" {...field} /> )}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                
+                <div className="flex justify-between items-center mt-4">
+                    <Button type="button" variant="outline" onClick={addNewFeeStructure}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Ajouter une configuration
+                    </Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Enregistrer les modifications
+                    </Button>
                 </div>
               </form>
             </Form>
