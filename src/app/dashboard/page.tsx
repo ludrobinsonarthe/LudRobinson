@@ -31,12 +31,12 @@ export default function DashboardPage() {
         const q = query(
             collection(db, "messages"), 
             where('type', '==', 'announcement'),
-            where('receiverId', 'in', targetReceivers),
-            orderBy('createdAt', 'desc')
+            where('receiverId', 'in', targetReceivers)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+            fetchedAnnouncements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setAnnouncements(fetchedAnnouncements);
             setLoading(false);
         }, (error) => {
