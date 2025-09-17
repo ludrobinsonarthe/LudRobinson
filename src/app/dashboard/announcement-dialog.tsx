@@ -83,18 +83,26 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     }
     setSubmitting(true);
     
-    // This is a simulation, so we don't actually save to Firebase
-    console.log("Simulating save for announcement:", data);
-    
-    setTimeout(() => {
+    try {
         if (announcement) {
-            toast({ title: "Annonce modifiée (Simulation)" });
+            await setDoc(doc(db, "messages", announcement.id), { ...data }, { merge: true });
+            toast({ title: "Annonce modifiée" });
         } else {
-            toast({ title: "Annonce publiée (Simulation)" });
+            await addDoc(collection(db, "messages"), {
+                ...data,
+                senderId: user.uid,
+                type: 'announcement',
+                createdAt: new Date().toISOString(),
+            });
+            toast({ title: "Annonce publiée" });
         }
-        setSubmitting(false);
         setIsOpen(false);
-    }, 1000);
+    } catch (error) {
+        console.error("Error saving announcement: ", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'annonce." });
+    } finally {
+        setSubmitting(false);
+    }
   };
 
   return (

@@ -15,6 +15,8 @@ import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
@@ -30,23 +32,21 @@ const settingsFormSchema = z.object({
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
-const defaultSettings: Partial<SettingsFormValues> = {
-    schoolName: "",
-    logoUrl: "",
-    academicYear: "",
-    currency: "",
-    levels: [],
-    sectors: [],
-};
-
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, setSettings, loading: loadingSettings } = useUser();
+    const { settings, loading: loadingSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
-        defaultValues: settings || defaultSettings
+        defaultValues: {
+            schoolName: "",
+            logoUrl: "",
+            academicYear: "",
+            currency: "",
+            levels: [],
+            sectors: [],
+        },
     });
 
     const { fields: levelFields, append: appendLevel, remove: removeLevel } = useFieldArray({
@@ -66,23 +66,41 @@ export default function AdminManagementPage() {
 
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
-        // This is a simulation, we update the state in the context
-        setSettings({ id: 'system', ...data });
-        
-        toast({
-            title: "Paramètres enregistrés (Simulation)",
-            description: "Les paramètres globaux ont été mis à jour localement.",
-        });
-        setSubmitting(false);
+        try {
+            await setDoc(doc(db, "settings", "system"), data);
+            toast({
+                title: "Paramètres enregistrés",
+                description: "Les paramètres globaux ont été mis à jour.",
+            });
+        } catch (error) {
+            console.error("Error saving settings:", error);
+             toast({
+                variant: "destructive",
+                title: "Erreur",
+                description: "Impossible d'enregistrer les paramètres.",
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    if (loadingSettings || !settings) {
+    if (loadingSettings) {
         return (
             <div className="flex items-center justify-center h-96">
                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
         );
     }
+    
+    if (!settings && !loadingSettings) {
+         return (
+            <div className="flex flex-col items-center justify-center h-96 text-center">
+               <p className="text-lg font-semibold text-muted-foreground">Impossible de charger les paramètres.</p>
+               <p className="text-sm text-muted-foreground">Veuillez vérifier les règles de sécurité de votre base de données Firestore.</p>
+            </div>
+        );
+    }
+
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">

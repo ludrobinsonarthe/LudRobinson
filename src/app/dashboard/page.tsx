@@ -8,7 +8,8 @@ import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
-import { mockMessages } from "@/lib/mock-data";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, where, orderBy, or } from "firebase/firestore";
 
 export default function DashboardPage() {
     const { user: currentUser, userPermissions } = useUser();
@@ -21,17 +22,29 @@ export default function DashboardPage() {
         if (!currentUser) return;
         
         setLoading(true);
-        const targetReceivers = ['all', currentUser.role];
+
+        const targetReceivers: string[] = ['all', currentUser.role];
         if (currentUser.admin?.roleId) {
             targetReceivers.push(currentUser.admin.roleId);
         }
         
-        const fetchedAnnouncements = mockMessages.filter(m => m.type === 'announcement' && targetReceivers.includes(m.receiverId))
-            .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const q = query(
+            collection(db, "messages"), 
+            where('type', '==', 'announcement'),
+            where('receiverId', 'in', targetReceivers),
+            orderBy('createdAt', 'desc')
+        );
 
-        setAnnouncements(fetchedAnnouncements);
-        setLoading(false);
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+            setAnnouncements(fetchedAnnouncements);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching announcements: ", error);
+            setLoading(false);
+        });
 
+        return () => unsubscribe();
     }, [currentUser]);
 
 
@@ -44,14 +57,6 @@ export default function DashboardPage() {
         setEditingAnnouncement(announcement);
         setIsDialogOpen(true);
     };
-    
-    const handleSaveAnnouncement = (message: Message) => {
-        if (editingAnnouncement) {
-            setAnnouncements(prev => prev.map(a => a.id === message.id ? message : a));
-        } else {
-            setAnnouncements(prev => [message, ...prev]);
-        }
-    }
 
     return (
         <div className="space-y-6">
@@ -92,7 +97,6 @@ export default function DashboardPage() {
                 isOpen={isDialogOpen}
                 setIsOpen={setIsDialogOpen}
                 announcement={editingAnnouncement}
-                onSave={handleSaveAnnouncement}
             />
         </div>
     );
