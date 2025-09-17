@@ -42,6 +42,7 @@ import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect } from "react";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function AppLogo() {
   return (
@@ -170,10 +171,7 @@ function MainSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Paramètres">
-              <Settings />
-              <span>Paramètres</span>
-            </SidebarMenuButton>
+            <ThemeToggle />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
