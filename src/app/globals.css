@@ -96,3 +96,11 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  [data-sidebar="sidebar"] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cdefs%3E%3Cstyle%3E.icon%7Bfill:none;stroke:white;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.5px;opacity:0.05;%7D%3C/style%3E%3C/defs%3E%3Cpath class='icon' d='M22 17.5l-2.09 7.04a1 1 0 00.27 1.05l5.24 5.24a1 1 0 001.05.27L33.5 29M29 33.5l-7.04-2.09a1 1 0 00-1.05.27l-5.24 5.24a1 1 0 00-.27 1.05L17.5 45M25.13 25.13L32 32'/%3E%3Cpath class='icon' d='M63.33 60H51.5a2.5 2.5 0 01-2.5-2.5V47.5a2.5 2.5 0 012.5-2.5h11.83a2.5 2.5 0 012.5 2.5v10a2.5 2.5 0 01-2.5 2.5z'/%3E%3Cpath class='icon' d='M51.5 45H47a1 1 0 00-1 1v12.5a2.5 2.5 0 002.5 2.5h11.83a2.5 2.5'/%3E%3Cpath class='icon' d='M82 92.5v-3.83a4.17 4.17 0 00-4.17-4.17H73a4.17 4.17 0 00-4.17 4.17v3.83'/%3E%3Cpath class='icon' d='M77.5 80.33a4.17 4.17 0 100-8.33 4.17 4.17 0 000 8.33z'/%3E%3Cpath class='icon' d='M100 70l-8.33 8.33'/%3E%3Cpath class='icon' d='M100 60h-5'/%3E%3Cpath class='icon' d='M91.67 51.67L100 60'/%3E%3Cpath class='icon' d='M80 60h5'/%3E%3Cpath class='icon' d='M90 60a10 10 0 11-20 0 10 10 0 0120 0z'/%3E%3C/svg%3E");
+    background-size: 120px 120px;
+    background-repeat: repeat;
+  }
+}
