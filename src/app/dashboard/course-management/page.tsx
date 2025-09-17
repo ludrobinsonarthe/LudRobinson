@@ -32,7 +32,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { users, settings, loading } = useUser();
+    const { users, settings, loading, fields, sectors } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -57,9 +57,7 @@ export default function CourseManagementPage() {
     }, []);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
-    const fields = useMemo(() => settings?.sectors.flatMap(s => (settings.sectors || []).find(fs => fs.id === s.id)) || [], [settings]);
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
-    const sectors = useMemo(() => settings?.sectors || [], [settings]);
     const sectorsById = useMemo(() => (sectors || []).reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
     const getTeacherName = (teacherId: string) => {

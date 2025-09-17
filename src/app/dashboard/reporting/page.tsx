@@ -12,7 +12,7 @@ import StudentFieldDistributionChart from '@/components/charts/student-field-dis
 import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
 
 export default function ReportingPage() {
-    const { users, loading: usersLoading, settings } = useUser();
+    const { users, loading: usersLoading, settings, fields } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -30,8 +30,7 @@ export default function ReportingPage() {
     }, []);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(f => f.id === s.id)) || [], [settings]);
-
+    
     const stats = useMemo(() => {
         const studentCount = students.length;
         const teacherCount = users.filter(u => u.role === 'teacher').length;
@@ -153,7 +152,7 @@ export default function ReportingPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <StudentFieldDistributionChart students={students} fields={fields as Field[]} />
+                       <StudentFieldDistributionChart students={students} fields={fields} />
                     </CardContent>
                 </Card>
                  <Card>

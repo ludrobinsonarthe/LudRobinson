@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -21,6 +21,8 @@ type UserContextType = {
   hasPermission: (permission: AdminPermission) => boolean;
   settings: Settings | null;
   setSettings: React.Dispatch<React.SetStateAction<Settings | null>>;
+  sectors: Sector[];
+  fields: Field[];
 }
 
 const UserContext = createContext<UserContextType | null>(null);
@@ -32,42 +34,46 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [fields, setFields] = useState<Field[]>([]);
+
 
   useEffect(() => {
     setLoading(true);
-    
-    // Set mock roles first
-    setRoles(mockAdminRoles);
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        // If firestore is empty, populate with mock user for demo purposes
         if (usersData.length === 0) {
             setAllUsers(mockUsers);
         } else {
             setAllUsers(usersData);
         }
-        setLoading(false);
     }, (error) => {
         console.error("Error fetching users:", error);
-        setAllUsers(mockUsers); // fallback to mock data on error
-        setLoading(false);
+        setAllUsers(mockUsers); 
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
         if (!snapshot.empty) {
             const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
             setRoles(rolesData);
+        } else {
+            setRoles(mockAdminRoles);
         }
     }, (error) => {
         console.error("Error fetching roles:", error);
+        setRoles(mockAdminRoles);
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
         if(doc.exists()){
-            setSettings(doc.data() as Settings);
+            const settingsData = doc.data() as Settings;
+            setSettings(settingsData);
+            if (settingsData.sectors) {
+                setSectors(settingsData.sectors);
+            }
         } else {
-             setSettings({
+             const defaultSettings: Settings = {
                 id: 'system',
                 schoolName: 'ISGI',
                 logoUrl: '',
@@ -75,14 +81,34 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
                 sectors: []
-            });
+            };
+            setSettings(defaultSettings);
+            setSectors(defaultSettings.sectors);
         }
     });
+    
+    // This part was missing. Let's fetch the fields from firestore.
+    // The collection name should be `fields`.
+    const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
+        if (!snapshot.empty) {
+            const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
+            setFields(fieldsData);
+        } else {
+            setFields([]);
+        }
+    }, (error) => {
+        console.error("Error fetching fields:", error);
+        setFields([]);
+    });
+
+    
+    setLoading(false);
 
     return () => {
       unsubUsers();
       unsubRoles();
       unsubSettings();
+      unsubFields();
     };
    
   }, []);
@@ -93,7 +119,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           if (matchedUser) {
               setCurrentUser(matchedUser);
           } else {
-              // This is a new user authenticated via Google for example
               const isSuperAdminEmail = authUser.email === "admin@isgi.com" || authUser.email === "semfranslinbourangon@gmail.com";
               
               const newUserProfile: User = {
@@ -102,7 +127,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                   firstName: authUser.displayName?.split(' ')[0] || 'Nouveau',
                   lastName: authUser.displayName?.split(' ')[1] || 'Utilisateur',
                   photoUrl: authUser.photoURL || `https://picsum.photos/seed/${authUser.uid}/100/100`,
-                  role: isSuperAdminEmail ? 'admin' : 'student', // Assign 'admin' role if super admin email
+                  role: isSuperAdminEmail ? 'admin' : 'student',
                   status: 'active',
                   createdAt: new Date().toISOString(),
               };
@@ -114,7 +139,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 }
               }
               
-              // Save the new user to Firestore
               const userDocRef = doc(db, 'users', authUser.uid);
               setDoc(userDocRef, newUserProfile).then(() => {
                  setAllUsers(prev => [...prev, newUserProfile]);
@@ -165,7 +189,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       userPermissions,
       hasPermission,
       settings,
-      setSettings
+      setSettings,
+      sectors,
+      fields
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

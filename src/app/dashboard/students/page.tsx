@@ -23,7 +23,6 @@ import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
-import { mockPayments, mockGrades, mockCourses } from "@/lib/mock-data";
 import StudentFormDialog from "@/components/student-form-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -48,7 +47,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { users, loading: loadingUsers, setUsers, settings } = useUser();
+    const { users, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
@@ -84,9 +83,7 @@ export default function StudentsPage() {
 
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const parents = useMemo(() => users.filter(u => u.role === 'parent'), [users]);
-    const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(fs => fs.id === s.id)) || [], [settings]);
     const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
-    const sectors = useMemo(() => settings?.sectors || [], [settings]);
     const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
     const studentBalances = useMemo(() => {

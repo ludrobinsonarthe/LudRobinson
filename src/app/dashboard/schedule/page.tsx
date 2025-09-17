@@ -20,7 +20,7 @@ const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const timeSlots = Array.from({ length: 6 }, (_, i) => `${8 + i * 2}:00`); // 8:00, 10:00, ..., 18:00
 
 function ScheduleContent() {
-    const { user: currentUser, users, settings } = useUser();
+    const { user: currentUser, users, settings, fields } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
     
@@ -74,7 +74,6 @@ function ScheduleContent() {
         return grid;
     }, [filteredCourses]);
     
-    const fields = useMemo(() => settings?.sectors.flatMap(s => (settings.sectors || []).find(fs => fs.id === s.id)) || [], [settings]);
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const getTeacherName = (teacherId: string) => {

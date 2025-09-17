@@ -24,7 +24,7 @@ function AttendanceContent() {
     const searchParams = useSearchParams();
     const teacherIdFilter = searchParams.get('teacherId');
 
-    const { users, loading: usersLoading, settings } = useUser();
+    const { users, loading: usersLoading, settings, fields } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -61,13 +61,11 @@ function AttendanceContent() {
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     
     const fieldsById = useMemo(() => {
-        return (settings?.sectors || []).reduce((acc: any, sector) => {
-            // This is a bug, but fixing it is out of scope.
-            // The original logic was incorrect, but to avoid changing behavior, I will keep it.
-            sector.name
+        return fields.reduce((acc: Record<string, Field>, field) => {
+            acc[field.id] = field;
             return acc;
-        }, {}) 
-    }, [settings]);
+        }, {});
+    }, [fields]);
 
 
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
@@ -226,7 +224,7 @@ function AttendanceContent() {
                                         <TableRow key={`${course.id}-${course.scheduleInfo.start}`}>
                                             <TableCell className="font-semibold">{course.name}</TableCell>
                                             <TableCell>{course.teacher?.firstName} {course.teacher?.lastName}</TableCell>
-                                            <TableCell>{course.field?.name || 'N/A'}</TableCell>
+                                            <TableCell>{fieldsById[course.fieldId]?.name || 'N/A'}</TableCell>
                                             <TableCell>{course.scheduleInfo.start} - {course.scheduleInfo.end}</TableCell>
                                             {weekDays.map(day => {
                                                 const dateStr = format(day, 'yyyy-MM-dd');
@@ -298,4 +296,3 @@ export default function AttendancePage() {
         </Suspense>
     );
 }
-
