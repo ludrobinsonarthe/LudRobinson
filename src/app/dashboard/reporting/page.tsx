@@ -8,25 +8,28 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Course, CashTransaction, Payment, Field } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
-import StudentFieldDistributionChart from '@/components/charts/student-field-distribution-chart';
 import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
+import PendingPaymentsCard from '@/components/pending-payments-card';
 
 export default function ReportingPage() {
     const { users, loading: usersLoading, settings, fields } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
     const [loadingData, setLoadingData] = useState(true);
 
     useEffect(() => {
         setLoadingData(true);
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
         const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction)));
+        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
 
         const timeoutId = setTimeout(() => setLoadingData(false), 500); // Simulate loading
         
         return () => {
             unsubCourses();
             unsubTransactions();
+            unsubPayments();
             clearTimeout(timeoutId);
         }
     }, []);
@@ -145,26 +148,18 @@ export default function ReportingPage() {
                 </Card>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Répartition des Étudiants par Filière</CardTitle>
-                        <CardDescription>
-                            Visualisation du nombre d'étudiants dans chaque filière.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                       <StudentFieldDistributionChart students={students} fields={fields} />
-                    </CardContent>
+            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-5">
+                 <Card className="lg:col-span-2">
+                    <PendingPaymentsCard payments={payments} users={users} />
                 </Card>
-                 <Card>
+                 <Card className="lg:col-span-3">
                     <CardHeader>
                         <CardTitle>Aperçu Financier Mensuel</CardTitle>
                         <CardDescription>
                             Evolution des entrées et sorties sur les 12 derniers mois.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pl-2">
                         <FinancialMonthlyOverviewChart transactions={transactions} />
                     </CardContent>
                 </Card>
