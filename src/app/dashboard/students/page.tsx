@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -13,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument } from "@/lib/types";
+import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText } from "lucide-react";
 import { format } from 'date-fns';
@@ -21,7 +22,7 @@ import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
-import { mockClasses, mockSectors, mockFields, mockPayments, mockDocuments } from "@/lib/mock-data";
+import { mockClasses, mockSectors, mockFields, mockPayments, mockDocuments, mockGrades, mockCourses } from "@/lib/mock-data";
 import StudentFormDialog from "@/components/student-form-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,8 @@ export default function StudentsPage() {
     const { users, loading: loadingUsers, setUsers, settings } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
+    const [grades, setGrades] = useState<Grade[]>([]);
+    const [courses, setCourses] = useState<Course[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -66,6 +69,8 @@ export default function StudentsPage() {
         setLoadingData(true);
         setPayments(mockPayments);
         setDocuments(mockDocuments);
+        setGrades(mockGrades);
+        setCourses(mockCourses);
         setLoadingData(false);
     }, []);
 
@@ -374,6 +379,97 @@ export default function StudentsPage() {
 
         toast({ title: "Certificat généré (Simulation)", description: `Le document pour ${studentName} a été créé et sauvegardé localement.` });
     }
+
+    const handleGenerateBulletin = (student: User) => {
+        const doc = new jsPDF();
+        const schoolName = settings?.schoolName || "Institut Supérieur";
+        const academicYear = settings?.academicYear || "2024-2025";
+        const studentName = `${student.firstName} ${student.lastName}`;
+        
+        // Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        doc.setFontSize(14);
+        doc.text(`Bulletin de Notes - ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+
+        // Student Info
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Étudiant(e): ${studentName}`, 14, 45);
+        doc.text(`Matricule: ${student.student?.matricule || 'N/A'}`, 14, 52);
+        doc.text(`Niveau: ${student.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
+        doc.text(`Filière: ${student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
+        
+        // Grades Table
+        const studentGrades = grades.filter(g => g.studentId === student.uid);
+        const coursesById = courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
+        
+        const tableColumn = ["Matière", "Devoirs", "Examen", "Moyenne /20"];
+        const tableRows: (string | number)[][] = [];
+
+        const gradesByCourse: Record<string, Grade[]> = {};
+        studentGrades.forEach(grade => {
+            if (!gradesByCourse[grade.courseId]) {
+                gradesByCourse[grade.courseId] = [];
+            }
+            gradesByCourse[grade.courseId].push(grade);
+        });
+
+        let totalWeightedAverage = 0;
+        let totalCoefficients = 0;
+
+        Object.keys(gradesByCourse).forEach(courseId => {
+            const courseName = coursesById[courseId]?.name || 'Inconnu';
+            const courseGrades = gradesByCourse[courseId];
+            
+            const devoirs = courseGrades.filter(g => g.type === 'devoir').map(g => `${g.score}/${g.total}`).join(', ');
+            const examen = courseGrades.find(g => g.type === 'examen');
+            
+            const totalScore = courseGrades.reduce((acc, g) => acc + (g.score * g.coefficient), 0);
+            const totalCoeff = courseGrades.reduce((acc, g) => acc + g.coefficient, 0);
+            const courseAverage = totalCoeff > 0 ? (totalScore / totalCoeff) : 0;
+            
+            totalWeightedAverage += courseAverage;
+            totalCoefficients += 1;
+
+            tableRows.push([courseName, devoirs, examen ? `${examen.score}/${examen.total}` : 'N/A', courseAverage.toFixed(2)]);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 60,
+            theme: 'grid'
+        });
+
+        // Footer
+        const finalY = (doc as any).lastAutoTable.finalY;
+        const generalAverage = totalCoefficients > 0 ? totalWeightedAverage / totalCoefficients : 0;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Moyenne Générale: ${generalAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
+        doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
+
+
+        doc.save(`bulletin_${student.lastName}_${student.firstName}.pdf`);
+        
+        const newDoc: OfficialDocument = {
+            id: `doc_bulletin_${Date.now()}`,
+            studentId: student.uid,
+            type: 'bulletin',
+            fileUrl: '#', // In a real app, you'd upload the PDF and get a URL
+            issuedBy: 'admin01',
+            issuedAt: new Date().toISOString(),
+        };
+        setDocuments(prev => [...prev, newDoc]);
+
+        toast({ title: "Bulletin généré (Simulation)", description: `Le bulletin pour ${studentName} a été créé et sauvegardé localement.` });
+    };
     
     const loading = loadingUsers || loadingData;
 
@@ -521,10 +617,18 @@ export default function StudentsPage() {
                                                     <Receipt className="mr-2 h-4 w-4" />
                                                     Voir les paiements
                                                </DropdownMenuItem>
-                                               <DropdownMenuItem onClick={() => handleGenerateCertificate(student)}>
-                                                    <FileText className="mr-2 h-4 w-4" />
-                                                    Générer un certificat
-                                               </DropdownMenuItem>
+                                               <DropdownMenuSub>
+                                                    <DropdownMenuSubTrigger>
+                                                        <FileText className="mr-2 h-4 w-4" />
+                                                        Générer un document
+                                                    </DropdownMenuSubTrigger>
+                                                    <DropdownMenuPortal>
+                                                        <DropdownMenuSubContent>
+                                                            <DropdownMenuItem onClick={() => handleGenerateCertificate(student)}>Certificat de scolarité</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleGenerateBulletin(student)}>Bulletin de notes</DropdownMenuItem>
+                                                        </DropdownMenuSubContent>
+                                                    </DropdownMenuPortal>
+                                               </DropdownMenuSub>
                                                <DropdownMenuItem onClick={() => handleDelete(student)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
