@@ -44,13 +44,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        if (usersData.length === 0) {
-            // If no users, maybe bootstrap the admin user from mock data
-            // For now, let's just use an empty array and let the auth handler create the user.
-             setAllUsers([]);
-        } else {
-            setAllUsers(usersData);
-        }
+        setAllUsers(usersData);
     }, (error) => {
         console.error("Error fetching users:", error);
         setAllUsers([]); 
@@ -184,6 +178,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const setUser = (user: User) => {
       setCurrentUser(user);
+      setAllUsers(prevUsers => prevUsers.map(u => u.uid === user.uid ? user : u));
   };
   
   const value = { 

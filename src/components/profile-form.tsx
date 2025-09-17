@@ -92,7 +92,7 @@ export default function ProfileForm() {
 
   const handleCroppedImage = (imageBlob: Blob | null) => {
     if (imageBlob) {
-        form.setValue('photo', imageBlob);
+        form.setValue('photo', imageBlob, { shouldDirty: true });
         setAvatarPreview(URL.createObjectURL(imageBlob));
     }
   }
@@ -124,12 +124,12 @@ export default function ProfileForm() {
             // Update user in context
             const updatedUser = { ...user, ...updatedData };
             setUser(updatedUser);
-            setUsers(prev => prev.map(u => u.uid === user.uid ? updatedUser : u));
 
             toast({
                 title: "Profil mis à jour",
                 description: "Vos informations ont été sauvegardées.",
             });
+            form.reset(updatedUser);
         } catch (error) {
             console.error("Error updating profile:", error);
             toast({
@@ -257,7 +257,7 @@ export default function ProfileForm() {
           />
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending || !form.formState.isDirty}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             Enregistrer les modifications
           </Button>
