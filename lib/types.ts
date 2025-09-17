@@ -1,5 +1,6 @@
 
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -15,7 +16,7 @@ export const adminPermissions = {
   manage_salaries: "Salaires",
   manage_attendance: "Suivi des Présences",
   manage_cash_flow: "Suivi de caisse",
-  manage_users: "Utilisateurs",
+  manage_users: "Personnel",
   manage_roles: "Rôles & Permissions",
   manage_admin_settings: "Administration",
 };
@@ -37,7 +38,9 @@ export interface User {
   email: string;
   phone?: string;
   gender?: 'M' | 'F';
-  dob?: string;
+  dob?: string; // Date of Birth
+  pob?: string; // Place of Birth
+  nationality?: string;
   address?: string;
   photoUrl: string;
   createdAt: string;
@@ -45,6 +48,7 @@ export interface User {
   admin?: {
     roleId: string;
     position?: string;
+    baseSalary?: number;
   };
   student?: {
     matricule: string;
@@ -56,6 +60,7 @@ export interface User {
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user
     parentalLink?: string;
+    lastDiploma?: string;
   };
   teacher?: {
     specialty: string;
@@ -169,7 +174,7 @@ export interface CashTransaction {
     id: string;
     date: string;
     type: 'income' | 'expense';
-    category: 'tuition' | 'salary' | 'equipment' | 'utilities' | 'other';
+    category: 'tuition' | 'salary' | 'equipment' | 'utilities' | 'session' | 'soutenance' | 'other';
     description: string;
     amount: number;
     currency: string;
@@ -225,4 +230,25 @@ export interface Settings {
   currency: string;
   levels: { value: string }[];
   sectors: { id: string; name: string }[];
+}
+
+// Unified salary type for both teachers and admin staff
+export interface UnifiedSalary {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: 'teacher' | 'admin';
+  month: string;
+  year: string;
+  totalSalary: number;
+  status: 'pending' | 'paid';
+  paidAt?: string;
+  paidBy?: string;
+  createdAt: string;
+  currency: string;
+  // Teacher specific
+  hourlyRate?: number;
+  hoursWorked?: number;
+  // Admin specific
+  baseSalary?: number;
 }

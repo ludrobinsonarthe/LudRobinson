@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useMemo, useEffect }from "react";
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -16,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, UserRole, AdminRole, TeacherSalary } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -134,8 +135,8 @@ export default function UsersPage() {
     const confirmDelete = async () => {
         if(!selectedUser) return;
         
-        const batch = writeBatch(db);
         const userId = selectedUser.uid;
+        const batch = writeBatch(db);
         
         try {
             // 1. Delete user document
@@ -146,9 +147,13 @@ export default function UsersPage() {
                 const qSalaries = query(collection(db, "teacherSalaries"), where("teacherId", "==", userId));
                 const salariesSnapshot = await getDocs(qSalaries);
                 salariesSnapshot.forEach(doc => batch.delete(doc.ref));
+                
+                // Also remove teacher from attendances
+                const qAttendances = query(collection(db, "attendances"), where("teacherId", "==", userId));
+                const attendancesSnapshot = await getDocs(qAttendances);
+                attendancesSnapshot.forEach(doc => batch.delete(doc.ref)); // Or update, depending on desired logic
             }
-             // TODO: Add logic for deleting other admin-related data if necessary in future
-
+            
             // 3. Delete avatar from storage
              if (selectedUser.photoUrl && selectedUser.photoUrl.includes('firebasestorage')) {
                  try {
@@ -277,6 +282,14 @@ export default function UsersPage() {
                                                     <Edit className="mr-2 h-4 w-4" />
                                                     Modifier
                                             </DropdownMenuItem>
+                                             {user.role === 'teacher' && (
+                                                <DropdownMenuItem asChild>
+                                                    <Link href={`/dashboard/salary-management?userId=${user.uid}`}>
+                                                        <Banknote className="mr-2 h-4 w-4" />
+                                                        Voir les salaires
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                             )}
                                             <DropdownMenuItem onClick={() => handleDelete(user)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
@@ -310,6 +323,8 @@ export default function UsersPage() {
                 setIsOpen={setIsDeleteOpen}
                 onConfirm={confirmDelete}
                 item={selectedUser}
+                title={`Supprimer ${selectedUser?.role === 'teacher' ? 'ce professeur' : 'cet admin'} ?`}
+                description={`L'utilisateur "${selectedUser?.firstName} ${selectedUser?.lastName}" et toutes ses données associées (salaires, etc.) seront définitivement supprimés. Cette action est irréversible.`}
             />
         </div>
     );

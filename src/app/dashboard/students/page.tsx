@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course } from "@/lib/types";
+import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText, ClipboardList } from "lucide-react";
 import { format } from 'date-fns';
@@ -52,6 +52,7 @@ export default function StudentsPage() {
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
+    const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -73,6 +74,7 @@ export default function StudentsPage() {
         const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as OfficialDocument)));
         const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course)));
+        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
         
         setLoadingData(false);
         return () => {
@@ -80,6 +82,7 @@ export default function StudentsPage() {
             unsubDocs();
             unsubGrades();
             unsubCourses();
+            unsubAttendances();
         };
     }, []);
 
@@ -217,8 +220,8 @@ export default function StudentsPage() {
     const confirmDelete = async () => {
         if (!selectedStudent) return;
         
-        const batch = writeBatch(db);
         const studentId = selectedStudent.uid;
+        const batch = writeBatch(db);
     
         try {
             // 1. Delete student document
@@ -233,8 +236,18 @@ export default function StudentsPage() {
                     batch.delete(doc.ref);
                 });
             }
+
+            // 3. Remove student from attendances
+            const attendancesSnapshot = await getDocs(collection(db, 'attendances'));
+            attendancesSnapshot.forEach(attendanceDoc => {
+                const attendance = attendanceDoc.data() as Attendance;
+                const studentAttendances = attendance.studentAttendances.filter(sa => sa.studentId !== studentId);
+                if (studentAttendances.length < attendance.studentAttendances.length) {
+                    batch.update(attendanceDoc.ref, { studentAttendances });
+                }
+            });
             
-            // 3. Unlink from parent
+            // 4. Unlink from parent
             if (selectedStudent.student?.parentUid) {
                 const parentRef = doc(db, 'users', selectedStudent.student.parentUid);
                 const parentDoc = await getDoc(parentRef);
@@ -245,13 +258,12 @@ export default function StudentsPage() {
                 }
             }
             
-            // 4. Delete avatar from storage
+            // 5. Delete avatar from storage
             if (selectedStudent.photoUrl && selectedStudent.photoUrl.includes('firebasestorage')) {
                  try {
                     const photoRef = ref(storage, selectedStudent.photoUrl);
                     await deleteObject(photoRef);
                 } catch (storageError: any) {
-                    // Non-fatal, maybe the file doesn't exist. Log it.
                     if (storageError.code !== 'storage/object-not-found') {
                          console.error("Could not delete avatar from storage: ", storageError);
                     }
