@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -44,13 +45,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
         if (usersData.length === 0) {
-            setAllUsers(mockUsers);
+            // If no users, maybe bootstrap the admin user from mock data
+            // For now, let's just use an empty array and let the auth handler create the user.
+             setAllUsers([]);
         } else {
             setAllUsers(usersData);
         }
     }, (error) => {
         console.error("Error fetching users:", error);
-        setAllUsers(mockUsers); 
+        setAllUsers([]); 
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
@@ -143,10 +146,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               setDoc(userDocRef, newUserProfile).then(() => {
                  setAllUsers(prev => {
                     const userExists = prev.some(u => u.uid === newUserProfile.uid);
-                    if (userExists) {
-                        return prev.map(u => u.uid === newUserProfile.uid ? newUserProfile : u);
+                    if (!userExists) {
+                        return [...prev, newUserProfile];
                     }
-                    return [...prev, newUserProfile];
+                    return prev.map(u => u.uid === newUserProfile.uid ? newUserProfile : u);
                  });
                  setCurrentUser(newUserProfile);
               });

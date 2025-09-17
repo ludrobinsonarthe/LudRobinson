@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect }from "react";
@@ -99,7 +100,7 @@ export default function UsersPage() {
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
         const isNewUser = !selectedUser;
-        const uid = selectedUser?.uid || `${userData.role}_${Date.now()}`;
+        const uid = selectedUser?.uid || doc(collection(db, "users")).id;
         let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
         
         try {

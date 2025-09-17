@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -22,6 +23,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useRef, useState, useTransition, useEffect } from "react";
 import ImageCropperDialog from "./image-cropper-dialog";
 import type { User } from "@/lib/types";
+import { db, storage } from "@/lib/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
@@ -101,8 +105,9 @@ export default function ProfileForm() {
             const photoFile = data.photo;
             
             if (photoFile && photoFile instanceof Blob) {
-                // Simulate upload
-                photoUrl = URL.createObjectURL(photoFile);
+                const photoRef = ref(storage, `avatars/${user.uid}`);
+                const snapshot = await uploadBytes(photoRef, photoFile);
+                photoUrl = await getDownloadURL(snapshot.ref);
             }
 
             const updatedData: Partial<User> = {
@@ -114,14 +119,12 @@ export default function ProfileForm() {
                 photoUrl,
             };
             
-            // Update local state (simulation)
-            const updatedUser = { ...user, ...updatedData };
-            setUsers(prevUsers => prevUsers.map(u => u.uid === user.uid ? updatedUser : u));
-            setUser(updatedUser);
+            const userDocRef = doc(db, 'users', user.uid);
+            await updateDoc(userDocRef, updatedData);
 
             toast({
-                title: "Profil mis à jour (Simulation)",
-                description: "Vos informations ont été enregistrées localement.",
+                title: "Profil mis à jour",
+                description: "Vos informations ont été sauvegardées.",
             });
         } catch (error) {
             console.error("Error updating profile:", error);
@@ -216,7 +219,7 @@ export default function ProfileForm() {
                   <Input type="email" placeholder="email@example.com" {...field} />
                 </FormControl>
                 <FormDescription>
-                    Vous pouvez modifier votre adresse e-mail.
+                    Vous ne pouvez pas modifier votre adresse e-mail de connexion.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

@@ -95,7 +95,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         });
         }
     }
-  }, [user, form.reset, isOpen]);
+  }, [user, form, isOpen]);
   
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -121,6 +121,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         firstName: userDataValues.firstName,
         lastName: userDataValues.lastName,
         email: userDataValues.email,
+        role: userType
     };
     if (userType === 'teacher') {
         userData.teacher = { specialty: userDataValues.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
