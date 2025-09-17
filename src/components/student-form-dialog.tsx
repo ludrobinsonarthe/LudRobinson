@@ -2,7 +2,8 @@
 
 "use client";
 
-import React, { useForm } from "react-hook-form";
+import React, { useState, useMemo, useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { User, Class, Sector, Field, Cycle } from "@/lib/types";
-import { useEffect, useState, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
 import ImageCropperDialog from "./image-cropper-dialog";
@@ -169,8 +169,12 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
   }, [student, isOpen, form, fields]);
   
    useEffect(() => {
-    form.setValue('fieldId', '');
-   }, [selectedSector, form]);
+    if(!form.getValues('fieldId')) return;
+    const currentField = fields.find(f => f.id === form.getValues('fieldId'));
+    if(currentField && currentField.sectorId !== selectedSector) {
+        form.setValue('fieldId', '');
+    }
+   }, [selectedSector, form, fields]);
 
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -390,3 +394,5 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
+
+    
