@@ -13,15 +13,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field, Cycle, Payment } from "@/lib/types";
+import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
-import { mockClasses, mockSectors, mockFields, mockPayments } from "@/lib/mock-data";
+import { mockClasses, mockSectors, mockFields, mockPayments, mockDocuments } from "@/lib/mock-data";
 import StudentFormDialog from "@/components/student-form-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -46,9 +46,10 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { users, loading: loadingUsers, setUsers } = useUser();
+    const { users, loading: loadingUsers, setUsers, settings } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
-    const [loadingPayments, setLoadingPayments] = useState(true);
+    const [documents, setDocuments] = useState<OfficialDocument[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
@@ -62,9 +63,10 @@ export default function StudentsPage() {
     const [fieldFilter, setFieldFilter] = useState("all");
     
     useEffect(() => {
-        setLoadingPayments(true);
+        setLoadingData(true);
         setPayments(mockPayments);
-        setLoadingPayments(false);
+        setDocuments(mockDocuments);
+        setLoadingData(false);
     }, []);
 
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -317,8 +319,63 @@ export default function StudentsPage() {
             fileInputRef.current.value = "";
         }
     };
+
+    const handleGenerateCertificate = (student: User) => {
+        const doc = new jsPDF();
+        const schoolName = settings?.schoolName || "Institut Supérieur";
+        const academicYear = settings?.academicYear || "2024-2025";
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 60, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+
+        const studentName = `${student.firstName} ${student.lastName}`;
+        const studentMatricule = student.student?.matricule || 'N/A';
+        const studentLevel = student.student?.level || 'N/A';
+        const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A';
+
+        const textLines = [
+            `Nous soussignés, Direction de ${schoolName}, certifions que :`,
+            `L'étudiant(e) ${studentName}`,
+            `Matricule: ${studentMatricule}`,
+            `est régulièrement inscrit(e) en ${studentLevel} de la filière ${studentField}`,
+            `pour l'année académique ${academicYear}.`,
+            ` `,
+            `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
+        ];
+        
+        doc.text(textLines, 20, 90);
+
+        doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 180, { align: 'right' });
+        doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
+
+        doc.save(`certificat_${student.lastName}_${student.firstName}.pdf`);
+
+        const newDoc: OfficialDocument = {
+            id: `doc_${Date.now()}`,
+            studentId: student.uid,
+            type: 'certificat',
+            fileUrl: '#', // In a real app, you'd upload the PDF and get a URL
+            issuedBy: 'admin01',
+            issuedAt: new Date().toISOString(),
+        };
+        setDocuments(prev => [...prev, newDoc]);
+
+        toast({ title: "Certificat généré (Simulation)", description: `Le document pour ${studentName} a été créé et sauvegardé localement.` });
+    }
     
-    const loading = loadingUsers || loadingPayments;
+    const loading = loadingUsers || loadingData;
 
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
@@ -464,6 +521,10 @@ export default function StudentsPage() {
                                                     <Receipt className="mr-2 h-4 w-4" />
                                                     Voir les paiements
                                                </DropdownMenuItem>
+                                               <DropdownMenuItem onClick={() => handleGenerateCertificate(student)}>
+                                                    <FileText className="mr-2 h-4 w-4" />
+                                                    Générer un certificat
+                                               </DropdownMenuItem>
                                                <DropdownMenuItem onClick={() => handleDelete(student)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
@@ -501,5 +562,3 @@ export default function StudentsPage() {
         </div>
     );
 }
-
-    

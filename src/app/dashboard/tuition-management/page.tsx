@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { Payment } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Download } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -25,9 +25,10 @@ import { useToast } from '@/hooks/use-toast';
 import PaymentFormDialog from '@/components/payment-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { mockPayments } from '@/lib/mock-data';
+import jsPDF from "jspdf";
 
 export default function TuitionManagementPage() {
-    const { users, loading: usersLoading } = useUser();
+    const { users, loading: usersLoading, settings } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -83,6 +84,38 @@ export default function TuitionManagementPage() {
             setSelectedPayment(null);
         }
     }
+
+    const handleGenerateReceipt = (payment: Payment) => {
+        const student = students.find(s => s.uid === payment.studentId);
+        if (!student) return;
+
+        const doc = new jsPDF();
+        const schoolName = settings?.schoolName || "Institut Supérieur";
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        
+        doc.setFontSize(20);
+        doc.text("REÇU DE PAIEMENT", doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Date: ${format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}`, 20, 60);
+        doc.text(`Reçu N°: ${payment.id}`, 20, 70);
+
+        doc.text(`Reçu de: ${student.firstName} ${student.lastName}`, 20, 90);
+        doc.text(`Matricule: ${student.student?.matricule}`, 20, 100);
+
+        doc.text(`Motif du paiement: ${payment.month} (${payment.year})`, 20, 120);
+        doc.text(`Montant payé: ${payment.amountPaid.toLocaleString()} ${payment.currency}`, 20, 130);
+        doc.text(`Méthode: ${payment.method}`, 20, 140);
+        
+        doc.text("Signature de l'administration", doc.internal.pageSize.getWidth() - 20, 180, { align: 'right' });
+
+        doc.save(`recu_${payment.id}.pdf`);
+        toast({ title: "Reçu généré", description: `Le reçu pour ${student.firstName} ${student.lastName} a été téléchargé.` });
+    };
 
     const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
         validated: "default",
@@ -161,7 +194,10 @@ export default function TuitionManagementPage() {
                                                     <DropdownMenuItem onClick={() => handleUpdateStatus(payment, 'rejected')}>Rejeter</DropdownMenuItem>
                                                 </>
                                                )}
-                                               <DropdownMenuItem>Voir le reçu</DropdownMenuItem>
+                                               <DropdownMenuItem onClick={() => handleGenerateReceipt(payment)} disabled={payment.status !== 'validated'}>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Générer le reçu
+                                               </DropdownMenuItem>
                                                <DropdownMenuItem onClick={() => handleDelete(payment)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
@@ -200,5 +236,3 @@ export default function TuitionManagementPage() {
         </div>
     );
 }
-
-    
