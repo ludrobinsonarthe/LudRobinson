@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import ChatLayout from "@/components/chat-layout";
 import { useUser } from "@/hooks/use-user";
 import { Message } from "@/lib/types";
-import { collection, query, where, onSnapshot, or, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, onSnapshot, or, addDoc, serverTimestamp, and } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
@@ -20,10 +20,12 @@ export default function MessagesPage() {
 
     const q = query(
       collection(db, "messages"),
-      where('type', '==', 'private'),
-      or(
-          where('senderId', '==', user.uid),
-          where('receiverId', '==', user.uid)
+      and(
+          where('type', '==', 'private'),
+          or(
+              where('senderId', '==', user.uid),
+              where('receiverId', '==', user.uid)
+          )
       )
     );
 
