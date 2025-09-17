@@ -112,7 +112,7 @@ function MainSidebar() {
         {isMounted && <SidebarMenu>
           
           <SidebarGroup>
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton

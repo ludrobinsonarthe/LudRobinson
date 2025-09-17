@@ -57,10 +57,33 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     });
 
+    const unsubCourses = onSnapshot(collection(db, 'courses'), (snapshot) => {});
+    const unsubStudents = onSnapshot(collection(db, 'students'), (snapshot) => {});
+    const unsubTeachers = onSnapshot(collection(db, 'teachers'), (snapshot) => {});
+    const unsubGrades = onSnapshot(collection(db, 'grades'), (snapshot) => {});
+    const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {});
+    const unsubSalaries = onSnapshot(collection(db, 'salaries'), (snapshot) => {});
+    const unsubAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {});
+    const unsubCashFlow = onSnapshot(collection(db, 'cashFlow'), (snapshot) => {});
+    const unsubAnnouncements = onSnapshot(collection(db, 'messages'), (snapshot) => {});
+    const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), (snapshot) => {});
+    const unsubDocuments = onSnapshot(collection(db, 'documents'), (snapshot) => {});
+
     return () => {
       unsubUsers();
       unsubRoles();
       unsubSettings();
+      unsubCourses();
+      unsubStudents();
+      unsubTeachers();
+      unsubGrades();
+      unsubPayments();
+      unsubSalaries();
+      unsubAttendance();
+      unsubCashFlow();
+      unsubAnnouncements();
+      unsubFeeStructures();
+      unsubDocuments();
     };
    
   // eslint-disable-next-line react-hooks/exhaustive-deps
