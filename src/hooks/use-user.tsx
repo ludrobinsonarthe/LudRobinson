@@ -5,7 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission, Settings, Sector, Field } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { mockAdminRoles, mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
@@ -44,10 +44,23 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        setAllUsers(usersData);
+        if (snapshot.empty) {
+            console.log("Users collection is empty. Seeding mock users.");
+            const batch = writeBatch(db);
+            mockUsers.forEach(user => {
+                const userRef = doc(db, 'users', user.uid);
+                batch.set(userRef, user);
+            });
+            batch.commit().then(() => {
+                setAllUsers(mockUsers);
+                 console.log("Mock users seeded successfully.");
+            }).catch(e => console.error("Error seeding mock users: ", e));
+        } else {
+            setAllUsers(usersData);
+        }
     }, (error) => {
         console.error("Error fetching users:", error);
-        setAllUsers([]); 
+        setAllUsers(mockUsers); 
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
@@ -207,3 +220,4 @@ export function useUser() {
   }
   return context;
 }
+
