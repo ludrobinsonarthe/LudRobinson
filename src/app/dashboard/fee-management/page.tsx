@@ -81,19 +81,21 @@ export default function FeeManagementPage() {
     },
   });
 
-  const { fields, append, remove, reset } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "feeStructures",
   });
 
   useEffect(() => {
     setLoading(true);
-    reset({ feeStructures: mockFeeStructures });
+    replace(mockFeeStructures);
     setLoading(false);
-  }, [reset]);
+  }, [replace]);
 
   const onSubmit = async (data: FeeManagementFormValues) => {
     setLoading(true);
+    // This is a simulation, we just update the local state for now
+    replace(data.feeStructures);
     setTimeout(() => {
       toast({
         title: "Frais mis à jour (Simulation)",
@@ -247,3 +249,5 @@ export default function FeeManagementPage() {
     </div>
   );
 }
+
+    

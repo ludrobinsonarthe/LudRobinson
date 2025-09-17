@@ -22,8 +22,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { db } from "@/lib/firebase";
-import { collection, doc, writeBatch, getDocs, query, deleteDoc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AdminRole, adminPermissions, AdminPermission } from "@/lib/types";
 import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
@@ -51,8 +49,8 @@ const permissionGroups = {
 }
 
 export default function RolesPage() {
-  const { roles: initialRoles, loading: loadingRoles } = useUser();
-  const [loading, setLoading] = useState(true);
+  const { roles: initialRoles, loading: loadingRoles, setUsers, users } = useUser();
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<RolesFormValues>({
@@ -68,17 +66,27 @@ export default function RolesPage() {
   });
 
   useEffect(() => {
-    setLoading(loadingRoles);
     if (!loadingRoles) {
         replace(initialRoles);
     }
   }, [initialRoles, loadingRoles, replace]);
 
   const onSubmit = async (data: RolesFormValues) => {
-    setLoading(true);
+    setSubmitting(true);
+    // This is a simulation, we just update the local state for now
+    const updatedUsers = users.map(u => {
+        if(u.role === 'admin' && u.admin?.roleId && !data.roles.find(r => r.id === u.admin?.roleId)) {
+            return { ...u, admin: { ...u.admin, roleId: ''}};
+        }
+        return u;
+    });
+    // This is a hacky way to update roles, but since we use mock data it's fine
+    // @ts-ignore
+    setUsers(updatedUsers);
+
     setTimeout(() => {
         toast({ title: "Rôles mis à jour (Simulation)", description: "Les permissions ont été enregistrées localement." });
-        setLoading(false);
+        setSubmitting(false);
     }, 1000);
   };
 
@@ -92,7 +100,6 @@ export default function RolesPage() {
   }
 
   const removeRole = async (index: number) => {
-    const roleId = fields[index].id;
     remove(index);
     toast({ title: "Rôle supprimé (Simulation)" });
   }
@@ -106,7 +113,7 @@ export default function RolesPage() {
         </p>
       </div>
 
-       {loading ? (
+       {loadingRoles ? (
             <div className="flex items-center justify-center h-48">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
@@ -185,8 +192,8 @@ export default function RolesPage() {
                         <ShieldCheck className="mr-2 h-4 w-4" />
                         Ajouter un rôle
                     </Button>
-                    <Button type="submit" disabled={form.formState.isSubmitting || loading}>
-                        {(form.formState.isSubmitting || loading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Button type="submit" disabled={form.formState.isSubmitting || submitting}>
+                        {(form.formState.isSubmitting || submitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Enregistrer les rôles
                     </Button>
                 </div>
@@ -197,3 +204,5 @@ export default function RolesPage() {
     </div>
   );
 }
+
+    

@@ -1,6 +1,6 @@
 
 
-import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade } from './types';
+import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
 
 // Mock data is now being used as the primary source until Firestore rules are configured.
 
@@ -308,5 +308,14 @@ export const mockGrades: Grade[] = [
 export const mockSalaries: TeacherSalary[] = [];
 export const mockCashTransactions: CashTransaction[] = [];
 export const mockAttendances: Attendance[] = [];
-export const mockAdminRoles: AdminRole[] = [];
+export const mockAdminRoles: AdminRole[] = [
+    { id: 'super_admin', name: 'Super Admin', permissions: []},
+    { id: 'compta', name: 'Comptable', permissions: ['manage_tuition', 'manage_cash_flow']}
+];
 export const mockDocuments: OfficialDocument[] = [];
+export const mockFeeStructures: FeeStructure[] = [
+    { id: 'local-licence_1', cycle: 'local', level: 'Licence 1', registration: 150000, tuition: 500000, currency: 'XAF'},
+    { id: 'local-licence_2', cycle: 'local', level: 'Licence 2', registration: 100000, tuition: 500000, currency: 'XAF'},
+]
+
+    
