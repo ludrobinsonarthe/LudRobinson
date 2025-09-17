@@ -128,9 +128,6 @@ export default function ChatLayout({
       try {
         await onNewMessage(newMessage);
         setMessageContent("");
-        toast({
-          title: "Message envoyé (Simulation)",
-        });
       } catch (error) {
           toast({
           title: "Erreur",

@@ -9,9 +9,8 @@ import { useUser } from "@/hooks/use-user";
 import { Grade, Course, User } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { mockCourses, mockGrades } from '@/lib/mock-data';
 
 interface CourseWithGrades extends Course {
     grades: Grade[];
@@ -51,17 +50,24 @@ export default function GradesPage() {
         }
 
         setLoading(true);
-        const studentGrades = mockGrades.filter(g => g.studentId === studentToView.uid);
-        setGrades(studentGrades);
+        const q = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+            const studentGrades = snapshot.docs.map(doc => doc.data() as Grade);
+            setGrades(studentGrades);
 
-        if (studentGrades.length > 0) {
-            const courseIds = [...new Set(studentGrades.map(g => g.courseId))];
-            const studentCourses = mockCourses.filter(c => courseIds.includes(c.id));
-            setCourses(studentCourses);
-        } else {
-            setCourses([]);
-        }
-        setLoading(false);
+             if (studentGrades.length > 0) {
+                const courseIds = [...new Set(studentGrades.map(g => g.courseId))];
+                const coursesQuery = query(collection(db, 'courses'), where('__name__', 'in', courseIds));
+                const coursesSnapshot = await getDocs(coursesQuery);
+                const studentCourses = coursesSnapshot.docs.map(doc => doc.data() as Course);
+                setCourses(studentCourses);
+            } else {
+                setCourses([]);
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
         
     }, [studentToView]);
 

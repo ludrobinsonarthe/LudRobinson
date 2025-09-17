@@ -25,7 +25,6 @@ import CourseFormDialog from "@/components/course-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
     { value: 'international', label: 'Cycle International' },
@@ -33,9 +32,9 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { users, settings } = useUser();
+    const { users, settings, loading } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingCourses, setLoadingCourses] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -49,19 +48,19 @@ export default function CourseManagementPage() {
     const [cycleFilter, setCycleFilter] = useState("all");
     
     useEffect(() => {
-        setLoading(true);
+        setLoadingCourses(true);
         const unsub = onSnapshot(collection(db, 'courses'), snapshot => {
             setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-            setLoading(false);
+            setLoadingCourses(false);
         });
         return () => unsub();
     }, []);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
-    const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(fs => fs.id === s.id)) || [], [settings]);
-    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
+    const fields = useMemo(() => settings?.sectors.flatMap(s => (settings.sectors || []).find(fs => fs.id === s.id)) || [], [settings]);
+    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
     const sectors = useMemo(() => settings?.sectors || [], [settings]);
-    const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
+    const sectorsById = useMemo(() => (sectors || []).reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(t => t.uid === teacherId);
@@ -77,7 +76,7 @@ export default function CourseManagementPage() {
     
     const availableFields = useMemo(() => {
         if (sectorFilter === 'all') return fields;
-        return fields.filter(f => f.sectorId === sectorFilter);
+        return (fields || []).filter(f => f.sectorId === sectorFilter);
     }, [sectorFilter, fields]);
 
     useEffect(() => {
@@ -146,6 +145,8 @@ export default function CourseManagementPage() {
         }
     }
 
+    const pageIsLoading = loading || loadingCourses;
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
@@ -181,7 +182,7 @@ export default function CourseManagementPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
-                                {levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                                {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={cycleFilter} onValueChange={setCycleFilter}>
@@ -223,7 +224,7 @@ export default function CourseManagementPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading ? (
+                            {pageIsLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-24 text-center">
                                         Chargement...

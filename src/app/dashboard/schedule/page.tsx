@@ -6,9 +6,8 @@ import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Course, Field, Sector } from '@/lib/types';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs, query, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { mockSectors, mockFields, mockCourses } from '@/lib/mock-data';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -21,7 +20,7 @@ const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const timeSlots = Array.from({ length: 6 }, (_, i) => `${8 + i * 2}:00`); // 8:00, 10:00, ..., 18:00
 
 function ScheduleContent() {
-    const { user: currentUser, users } = useUser();
+    const { user: currentUser, users, settings } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
     
@@ -42,8 +41,11 @@ function ScheduleContent() {
 
     useEffect(() => {
         setLoading(true);
-        setCourses(mockCourses);
-        setLoading(false);
+        const unsub = onSnapshot(collection(db, 'courses'), snapshot => {
+            setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
+            setLoading(false);
+        });
+        return () => unsub();
     }, []);
 
     const filteredCourses = useMemo(() => {
@@ -72,7 +74,8 @@ function ScheduleContent() {
         return grid;
     }, [filteredCourses]);
     
-    const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), []);
+    const fields = useMemo(() => settings?.sectors.flatMap(s => (settings.sectors || []).find(fs => fs.id === s.id)) || [], [settings]);
+    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(t => t.uid === teacherId);
@@ -107,7 +110,7 @@ function ScheduleContent() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Toutes les filières</SelectItem>
-                                        {mockFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                                        {(fields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             )}
@@ -184,5 +187,3 @@ export default function SchedulePage() {
         </Suspense>
     )
 }
-
-    

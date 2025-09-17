@@ -21,7 +21,6 @@ import { useState, useEffect, useMemo } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockDocuments } from "@/lib/mock-data";
 
 const documentTypeTranslation: {[key: string]: string} = {
     'bulletin': 'Bulletin de notes',
@@ -61,10 +60,15 @@ export default function DocumentsPage() {
         }
 
         setLoading(true);
-        const userDocuments = mockDocuments.filter(doc => doc.studentId === studentToView.uid)
-            .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
-        setDocuments(userDocuments);
-        setLoading(false);
+        const q = query(collection(db, "officialDocuments"), where("studentId", "==", studentToView.uid));
+        const unsub = onSnapshot(q, snapshot => {
+            const userDocuments = snapshot.docs.map(doc => doc.data() as OfficialDocument)
+                .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
+            setDocuments(userDocuments);
+            setLoading(false);
+        });
+
+        return () => unsub();
         
     }, [studentToView]);
 

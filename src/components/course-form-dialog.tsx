@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -24,10 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Course, User, Sector, Field, Cycle } from "@/lib/types";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
 import { PlusCircle, Trash2 } from "lucide-react";
+import { useUser } from "@/hooks/use-user";
 
 const scheduleSchema = z.object({
     day: z.enum(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']),
@@ -61,7 +61,6 @@ interface CourseFormDialogProps {
 }
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
     { value: 'international', label: 'Cycle International' },
@@ -70,6 +69,8 @@ const cycles: { value: Cycle, label: string }[] = [
 
 
 export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, teachers, sectors, fields }: CourseFormDialogProps) {
+  const { settings } = useUser();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
@@ -133,14 +134,16 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     }
    }, [selectedSector, form, fields]);
 
-  const onSubmit = (data: CourseFormValues) => {
+  const onSubmit = async (data: CourseFormValues) => {
+    setIsSubmitting(true);
     const { sectorId, documentFile, ...courseData} = data;
     const finalCourseData: Partial<Course> = {
         ...courseData,
         documents: course?.documents || [] 
     };
     // Handle file upload here if needed
-    onSave(finalCourseData);
+    await onSave(finalCourseData);
+    setIsSubmitting(false);
     setIsOpen(false);
   };
 
@@ -211,7 +214,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                         <FormItem><FormLabel>Niveau</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Niveau..." /></SelectTrigger></FormControl>
-                            <SelectContent>{levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                            <SelectContent>{(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage /></FormItem>
                     )}/>
@@ -291,8 +294,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
 
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit">{course ? "Enregistrer" : "Créer le cours"}</Button>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Annuler</Button>
+              <Button type="submit" disabled={isSubmitting}>{course ? "Enregistrer" : "Créer le cours"}</Button>
             </DialogFooter>
           </form>
         </Form>
