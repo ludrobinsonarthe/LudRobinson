@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -34,7 +33,7 @@ const studentFormSchema = z.object({
   // Student Info
   firstName: z.string().min(2, "Le prénom est requis."),
   lastName: z.string().min(2, "Le nom est requis."),
-  email: z.string().email("Adresse e-mail invalide."),
+  email: z.string().email("Adresse e-mail invalide.").optional().or(z.literal('')),
   phone: z.string().optional(),
   photo: z.any().optional(),
   matricule: z.string().min(1, "Le matricule est requis."),
@@ -266,7 +265,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="email" render={({ field }) => (
-                        <FormItem><FormLabel>Adresse e-mail</FormLabel><FormControl><Input type="email" placeholder="email@isgi.com" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Adresse e-mail (Optionnel)</FormLabel><FormControl><Input type="email" placeholder="email@isgi.com" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="phone" render={({ field }) => (
                         <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} /></FormControl><FormMessage /></FormItem>
