@@ -26,6 +26,8 @@ import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, addDoc, collection } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
@@ -38,21 +40,38 @@ const statusTranslation: { [key: string]: string } = {
     suspended: "Suspendu",
 }
 
+const roleTranslation: { [key: string]: string } = {
+    admin: "Admin",
+    teacher: "Professeur",
+}
+
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
 };
 
 export default function UsersPage() {
-    const { users, loading, roles, loading: loadingRoles } = useUser();
+    const { users, loading, roles } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [userType, setUserType] = useState<'admin' | 'teacher'>('admin');
     const { toast } = useToast();
+
+    // Filters
+    const [nameFilter, setNameFilter] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
     
-    const admins = useMemo(() => {
-        return users.filter(user => user.role === 'admin');
+    const employees = useMemo(() => {
+        return users.filter(user => user.role === 'admin' || user.role === 'teacher');
     }, [users]);
+
+    const filteredEmployees = useMemo(() => {
+        return employees.filter(employee => 
+            (`${employee.firstName} ${employee.lastName}`.toLowerCase().includes(nameFilter.toLowerCase())) &&
+            (roleFilter === 'all' || employee.role === roleFilter)
+        )
+    }, [employees, nameFilter, roleFilter]);
     
     const rolesById = useMemo(() => {
         return roles.reduce((acc, role) => {
@@ -61,13 +80,15 @@ export default function UsersPage() {
         }, {} as Record<string, AdminRole>);
     }, [roles]);
 
-    const handleAdd = () => {
+    const handleAdd = (type: 'admin' | 'teacher') => {
         setSelectedUser(null);
+        setUserType(type);
         setIsFormOpen(true);
     }
 
     const handleEdit = (user: User) => {
         setSelectedUser(user);
+        setUserType(user.role as 'admin' | 'teacher');
         setIsFormOpen(true);
     }
 
@@ -77,7 +98,8 @@ export default function UsersPage() {
     }
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
-        const uid = selectedUser?.uid || `admin_${Date.now()}`;
+        const isNewUser = !selectedUser;
+        const uid = selectedUser?.uid || `${userData.role}_${Date.now()}`;
         let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
         
         try {
@@ -87,27 +109,21 @@ export default function UsersPage() {
                 photoUrl = await getDownloadURL(snapshot.ref);
             }
 
-            const finalUserData = {
+            const finalUserData: User = {
+                ...selectedUser,
                 ...userData,
+                uid: uid,
+                role: userData.role as UserRole,
                 photoUrl: photoUrl || `https://picsum.photos/seed/${uid}/100/100`,
-            };
+                createdAt: selectedUser?.createdAt || new Date().toISOString(),
+                status: selectedUser?.status || 'active',
+            } as User;
 
-            if (selectedUser) {
-                const userDocRef = doc(db, 'users', selectedUser.uid);
-                await setDoc(userDocRef, finalUserData, { merge: true });
-                toast({ title: "Administrateur mis à jour" });
-            } else {
-                const newUser: User = {
-                    uid: uid,
-                    createdAt: new Date().toISOString(),
-                    status: 'active',
-                    role: 'admin',
-                    ...finalUserData,
-                } as User;
-                 const userDocRef = doc(db, 'users', newUser.uid);
-                await setDoc(userDocRef, newUser);
-                toast({ title: "Administrateur ajouté" });
-            }
+            const userDocRef = doc(db, 'users', uid);
+            await setDoc(userDocRef, finalUserData, { merge: true });
+
+            toast({ title: isNewUser ? "Personnel ajouté" : "Personnel mis à jour" });
+            
         } catch (error) {
              console.error("Error saving user:", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'utilisateur." });
@@ -135,41 +151,67 @@ export default function UsersPage() {
                 <div>
                     <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion du Personnel</h1>
                     <p className="text-muted-foreground">
-                        Gérez les comptes du personnel administratif.
+                        Gérez les comptes des professeurs et du personnel administratif.
                     </p>
                 </div>
-                <Button onClick={handleAdd}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter un administrateur
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Ajouter du personnel
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleAdd('teacher')}>Ajouter un Professeur</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleAdd('admin')}>Ajouter un Administrateur</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
             <Card>
                 <CardHeader>
                     <CardTitle>Liste du personnel</CardTitle>
                     <CardDescription>
-                        Recherchez, ajoutez, ou modifiez les profils du personnel administratif.
+                        Recherchez, ajoutez, ou modifiez les profils du personnel.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                     <div className="flex items-center gap-4 mb-4">
+                        <Input
+                            placeholder="Rechercher par nom..."
+                            value={nameFilter}
+                            onChange={(e) => setNameFilter(e.target.value)}
+                            className="max-w-sm"
+                        />
+                        <Select value={roleFilter} onValueChange={setRoleFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filtrer par rôle" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les rôles</SelectItem>
+                                <SelectItem value="teacher">Professeurs</SelectItem>
+                                <SelectItem value="admin">Administrateurs</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nom</TableHead>
-                                <TableHead className="hidden md:table-cell">Rôle (Permissions)</TableHead>
-                                <TableHead className="hidden md:table-cell">Poste</TableHead>
+                                <TableHead>Rôle</TableHead>
+                                <TableHead className="hidden md:table-cell">Spécificité</TableHead>
                                 <TableHead className="hidden lg:table-cell">Statut</TableHead>
-                                <TableHead className="hidden lg:table-cell">Date de création</TableHead>
+                                <TableHead className="hidden lg:table-cell">Date d'ajout</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading || loadingRoles ? (
+                            {loading ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
-                            ) : admins.length > 0 ? admins.map(user => (
+                            ) : filteredEmployees.length > 0 ? filteredEmployees.map(user => (
                                 <TableRow key={user.uid}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-3">
@@ -183,11 +225,11 @@ export default function UsersPage() {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                        <Badge variant="outline">{user.admin?.roleId ? rolesById[user.admin.roleId]?.name : 'Non défini'}</Badge>
+                                    <TableCell>
+                                        <Badge variant="outline">{roleTranslation[user.role]}</Badge>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
-                                        {user.admin?.position || 'N/A'}
+                                        {user.role === 'teacher' ? user.teacher?.specialty : rolesById[user.admin?.roleId || '']?.name || 'N/A'}
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
                                         <Badge variant={statusVariant[user.status]}>{statusTranslation[user.status]}</Badge>
@@ -218,7 +260,7 @@ export default function UsersPage() {
                             )) : (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
-                                        Aucun administrateur trouvé.
+                                        Aucun personnel trouvé.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -232,7 +274,7 @@ export default function UsersPage() {
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
                 user={selectedUser}
-                userType="admin"
+                userType={userType}
                 adminRoles={roles}
             />
             <UserDeleteDialog
@@ -244,5 +286,3 @@ export default function UsersPage() {
         </div>
     );
 }
-
-    
