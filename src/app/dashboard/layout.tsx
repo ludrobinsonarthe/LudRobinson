@@ -62,7 +62,7 @@ function AppLogo() {
 
 function MainSidebar() {
   const pathname = usePathname();
-  const { user, hasPermission } = useUser();
+  const { user } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -100,7 +100,6 @@ function MainSidebar() {
   
   const showStudentMenu = user?.role === 'student' || user?.role === 'admin' || user?.role === 'parent';
   const showAdminMenu = user?.role === 'admin';
-  const isSuperAdmin = user?.admin?.position?.toLowerCase().includes('super');
 
 
   return (
@@ -150,7 +149,6 @@ function MainSidebar() {
           {showAdminMenu && <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             {adminManagementItems.map((item) => (
-              (isSuperAdmin || hasPermission(item.permission)) &&
               <SidebarMenuItem key={item.href + item.label}>
                   <SidebarMenuButton
                       asChild

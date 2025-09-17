@@ -54,6 +54,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
         if(doc.exists()){
             setSettings(doc.data() as Settings);
+        } else {
+             setSettings({
+                id: 'system',
+                schoolName: 'ISGI',
+                logoUrl: '',
+                academicYear: '2024-2025',
+                currency: 'XAF',
+                levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
+                sectors: []
+            });
         }
     });
 
@@ -64,7 +74,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {});
     const unsubSalaries = onSnapshot(collection(db, 'salaries'), (snapshot) => {});
     const unsubAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {});
-    const unsubCashFlow = onSnapshot(collection(db, 'cashFlow'), (snapshot) => {});
+    const unsubCashFlow = onSnapshot(collection(db, 'cashTransactions'), (snapshot) => {});
     const unsubAnnouncements = onSnapshot(collection(db, 'messages'), (snapshot) => {});
     const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), (snapshot) => {});
     const unsubDocuments = onSnapshot(collection(db, 'documents'), (snapshot) => {});
@@ -90,21 +100,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   const userPermissions = useMemo((): AdminPermission[] => {
-      if (currentUser?.role !== 'admin') {
-          return [];
-      }
-      
-      if (currentUser.admin?.position?.toLowerCase().includes('super')) {
+      if (currentUser?.role === 'admin') {
           return Object.keys(adminPermissions) as AdminPermission[];
       }
-
-      if (!currentUser.admin?.roleId) {
-          return [];
-      }
-
-      const userRole = roles.find(r => r.id === currentUser.admin?.roleId);
-      return userRole ? userRole.permissions : [];
-  }, [currentUser, roles]);
+      return [];
+  }, [currentUser]);
 
   const hasPermission = (permission: AdminPermission) => {
       return userPermissions.includes(permission);
