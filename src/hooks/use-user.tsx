@@ -6,7 +6,7 @@ import type { User, AdminRole, AdminPermission, Settings, Sector, Field } from '
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockAdminRoles, mockUsers } from '@/lib/mock-data';
+import { mockAdminRoles, mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
 
 type UserContextType = {
@@ -69,8 +69,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if(doc.exists()){
             const settingsData = doc.data() as Settings;
             setSettings(settingsData);
-            if (settingsData.sectors) {
+            if (settingsData.sectors && settingsData.sectors.length > 0) {
                 setSectors(settingsData.sectors);
+            } else {
+                 setSectors(mockSectors);
             }
         } else {
              const defaultSettings: Settings = {
@@ -80,10 +82,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 academicYear: '2024-2025',
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
-                sectors: []
+                sectors: mockSectors,
             };
             setSettings(defaultSettings);
-            setSectors(defaultSettings.sectors);
+            setSectors(mockSectors);
         }
     });
     
@@ -92,11 +94,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
             setFields(fieldsData);
         } else {
-            setFields([]);
+            setFields(mockFields);
         }
     }, (error) => {
         console.error("Error fetching fields:", error);
-        setFields([]);
+        setFields(mockFields);
     });
 
     
