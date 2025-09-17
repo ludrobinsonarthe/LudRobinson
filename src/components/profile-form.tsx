@@ -113,7 +113,6 @@ export default function ProfileForm() {
             const updatedData: Partial<User> = {
                 firstName: data.firstName,
                 lastName: data.lastName,
-                email: data.email,
                 phone: data.phone,
                 address: data.address,
                 photoUrl,
@@ -121,6 +120,11 @@ export default function ProfileForm() {
             
             const userDocRef = doc(db, 'users', user.uid);
             await updateDoc(userDocRef, updatedData);
+
+            // Update user in context
+            const updatedUser = { ...user, ...updatedData };
+            setUser(updatedUser);
+            setUsers(prev => prev.map(u => u.uid === user.uid ? updatedUser : u));
 
             toast({
                 title: "Profil mis à jour",
@@ -216,7 +220,7 @@ export default function ProfileForm() {
               <FormItem>
                 <FormLabel>Adresse e-mail</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="email@example.com" {...field} />
+                  <Input type="email" placeholder="email@example.com" {...field} readOnly />
                 </FormControl>
                 <FormDescription>
                     Vous ne pouvez pas modifier votre adresse e-mail de connexion.

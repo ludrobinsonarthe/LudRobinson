@@ -143,7 +143,7 @@ function SalaryManagementContent() {
 
 
     const handleSave = async (salaryData: Omit<TeacherSalary, 'id' | 'createdAt' | 'status'>) => {
-        const newSalary: Omit<TeacherSalary, 'id'> => {
+        const newSalary: Omit<TeacherSalary, 'id'> = {
             createdAt: new Date().toISOString(),
             status: 'pending',
             ...salaryData

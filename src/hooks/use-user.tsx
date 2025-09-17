@@ -183,8 +183,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }
 
   const setUser = (user: User) => {
-      const matchedUser = allUsers.find(u => u.uid === user.uid);
-      if(matchedUser) setCurrentUser(matchedUser);
+      setCurrentUser(user);
   };
   
   const value = { 
