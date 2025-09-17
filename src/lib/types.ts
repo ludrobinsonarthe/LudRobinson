@@ -15,7 +15,7 @@ export const adminPermissions = {
   manage_salaries: "Salaires",
   manage_attendance: "Suivi des Présences",
   manage_cash_flow: "Suivi de caisse",
-  manage_users: "Utilisateurs",
+  manage_users: "Personnel",
   manage_roles: "Rôles & Permissions",
   manage_admin_settings: "Administration",
 };

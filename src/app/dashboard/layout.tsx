@@ -12,6 +12,8 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import {
   Home,
@@ -38,6 +40,7 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Loader2,
+  BookUser,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect } from "react";
@@ -66,6 +69,11 @@ function MainSidebar() {
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
+  
+  const menuItems = [
+    { href: "/dashboard", label: "Annonces", icon: Home },
+    { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
+  ];
 
   const studentMenuItems = [
     { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
@@ -75,26 +83,42 @@ function MainSidebar() {
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
   ];
   
-  const adminManagementItems = [
-    { href: "/dashboard/reporting", label: "Tableau de Bord", icon: LayoutDashboard, permission: 'view_reporting' },
-    { href: "/dashboard/students", label: "Étudiants", icon: GraduationCap, permission: 'manage_students' },
-    { href: "/dashboard/users", label: "Personnel", icon: UserCog, permission: 'manage_users' },
-    { href: "/dashboard/course-management", label: "Gestion Cours & Horaires", icon: BookMarked, permission: 'manage_course' },
-    { href: "/dashboard/grade-management", label: "Gestion des notes", icon: ClipboardList, permission: 'manage_grades' },
-    { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt, permission: 'manage_tuition' },
-    { href: "/dashboard/fee-management", label: "Gestion des frais", icon: FileCog, permission: 'manage_fees' },
-    { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote, permission: 'manage_salaries' },
-    { href: "/dashboard/attendance", label: "Suivi des Présences", icon: ClipboardCheck, permission: 'manage_attendance' },
-    { href: "/dashboard/cash-flow", label: "Suivi de caisse", icon: Landmark, permission: 'manage_cash_flow' },
-    { href: "/dashboard/roles", label: "Rôles & Permissions", icon: ShieldCheck, permission: 'manage_roles' },
-    { href: "/dashboard/admin-management", label: "Administration", icon: Building, permission: 'manage_admin_settings' },
-  ]
-
-  const menuItems = [
-    { href: "/dashboard", label: "Annonces", icon: Home },
-    { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
+  const adminMenuGroups = [
+    {
+        group: 'ANALYSE',
+        items: [
+             { href: "/dashboard/reporting", label: "Tableau de Bord", icon: LayoutDashboard, permission: 'view_reporting' },
+        ]
+    },
+    {
+      group: 'PÉDAGOGIE',
+      items: [
+        { href: "/dashboard/students", label: "Étudiants", icon: GraduationCap, permission: 'manage_students' },
+        { href: "/dashboard/users", label: "Professeurs", icon: BookUser, permission: 'manage_teachers' },
+        { href: "/dashboard/course-management", label: "Gestion Cours", icon: BookMarked, permission: 'manage_course' },
+        { href: "/dashboard/grade-management", label: "Gestion Notes", icon: ClipboardList, permission: 'manage_grades' },
+        { href: "/dashboard/attendance", label: "Suivi Présences", icon: ClipboardCheck, permission: 'manage_attendance' },
+      ],
+    },
+    {
+        group: 'FINANCES',
+        items: [
+            { href: "/dashboard/tuition-management", label: "Scolarité", icon: Receipt, permission: 'manage_tuition' },
+            { href: "/dashboard/salary-management", label: "Salaires", icon: Banknote, permission: 'manage_salaries' },
+            { href: "/dashboard/cash-flow", label: "Suivi de caisse", icon: Landmark, permission: 'manage_cash_flow' },
+        ]
+    },
+    {
+        group: 'ADMINISTRATION',
+        items: [
+             { href: "/dashboard/fee-management", label: "Gestion Frais", icon: FileCog, permission: 'manage_fees' },
+             { href: "/dashboard/users", label: "Personnel", icon: UserCog, permission: 'manage_users' },
+             { href: "/dashboard/roles", label: "Rôles & Permissions", icon: ShieldCheck, permission: 'manage_roles' },
+             { href: "/dashboard/admin-management", label: "Administration", icon: Building, permission: 'manage_admin_settings' },
+        ]
+    }
   ];
-  
+
   const showStudentMenu = user?.role === 'student' || user?.role === 'parent';
   const showAdminMenu = user?.role === 'admin';
 
@@ -105,56 +129,42 @@ function MainSidebar() {
         <AppLogo />
       </SidebarHeader>
       <SidebarContent>
-        {isMounted && <SidebarMenu>
-          
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+        {isMounted && (
+        <SidebarMenu>
+          {menuItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
           
           {showStudentMenu && studentMenuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+                <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
 
-          {showAdminMenu && adminManagementItems.map((item) => 
-            hasPermission(item.permission) && (
-              <SidebarMenuItem key={item.href + item.label}>
-                  <SidebarMenuButton
-                      asChild
-                      isActive={pathname.startsWith(item.href)}
-                      tooltip={item.label}
-                  >
-                      <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                      </Link>
-                  </SidebarMenuButton>
-              </SidebarMenuItem>
-            )
-          )}
-
-        </SidebarMenu>}
+          {showAdminMenu && adminMenuGroups.map(group => (
+            <SidebarGroup key={group.group}>
+              <SidebarGroupLabel>{group.group}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                {group.items.map(item =>
+                    hasPermission(item.permission) && (
+                    <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+                        <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    )
+                )}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+        </SidebarMenu>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
