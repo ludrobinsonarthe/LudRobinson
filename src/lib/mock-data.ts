@@ -12,7 +12,7 @@ export const mockUsers: User[] = [
         role: "admin",
         firstName: "sem franslin",
         lastName: "Bourangon",
-        email: "sem.bourangon@isgi.com",
+        email: "admin@isgi.com",
         photoUrl: "https://picsum.photos/seed/admin/100/100",
         createdAt: "2024-01-01T10:00:00Z",
         status: "active",

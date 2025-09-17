@@ -45,7 +45,7 @@ export default function LoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "sem.bourangon@isgi.com",
+      email: "admin@isgi.com",
       password: "password",
     },
   });
@@ -61,7 +61,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Erreur de connexion",
-        description: "L'e-mail ou le mot de passe est incorrect. Assurez-vous d'avoir créé ce compte dans la console Firebase.",
+        description: "L'e-mail ou le mot de passe est incorrect. Assurez-vous d'avoir créé cet compte dans la console Firebase.",
       });
     } finally {
       setLoading(false);
@@ -80,7 +80,7 @@ export default function LoginPage() {
        toast({
         variant: "destructive",
         title: "Erreur de connexion",
-        description: "Impossible de se connecter avec Google.",
+        description: "Impossible de se connecter avec Google. Assurez-vous que le domaine est autorisé dans votre console Firebase.",
       });
     } finally {
         setLoading(false);

@@ -91,7 +91,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               setCurrentUser(matchedUser);
           } else {
               // This is a new user authenticated via Google for example
-              const isSuperAdminEmail = authUser.email === "semfranslinbourangon@gmail.com";
+              const isSuperAdminEmail = authUser.email === "admin@isgi.com" || authUser.email === "semfranslinbourangon@gmail.com";
               
               const newUserProfile: User = {
                   uid: authUser.uid,
@@ -127,8 +127,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
       
-      const superAdminUser = allUsers.find(u => u.admin?.position === 'Super-Administrateur');
-      if (currentUser.uid === superAdminUser?.uid || currentUser.email === "semfranslinbourangon@gmail.com") {
+      const isSuperAdminByPosition = currentUser.admin?.position === 'Super-Administrateur';
+      const isSuperAdminByEmail = currentUser.email === "admin@isgi.com" || currentUser.email === "semfranslinbourangon@gmail.com";
+      
+      if (isSuperAdminByPosition || isSuperAdminByEmail) {
           return Object.keys(adminPermissions) as AdminPermission[];
       }
 
@@ -138,7 +140,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
       
       return [];
-  }, [currentUser, roles, allUsers]);
+  }, [currentUser, roles]);
 
   const hasPermission = (permission: AdminPermission) => {
       return userPermissions.includes(permission);
