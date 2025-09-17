@@ -6,6 +6,7 @@ import type { User, AdminRole, AdminPermission, Settings } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
+import { mockUsers, mockAdminRoles, mockSectors } from '@/lib/mock-data';
 
 type UserContextType = {
   user: User | null;
@@ -29,47 +30,33 @@ const defaultSettings: Settings = {
     academicYear: "2024-2025",
     currency: "XAF",
     levels: [{value: "Licence 1"}, {value: "Licence 2"}, {value: "Licence 3"}, {value: "Master 1"}, {value: "Master 2"}],
-    sectors: [],
+    sectors: mockSectors,
 };
 
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(defaultSettings);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
+    
+    // Using mock data
+    const usersData = mockUsers;
+    setAllUsers(usersData);
+    if(!currentUser) {
+        const superAdmin = usersData.find(u => u.admin?.position === 'Super-Administrateur');
+        setCurrentUser(superAdmin || usersData[0] || null);
+    }
+    
+    setRoles(mockAdminRoles);
+    setSettings(defaultSettings);
 
-    const unsubUsers = onSnapshot(collection(db, 'users'), snapshot => {
-        const usersData = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
-        setAllUsers(usersData);
-        if(!currentUser) {
-            const superAdmin = usersData.find(u => u.admin?.position === 'Super-Administrateur');
-            setCurrentUser(superAdmin || usersData[0] || null);
-        }
-        setLoading(false);
-    });
-
-    const unsubRoles = onSnapshot(collection(db, 'adminRoles'), snapshot => {
-        setRoles(snapshot.docs.map(doc => doc.data() as AdminRole));
-    });
-
-    const unsubSettings = onSnapshot(doc(db, 'system', 'settings'), (doc) => {
-        if(doc.exists()) {
-            setSettings(doc.data() as Settings);
-        } else {
-            setSettings(defaultSettings);
-        }
-    });
-
-    return () => {
-        unsubUsers();
-        unsubRoles();
-        unsubSettings();
-    };
+    setLoading(false);
+   
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   

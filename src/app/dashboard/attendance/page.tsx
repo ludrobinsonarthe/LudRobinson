@@ -17,6 +17,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
+import { mockAttendances, mockCourses } from '@/lib/mock-data';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -37,17 +38,9 @@ function AttendanceContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        const coursesUnsub = onSnapshot(collection(db, 'courses'), snapshot => {
-            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-        });
-        const attendancesUnsub = onSnapshot(collection(db, 'attendances'), snapshot => {
-            setAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendance)));
-        });
+        setCourses(mockCourses);
+        setAttendances(mockAttendances);
         setLoadingData(false);
-        return () => {
-            coursesUnsub();
-            attendancesUnsub();
-        }
     }, []);
     
     useEffect(() => {
@@ -96,28 +89,27 @@ function AttendanceContent() {
         const attendanceId = `${selectedDate}-${selectedCourse.id}`;
         const user = users.find(u => u.role === 'admin')
         
-        try {
-            const existingRecord = await getDoc(doc(db, 'attendances', attendanceId));
+        const existingRecord = attendances.find(a => a.id === attendanceId);
 
-            const newAttendanceRecord: Attendance = {
-                ...data,
-                id: attendanceId,
-                date: selectedDate,
-                courseId: selectedCourse.id,
-                teacherId: selectedCourse.teacherId,
-                validatedBy: user?.uid || 'admin',
-                createdAt: existingRecord.exists() ? existingRecord.data().createdAt : new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            }
-
-            await setDoc(doc(db, 'attendances', attendanceId), newAttendanceRecord);
-            
-            toast({ title: 'Présences enregistrées', description: 'La fiche de présence a été mise à jour.' });
-            setIsDialogOpen(false);
-        } catch (error) {
-            console.error("Error saving attendance:", error);
-            toast({ variant: 'destructive', title: 'Erreur', description: "La fiche n'a pas pu être sauvegardée." });
+        const newAttendanceRecord: Attendance = {
+            ...data,
+            id: attendanceId,
+            date: selectedDate,
+            courseId: selectedCourse.id,
+            teacherId: selectedCourse.teacherId,
+            validatedBy: user?.uid || 'admin',
+            createdAt: existingRecord ? existingRecord.createdAt : new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         }
+        
+        const newAttendances = existingRecord
+            ? attendances.map(a => a.id === attendanceId ? newAttendanceRecord : a)
+            : [...attendances, newAttendanceRecord];
+        
+        setAttendances(newAttendances);
+        
+        toast({ title: 'Présences enregistrées (Simulation)', description: 'La fiche de présence a été mise à jour localement.' });
+        setIsDialogOpen(false);
     };
     
     const getAttendanceForCourse = useCallback((courseId: string, date: string): Attendance | undefined => {
