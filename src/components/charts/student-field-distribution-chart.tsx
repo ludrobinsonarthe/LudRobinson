@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Pie, PieChart, Cell } from "recharts"
+import { Pie, PieChart } from "recharts"
 
 import {
   Card,
@@ -26,20 +26,6 @@ interface StudentFieldDistributionChartProps {
     fields: Field[];
 }
 
-const chartColors = [
-    'hsl(var(--chart-1))',
-    'hsl(var(--chart-2))',
-    'hsl(var(--chart-3))',
-    'hsl(var(--chart-4))',
-    'hsl(var(--chart-5))',
-    'hsl(25, 95%, 53%)',
-    'hsl(160, 60%, 45%)',
-    'hsl(220, 80%, 65%)',
-    'hsl(260, 70%, 60%)',
-    'hsl(330, 75%, 55%)',
-]
-
-
 export default function StudentFieldDistributionChart({ students, fields }: StudentFieldDistributionChartProps) {
 
     const { data, chartConfig } = useMemo(() => {
@@ -53,11 +39,11 @@ export default function StudentFieldDistributionChart({ students, fields }: Stud
         });
         
         const chartData = Object.entries(fieldCounts)
-            .map(([fieldId, count]) => ({
+            .map(([fieldId, count], index) => ({
                 fieldId: fieldId,
                 name: fields.find(f => f.id === fieldId)?.name || 'Inconnue',
                 count: count,
-                fill: 'var(--color-' + fieldId.replace(/-/g, '_') + ')'
+                fill: `var(--color-${fieldId})`
             }))
             .filter(item => item.count > 0)
             .sort((a, b) => b.count - a.count);
@@ -66,7 +52,7 @@ export default function StudentFieldDistributionChart({ students, fields }: Stud
         chartData.forEach((item, index) => {
             config[item.name] = {
                 label: item.name,
-                color: chartColors[index % chartColors.length]
+                color: `hsl(var(--chart-${index + 1}))`
             }
         });
 
@@ -88,12 +74,18 @@ export default function StudentFieldDistributionChart({ students, fields }: Stud
       <PieChart>
         <ChartTooltip
           cursor={false}
-          content={<ChartTooltipContent hideLabel />}
+          content={<ChartTooltipContent 
+            formatter={(value, name) => [`${value} étudiant(s)`, name]}
+            hideLabel 
+          />}
         />
-        <Pie data={data} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5}>
-            {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-            ))}
+        <Pie 
+            data={data} 
+            dataKey="count" 
+            nameKey="name" 
+            innerRadius={60} 
+            strokeWidth={5}
+        >
         </Pie>
          <ChartLegend
             content={<ChartLegendContent nameKey="name" />}

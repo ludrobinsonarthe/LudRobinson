@@ -46,6 +46,12 @@ body {
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 20% 25%;
     --sidebar-ring: 25 95% 53%; /* Orange */
+
+    --chart-1: 220 80% 65%;
+    --chart-2: 25 95% 53%;
+    --chart-3: 160 60% 45%;
+    --chart-4: 330 75% 55%;
+    --chart-5: 50 90% 55%;
   }
  
   .dark {
@@ -85,6 +91,12 @@ body {
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 20% 25%;
     --sidebar-ring: 25 95% 53%; /* Orange */
+
+    --chart-1: 220 80% 65%;
+    --chart-2: 25 95% 53%;
+    --chart-3: 160 60% 45%;
+    --chart-4: 330 75% 55%;
+    --chart-5: 50 90% 55%;
   }
 }
 
