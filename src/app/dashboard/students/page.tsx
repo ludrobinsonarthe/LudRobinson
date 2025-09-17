@@ -23,7 +23,7 @@ import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
-import { mockClasses, mockSectors, mockFields, mockPayments, mockDocuments, mockGrades, mockCourses } from "@/lib/mock-data";
+import { mockPayments, mockGrades, mockCourses } from "@/lib/mock-data";
 import StudentFormDialog from "@/components/student-form-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -68,17 +68,26 @@ export default function StudentsPage() {
     
     useEffect(() => {
         setLoadingData(true);
-        setPayments(mockPayments);
-        setDocuments(mockDocuments);
-        setGrades(mockGrades);
-        setCourses(mockCourses);
+        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => doc.data() as Payment)));
+        const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => doc.data() as OfficialDocument)));
+        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => doc.data() as Grade)));
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
+        
         setLoadingData(false);
+        return () => {
+            unsubPayments();
+            unsubDocs();
+            unsubGrades();
+            unsubCourses();
+        };
     }, []);
 
     const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const parents = useMemo(() => users.filter(u => u.role === 'parent'), [users]);
-    const fieldsById = useMemo(() => mockFields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), []);
-    const sectorsById = useMemo(() => mockSectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), []);
+    const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(fs => fs.id === s.id)) || [], [settings]);
+    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
+    const sectors = useMemo(() => settings?.sectors || [], [settings]);
+    const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
     const studentBalances = useMemo(() => {
         const balances: Record<string, number> = {};
@@ -93,9 +102,9 @@ export default function StudentsPage() {
 
 
     const availableFields = useMemo(() => {
-        if (sectorFilter === 'all') return mockFields;
-        return mockFields.filter(f => f.sectorId === sectorFilter);
-    }, [sectorFilter]);
+        if (sectorFilter === 'all') return fields;
+        return fields.filter(f => f.sectorId === sectorFilter);
+    }, [sectorFilter, fields]);
 
     useEffect(() => {
         setFieldFilter("all");
@@ -132,56 +141,54 @@ export default function StudentsPage() {
     }
 
     const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => {
+        const batch = writeBatch(db);
+        let studentUid = selectedStudent?.uid || doc(collection(db, "users")).id;
+        let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl;
+
         try {
-            let studentUid = selectedStudent?.uid;
-            let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl;
-            
-            if (photoFile && studentUid) {
-                photoUrl = URL.createObjectURL(photoFile);
+            if (photoFile && photoFile instanceof Blob) {
+                const photoRef = ref(storage, `avatars/${studentUid}`);
+                const snapshot = await uploadBytes(photoRef, photoFile);
+                photoUrl = await getDownloadURL(snapshot.ref);
             }
             
-            const finalStudentData = { ...studentData, photoUrl: photoUrl || `https://picsum.photos/seed/${studentUid}/100/100` };
+            const finalStudentData: User = {
+                ...(selectedStudent || {}),
+                ...studentData,
+                uid: studentUid,
+                photoUrl: photoUrl || `https://picsum.photos/seed/${studentUid}/100/100`,
+                role: 'student',
+                status: selectedStudent?.status || 'active',
+                createdAt: selectedStudent?.createdAt || new Date().toISOString(),
+            } as User;
 
-            if (selectedStudent) {
-                setUsers(prev => prev.map(u => u.uid === selectedStudent.uid ? { ...u, ...finalStudentData } : u));
-                toast({ title: "Étudiant mis à jour (Simulation)" });
-            } else {
-                let allNewUsers: User[] = [];
-                const newStudentUid = `student_${Date.now()}`;
-                const newStudent: User = {
-                    uid: newStudentUid,
-                    createdAt: new Date().toISOString(),
-                    status: 'active',
-                    role: 'student',
-                    ...finalStudentData,
+            if (parentData && parentData.email) {
+                const newParentId = doc(collection(db, "users")).id;
+                const newParent: User = {
+                   uid: newParentId,
+                   createdAt: new Date().toISOString(),
+                   status: 'active',
+                   role: 'parent',
+                   ...parentData,
+                   photoUrl: `https://picsum.photos/seed/${newParentId}/100/100`,
+                   parent: { childrenUids: [studentUid] }
                 } as User;
-                allNewUsers.push(newStudent);
-
-                if (parentData && parentData.email) {
-                    const newParentId = `parent_${Date.now()}`;
-                    const newParent : User = {
-                       uid: newParentId,
-                       createdAt: new Date().toISOString(),
-                       status: 'active',
-                       role: 'parent',
-                       ...parentData,
-                       parent: { childrenUids: [newStudent.uid] }
-                    } as User;
-                    newStudent.student!.parentUid = newParent.uid;
-                    allNewUsers.push(newParent);
-                } else if (studentData.student?.parentUid) {
-                     setUsers(prev => prev.map(u => {
-                        if (u.uid === studentData.student?.parentUid) {
-                            const childrenUids = [...(u.parent?.childrenUids || []), newStudent.uid];
-                            return {...u, parent: {childrenUids}};
-                        }
-                        return u;
-                     }));
+                finalStudentData.student!.parentUid = newParentId;
+                batch.set(doc(db, "users", newParentId), newParent);
+            } else if (studentData.student?.parentUid && studentData.student.parentUid !== selectedStudent?.student?.parentUid) {
+                const parentRef = doc(db, 'users', studentData.student.parentUid);
+                const parentDoc = await getDoc(parentRef);
+                if (parentDoc.exists()) {
+                    const parent = parentDoc.data() as User;
+                    const childrenUids = [...(parent.parent?.childrenUids || []), studentUid];
+                    batch.update(parentRef, { 'parent.childrenUids': childrenUids });
                 }
-                
-                setUsers(prev => [...prev, ...allNewUsers]);
-                toast({ title: "Étudiant ajouté (Simulation)" });
             }
+
+            batch.set(doc(db, "users", studentUid), finalStudentData);
+            await batch.commit();
+            toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté" });
+            
         } catch (error) {
             console.error("Error saving student:", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'étudiant." });
@@ -190,10 +197,16 @@ export default function StudentsPage() {
     
     const confirmDelete = async () => {
         if(selectedStudent) {
-            setUsers(prev => prev.filter(u => u.uid !== selectedStudent.uid));
-            toast({ title: "Étudiant supprimé (Simulation)" });
-            setIsDeleteOpen(false);
-            setSelectedStudent(null);
+            try {
+                await deleteDoc(doc(db, "users", selectedStudent.uid));
+                toast({ title: "Étudiant supprimé" });
+            } catch (error) {
+                console.error("Error deleting student:", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'étudiant." });
+            } finally {
+                setIsDeleteOpen(false);
+                setSelectedStudent(null);
+            }
         }
     }
     
@@ -215,7 +228,7 @@ export default function StudentsPage() {
                 "Niveau": student.student?.level,
                 "Cycle": cycles.find(c => c.value === student.student?.cycle)?.label,
                 "Filière": student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A',
-                "Secteur": student.student?.fieldId ? sectorsById[fieldsById[student.student.fieldId]?.sectorId]?.name : 'N/A',
+                "Secteur": student.student?.fieldId && fieldsById[student.student.fieldId] ? sectorsById[fieldsById[student.student.fieldId].sectorId]?.name : 'N/A',
                 "Date d'inscription": format(new Date(student.createdAt), 'd MMMM yyyy', { locale: fr }),
                 "Solde Scolarité": studentBalances[student.uid] || 0,
                 "Tuteur": parent ? `${parent.firstName} ${parent.lastName}` : 'N/A',
@@ -231,7 +244,11 @@ export default function StudentsPage() {
         doc.text("Liste des Étudiants", 14, 16);
         
         const exportData = getExportData();
-        const tableColumn = Object.keys(exportData[0] || {});
+        if (exportData.length === 0) {
+            toast({ variant: "destructive", title: "Exportation impossible", description: "Aucun étudiant à exporter." });
+            return;
+        }
+        const tableColumn = Object.keys(exportData[0]);
         const tableRows = exportData.map(row => Object.values(row));
 
         autoTable(doc, {
@@ -249,6 +266,10 @@ export default function StudentsPage() {
     
     const handleExportXLSX = () => {
         const exportData = getExportData();
+        if (exportData.length === 0) {
+            toast({ variant: "destructive", title: "Exportation impossible", description: "Aucun étudiant à exporter." });
+            return;
+        }
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Étudiants");
@@ -282,15 +303,15 @@ export default function StudentsPage() {
                     });
                     return studentRow;
                 });
-
-                let newUsersForState: User[] = [];
                 
+                const batch = writeBatch(db);
+
                 for (const studentRow of importedStudentsData) {
-                    const field = mockFields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase());
-                    const newId = `student_${Date.now()}_${Math.random()}`;
+                    const fieldId = fields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
+                    const studentId = doc(collection(db, 'users')).id;
 
                     const newUser: User = {
-                        uid: newId,
+                        uid: studentId,
                         firstName: studentRow['Prénom'] || '',
                         lastName: studentRow['Nom'] || '',
                         email: studentRow['Email'] || '',
@@ -298,22 +319,23 @@ export default function StudentsPage() {
                         role: 'student',
                         status: 'active',
                         createdAt: new Date().toISOString(),
-                        photoUrl: `https://picsum.photos/seed/${newId}/100/100`,
+                        photoUrl: `https://picsum.photos/seed/${studentId}/100/100`,
                         student: {
                            matricule: studentRow['Matricule'] || `ISGI-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
                            level: studentRow['Niveau'],
-                           fieldId: field?.id,
-                           cycle: cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value,
+                           fieldId: fieldId,
+                           cycle: cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value || 'local',
                            programId: 'prog01', 
                            enrollmentDate: new Date().toISOString(),
                            endDate: ''
                         }
                     };
-                    newUsersForState.push(newUser);
+                    const userDocRef = doc(db, 'users', studentId);
+                    batch.set(userDocRef, newUser);
                 }
                 
-                setUsers(prev => [...prev, ...newUsersForState]);
-                toast({ title: "Importation réussie (Simulation)", description: `${newUsersForState.length} étudiants ont été importés localement.` });
+                await batch.commit();
+                toast({ title: "Importation réussie", description: `${importedStudentsData.length} étudiants ont été ajoutés à la base de données.` });
             } catch (error) {
                 console.error("Error importing file:", error);
                 toast({ variant: "destructive", title: "Erreur d'importation", description: "Le fichier est peut-être corrompu ou mal formaté." });
@@ -326,7 +348,7 @@ export default function StudentsPage() {
         }
     };
 
-    const handleGenerateCertificate = (student: User) => {
+    const handleGenerateCertificate = async (student: User) => {
         const doc = new jsPDF();
         const schoolName = settings?.schoolName || "Institut Supérieur";
         const academicYear = settings?.academicYear || "2024-2025";
@@ -368,20 +390,19 @@ export default function StudentsPage() {
 
         doc.save(`certificat_${student.lastName}_${student.firstName}.pdf`);
 
-        const newDoc: OfficialDocument = {
-            id: `doc_${Date.now()}`,
+        const newDoc: Omit<OfficialDocument, 'id'> = {
             studentId: student.uid,
             type: 'certificat',
             fileUrl: '#', // In a real app, you'd upload the PDF and get a URL
-            issuedBy: 'admin01',
+            issuedBy: 'admin01', // Should be current admin user
             issuedAt: new Date().toISOString(),
         };
-        setDocuments(prev => [...prev, newDoc]);
+        await addDoc(collection(db, "officialDocuments"), newDoc);
 
-        toast({ title: "Certificat généré (Simulation)", description: `Le document pour ${studentName} a été créé et sauvegardé localement.` });
+        toast({ title: "Certificat généré", description: `Le document pour ${studentName} a été créé.` });
     }
 
-    const handleGenerateBulletin = (student: User) => {
+    const handleGenerateBulletin = async (student: User) => {
         const doc = new jsPDF();
         const schoolName = settings?.schoolName || "Institut Supérieur";
         const academicYear = settings?.academicYear || "2024-2025";
@@ -400,7 +421,7 @@ export default function StudentsPage() {
         doc.text(`Étudiant(e): ${studentName}`, 14, 45);
         doc.text(`Matricule: ${student.student?.matricule || 'N/A'}`, 14, 52);
         doc.text(`Niveau: ${student.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
-        doc.text(`Filière: ${student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
+        doc.text(`Filière: ${student.student?.fieldId && fieldsById[student.student.fieldId] ? fieldsById[student.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
         
         // Grades Table
         const studentGrades = grades.filter(g => g.studentId === student.uid);
@@ -459,17 +480,16 @@ export default function StudentsPage() {
 
         doc.save(`bulletin_${student.lastName}_${student.firstName}.pdf`);
         
-        const newDoc: OfficialDocument = {
-            id: `doc_bulletin_${Date.now()}`,
+        const newDoc: Omit<OfficialDocument, 'id'> = {
             studentId: student.uid,
             type: 'bulletin',
             fileUrl: '#', // In a real app, you'd upload the PDF and get a URL
-            issuedBy: 'admin01',
+            issuedBy: 'admin01', // Should be current admin
             issuedAt: new Date().toISOString(),
         };
-        setDocuments(prev => [...prev, newDoc]);
+        await addDoc(collection(db, "officialDocuments"), newDoc);
 
-        toast({ title: "Bulletin généré (Simulation)", description: `Le bulletin pour ${studentName} a été créé et sauvegardé localement.` });
+        toast({ title: "Bulletin généré", description: `Le bulletin pour ${studentName} a été créé.` });
     };
     
     const loading = loadingUsers || loadingData;
@@ -535,7 +555,7 @@ export default function StudentsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
-                                {levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                                {settings?.levels.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={sectorFilter} onValueChange={setSectorFilter}>
@@ -544,7 +564,7 @@ export default function StudentsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les secteurs</SelectItem>
-                                {mockSectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
@@ -595,7 +615,7 @@ export default function StudentsPage() {
                                         <Badge variant="secondary">{student.student?.level || 'N/A'}</Badge>
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
-                                        <Badge variant={balance > 0 ? "destructive" : "default"} className={balance === 0 ? "bg-green-600" : ""}>
+                                        <Badge variant={balance > 0 ? "destructive" : "default"} className={balance <= 0 ? "bg-green-600" : ""}>
                                             {formatCurrency(balance, 'XAF')}
                                         </Badge>
                                     </TableCell>
@@ -675,5 +695,7 @@ export default function StudentsPage() {
         </div>
     );
 }
+
+    
 
     

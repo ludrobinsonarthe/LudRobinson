@@ -26,8 +26,8 @@ import type { User, Class, Sector, Field, Cycle } from "@/lib/types";
 import { useEffect, useState, useMemo } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
-import { mockSectors, mockFields } from "@/lib/mock-data";
 import ImageCropperDialog from "./image-cropper-dialog";
+import { useUser } from "@/hooks/use-user";
 
 
 const studentFormSchema = z.object({
@@ -82,7 +82,6 @@ interface StudentFormDialogProps {
   parents: User[];
 }
 
-const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
     { value: 'international', label: 'Cycle International' },
@@ -90,6 +89,8 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, parents }: StudentFormDialogProps) {
+    const { settings } = useUser();
+
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema),
     defaultValues: {
@@ -119,14 +120,17 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
   const parentSelection = form.watch('parentSelection');
   const selectedSector = form.watch('sectorId');
 
+  const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(fs => fs.id === s.id)) || [], [settings]);
+  const sectors = useMemo(() => settings?.sectors || [], [settings]);
+
   const availableFields = useMemo(() => {
       if (!selectedSector) return [];
-      return mockFields.filter(f => f.sectorId === selectedSector);
-  }, [selectedSector]);
+      return fields.filter(f => f.sectorId === selectedSector);
+  }, [selectedSector, fields]);
 
   useEffect(() => {
     if (isOpen) {
-        const studentSectorId = mockFields.find(f => f.id === student?.student?.fieldId)?.sectorId || '';
+        const studentSectorId = fields.find(f => f.id === student?.student?.fieldId)?.sectorId || '';
         if (student) {
           form.reset({
             firstName: student.firstName,
@@ -164,7 +168,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
           });
         }
     }
-  }, [student, isOpen, form]);
+  }, [student, isOpen, form, fields]);
   
    useEffect(() => {
     form.setValue('fieldId', '');
@@ -197,13 +201,16 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
         email: data.email,
         phone: data.phone,
         student: {
-            ...(student?.student || {}),
+            ...(student?.student || {} as any),
             matricule: data.matricule,
             cycle: data.cycle,
             level: data.level,
             fieldId: data.fieldId,
             parentalLink: data.parentalLink,
             parentUid: data.parentSelection === 'existing' ? data.parentUid : undefined,
+            programId: student?.student?.programId || 'prog01', // Keep existing or default
+            enrollmentDate: student?.student?.enrollmentDate || new Date().toISOString(),
+            endDate: student?.student?.endDate || '',
         }
     };
     
@@ -273,7 +280,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
                         <FormItem><FormLabel>Niveau</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un niveau..." /></SelectTrigger></FormControl>
-                            <SelectContent>{levels.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                            <SelectContent>{settings?.levels.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage />
                         </FormItem>
@@ -285,14 +292,14 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
                         <FormItem><FormLabel>Secteur</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un secteur..." /></SelectTrigger></FormControl>
-                            <SelectContent>{mockSectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>{sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage />
                         </FormItem>
                     )}/>
                     <FormField control={form.control} name="fieldId" render={({ field }) => (
                         <FormItem><FormLabel>Filière</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={!selectedSector}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
                             <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Sélectionner une filière..."} /></SelectTrigger></FormControl>
                             <SelectContent>{availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
                         </Select>
@@ -383,3 +390,5 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
     </>
   );
 }
+
+    
