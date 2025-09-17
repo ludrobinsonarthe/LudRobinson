@@ -29,7 +29,7 @@ const userFormSchema = z.object({
   specialty: z.string().optional(),
   roleId: z.string().optional(),
   position: z.string().optional(),
-  baseSalary: z.coerce.number().optional(),
+  baseSalary: z.coerce.number().min(0, "Le salaire doit être un nombre positif.").optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -256,7 +256,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                         name="baseSalary"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Salaire de base</FormLabel>
+                                <FormLabel>Salaire de base mensuel</FormLabel>
                                 <FormControl>
                                     <Input type="number" placeholder="500000" {...field} />
                                 </FormControl>

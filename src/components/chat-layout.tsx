@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -63,7 +64,8 @@ export default function ChatLayout({
     if (!currentUser || !isMounted) return [];
     
     const conversationPartners = new Set<string>();
-
+    
+    // Add partners from existing messages
     messages.forEach(msg => {
       if (msg.senderId === currentUser.uid) {
         conversationPartners.add(msg.receiverId);
@@ -72,6 +74,14 @@ export default function ChatLayout({
         conversationPartners.add(msg.senderId);
       }
     });
+
+    // Add all potential users to the list, even if no conversation exists yet
+     users.forEach(user => {
+        if(user.uid !== currentUser.uid && (user.role === 'admin' || user.role === 'teacher')) {
+            conversationPartners.add(user.uid);
+        }
+    });
+
 
     return Array.from(conversationPartners).map(partnerId => {
         const partner = users.find(u => u.uid === partnerId);
@@ -168,7 +178,7 @@ export default function ChatLayout({
           <Separator />
           <ScrollArea className="flex-1">
             <div className="flex flex-col gap-2 p-4">
-              {conversations.map(({ partner, lastMessage }) => partner && lastMessage && (
+              {conversations.map(({ partner, lastMessage }) => partner && (
                 <button
                   key={partner.uid}
                   className={cn(
@@ -190,7 +200,7 @@ export default function ChatLayout({
                   <div className="flex-1 text-left">
                     <div className="font-semibold">{`${partner.firstName} ${partner.lastName}`}</div>
                     <p className={cn("text-xs truncate", selectedConversation === partner.uid ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                      {lastMessage.content}
+                      {lastMessage?.content || "Aucun message"}
                     </p>
                   </div>
                 </button>

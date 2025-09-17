@@ -30,9 +30,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -69,10 +69,10 @@ export default function StudentsPage() {
     
     useEffect(() => {
         setLoadingData(true);
-        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => doc.data() as Payment)));
-        const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => doc.data() as OfficialDocument)));
-        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => doc.data() as Grade)));
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
+        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
+        const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as OfficialDocument)));
+        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course)));
         
         setLoadingData(false);
         return () => {
@@ -203,17 +203,62 @@ export default function StudentsPage() {
     }
     
     const confirmDelete = async () => {
-        if(selectedStudent) {
-            try {
-                await deleteDoc(doc(db, "users", selectedStudent.uid));
-                toast({ title: "Étudiant supprimé" });
-            } catch (error) {
-                console.error("Error deleting student:", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'étudiant." });
-            } finally {
-                setIsDeleteOpen(false);
-                setSelectedStudent(null);
+        if (!selectedStudent) return;
+        
+        const batch = writeBatch(db);
+        const studentId = selectedStudent.uid;
+    
+        try {
+            // 1. Delete student document
+            batch.delete(doc(db, "users", studentId));
+    
+            // 2. Query and delete related data in batches
+            const collectionsToDelete = ['payments', 'grades', 'officialDocuments'];
+            for (const coll of collectionsToDelete) {
+                const q = query(collection(db, coll), where("studentId", "==", studentId));
+                const snapshot = await getDocs(q);
+                snapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
             }
+            
+            // 3. Unlink from parent
+            if (selectedStudent.student?.parentUid) {
+                const parentRef = doc(db, 'users', selectedStudent.student.parentUid);
+                const parentDoc = await getDoc(parentRef);
+                if (parentDoc.exists()) {
+                    const parentData = parentDoc.data() as User;
+                    const updatedChildren = parentData.parent?.childrenUids.filter(uid => uid !== studentId) || [];
+                    batch.update(parentRef, { 'parent.childrenUids': updatedChildren });
+                }
+            }
+            
+            // 4. Delete avatar from storage
+            if (selectedStudent.photoUrl && selectedStudent.photoUrl.includes('firebasestorage')) {
+                 try {
+                    const photoRef = ref(storage, selectedStudent.photoUrl);
+                    await deleteObject(photoRef);
+                } catch (storageError: any) {
+                    // Non-fatal, maybe the file doesn't exist. Log it.
+                    if (storageError.code !== 'storage/object-not-found') {
+                         console.error("Could not delete avatar from storage: ", storageError);
+                    }
+                }
+            }
+    
+            await batch.commit();
+            toast({ title: "Étudiant et données associées supprimés" });
+    
+        } catch (error) {
+            console.error("Error deleting student and their data:", error);
+            toast({ 
+                variant: "destructive", 
+                title: "Erreur de suppression", 
+                description: "Impossible de supprimer l'étudiant et toutes ses données." 
+            });
+        } finally {
+            setIsDeleteOpen(false);
+            setSelectedStudent(null);
         }
     }
     
@@ -355,148 +400,150 @@ export default function StudentsPage() {
         }
     };
 
-    const handleGenerateCertificate = async (student: User) => {
-        const doc = new jsPDF();
-        const schoolName = settings?.schoolName || "Institut Supérieur";
-        const academicYear = settings?.academicYear || "2024-2025";
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
-        
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
-
-        doc.setFontSize(20);
-        doc.setFont("helvetica", "bold");
-        doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 60, { align: 'center' });
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-
-        const studentName = `${student.firstName} ${student.lastName}`;
-        const studentMatricule = student.student?.matricule || 'N/A';
-        const studentLevel = student.student?.level || 'N/A';
-        const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A';
-
-        const textLines = [
-            `Nous soussignés, Direction de ${schoolName}, certifions que :`,
-            `L'étudiant(e) ${studentName}`,
-            `Matricule: ${studentMatricule}`,
-            `est régulièrement inscrit(e) en ${studentLevel} de la filière ${studentField}`,
-            `pour l'année académique ${academicYear}.`,
-            ` `,
-            `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
-        ];
-        
-        doc.text(textLines, 20, 90);
-
-        doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 180, { align: 'right' });
-        doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
-
-        doc.save(`certificat_${student.lastName}_${student.firstName}.pdf`);
-
-        const newDoc: Omit<OfficialDocument, 'id'> = {
-            studentId: student.uid,
-            type: 'certificat',
-            fileUrl: '#', // In a real app, you'd upload the PDF and get a URL
-            issuedBy: 'admin01', // Should be current admin user
-            issuedAt: new Date().toISOString(),
-        };
-        await addDoc(collection(db, "officialDocuments"), newDoc);
-
-        toast({ title: "Certificat généré", description: `Le document pour ${studentName} a été créé.` });
-    }
-
-    const handleGenerateBulletin = async (student: User) => {
-        const doc = new jsPDF();
-        const schoolName = settings?.schoolName || "Institut Supérieur";
-        const academicYear = settings?.academicYear || "2024-2025";
-        const studentName = `${student.firstName} ${student.lastName}`;
-        
-        // Header
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(18);
-        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
-        doc.setFontSize(14);
-        doc.text(`Bulletin de Notes - ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
-
-        // Student Info
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Étudiant(e): ${studentName}`, 14, 45);
-        doc.text(`Matricule: ${student.student?.matricule || 'N/A'}`, 14, 52);
-        doc.text(`Niveau: ${student.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
-        doc.text(`Filière: ${student.student?.fieldId && fieldsById[student.student.fieldId] ? fieldsById[student.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
-        
-        // Grades Table
-        const studentGrades = grades.filter(g => g.studentId === student.uid);
-        const coursesById = courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
-        
-        const tableColumn = ["Matière", "Devoirs", "Examen", "Moyenne /20"];
-        const tableRows: (string | number)[][] = [];
-
-        const gradesByCourse: Record<string, Grade[]> = {};
-        studentGrades.forEach(grade => {
-            if (!gradesByCourse[grade.courseId]) {
-                gradesByCourse[grade.courseId] = [];
-            }
-            gradesByCourse[grade.courseId].push(grade);
-        });
-
-        let totalWeightedAverage = 0;
-        let totalCoefficients = 0;
-
-        Object.keys(gradesByCourse).forEach(courseId => {
-            const courseName = coursesById[courseId]?.name || 'Inconnu';
-            const courseGrades = gradesByCourse[courseId];
+    const generateAndStoreDocument = async (student: User, type: 'certificat' | 'bulletin', docGenerator: (student: User) => Promise<Blob>) => {
+        try {
+            const blob = await docGenerator(student);
+            const fileName = `${type}_${student.lastName}_${student.firstName}_${Date.now()}.pdf`;
+            const fileRef = ref(storage, `official_documents/${student.uid}/${fileName}`);
             
-            const devoirs = courseGrades.filter(g => g.type === 'devoir').map(g => `${g.score}/${g.total}`).join(', ');
-            const examen = courseGrades.find(g => g.type === 'examen');
+            const snapshot = await uploadBytes(fileRef, blob);
+            const fileUrl = await getDownloadURL(snapshot.ref);
+
+            const newDoc: Omit<OfficialDocument, 'id'> = {
+                studentId: student.uid,
+                type: type,
+                fileUrl: fileUrl,
+                issuedBy: 'admin01', // Should be current admin user
+                issuedAt: new Date().toISOString(),
+            };
+            await addDoc(collection(db, "officialDocuments"), newDoc);
+
+            toast({ title: `${type === 'certificat' ? 'Certificat' : 'Bulletin'} généré et enregistré`, description: `Le document pour ${student.firstName} ${student.lastName} est disponible.` });
+
+        } catch (error) {
+            console.error(`Error generating ${type}:`, error);
+            toast({ variant: 'destructive', title: `Erreur de génération`, description: `Impossible de générer le document.` });
+        }
+    };
+    
+    const createCertificatePdf = (student: User): Promise<Blob> => {
+        return new Promise((resolve) => {
+            const doc = new jsPDF();
+            const schoolName = settings?.schoolName || "Institut Supérieur";
+            const academicYear = settings?.academicYear || "2024-2025";
             
-            const totalScore = courseGrades.reduce((acc, g) => acc + (g.score * g.coefficient), 0);
-            const totalCoeff = courseGrades.reduce((acc, g) => acc + g.coefficient, 0);
-            const courseAverage = totalCoeff > 0 ? (totalScore / totalCoeff) : 0;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
             
-            totalWeightedAverage += courseAverage;
-            totalCoefficients += 1;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
 
-            tableRows.push([courseName, devoirs, examen ? `${examen.score}/${examen.total}` : 'N/A', courseAverage.toFixed(2)]);
+            doc.setFontSize(20);
+            doc.setFont("helvetica", "bold");
+            doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 60, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+
+            const studentName = `${student.firstName} ${student.lastName}`;
+            const studentMatricule = student.student?.matricule || 'N/A';
+            const studentLevel = student.student?.level || 'N/A';
+            const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A';
+
+            const textLines = [
+                `Nous soussignés, Direction de ${schoolName}, certifions que :`,
+                `L'étudiant(e) ${studentName}`,
+                `Matricule: ${studentMatricule}`,
+                `est régulièrement inscrit(e) en ${studentLevel} de la filière ${studentField}`,
+                `pour l'année académique ${academicYear}.`,
+                ` `,
+                `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
+            ];
+            
+            doc.text(textLines, 20, 90);
+
+            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 180, { align: 'right' });
+            doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
+
+            resolve(doc.output('blob'));
         });
+    };
 
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 60,
-            theme: 'grid'
+    const createTranscriptPdf = (student: User): Promise<Blob> => {
+        return new Promise((resolve) => {
+            const doc = new jsPDF();
+            const schoolName = settings?.schoolName || "Institut Supérieur";
+            const academicYear = settings?.academicYear || "2024-2025";
+            const studentName = `${student.firstName} ${student.lastName}`;
+            
+            // Header
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+            doc.setFontSize(14);
+            doc.text(`Bulletin de Notes - ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+
+            // Student Info
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Étudiant(e): ${studentName}`, 14, 45);
+            doc.text(`Matricule: ${student.student?.matricule || 'N/A'}`, 14, 52);
+            doc.text(`Niveau: ${student.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
+            doc.text(`Filière: ${student.student?.fieldId && fieldsById[student.student.fieldId] ? fieldsById[student.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
+            
+            // Grades Table
+            const studentGrades = grades.filter(g => g.studentId === student.uid);
+            const coursesById = courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
+            
+            const tableColumn = ["Matière", "Devoirs", "Examen", "Moyenne /20"];
+            const tableRows: (string | number)[][] = [];
+
+            const gradesByCourse: Record<string, Grade[]> = {};
+            studentGrades.forEach(grade => {
+                if (!gradesByCourse[grade.courseId]) gradesByCourse[grade.courseId] = [];
+                gradesByCourse[grade.courseId].push(grade);
+            });
+
+            let totalWeightedAverage = 0;
+            let totalCourses = 0;
+
+            Object.keys(gradesByCourse).forEach(courseId => {
+                const courseName = coursesById[courseId]?.name || 'Inconnu';
+                const courseGrades = gradesByCourse[courseId];
+                
+                const devoirs = courseGrades.filter(g => g.type === 'devoir').map(g => `${g.score}/${g.total}`).join(', ') || 'N/A';
+                const examen = courseGrades.find(g => g.type === 'examen');
+                
+                const totalScore = courseGrades.reduce((acc, g) => acc + (g.score * g.coefficient), 0);
+                const totalCoeff = courseGrades.reduce((acc, g) => acc + g.coefficient, 0);
+                const courseAverage = totalCoeff > 0 ? (totalScore / totalCoeff) : 0;
+                
+                if (totalCoeff > 0) {
+                    totalWeightedAverage += courseAverage;
+                    totalCourses += 1;
+                }
+
+                tableRows.push([courseName, devoirs, examen ? `${examen.score}/${examen.total}` : 'N/A', courseAverage.toFixed(2)]);
+            });
+
+            autoTable(doc, { head: [tableColumn], body: tableRows, startY: 60, theme: 'grid' });
+
+            // Footer
+            const finalY = (doc as any).lastAutoTable.finalY || 100;
+            const generalAverage = totalCourses > 0 ? totalWeightedAverage / totalCourses : 0;
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Moyenne Générale: ${generalAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
+            
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
+            doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
+            
+            resolve(doc.output('blob'));
         });
-
-        // Footer
-        const finalY = (doc as any).lastAutoTable.finalY;
-        const generalAverage = totalCoefficients > 0 ? totalWeightedAverage / totalCoefficients : 0;
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Moyenne Générale: ${generalAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
-        
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
-        doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
-
-
-        doc.save(`bulletin_${student.lastName}_${student.firstName}.pdf`);
-        
-        const newDoc: Omit<OfficialDocument, 'id'> = {
-            studentId: student.uid,
-            type: 'bulletin',
-            fileUrl: '#', // In a real app, you'd upload the PDF and get a URL
-            issuedBy: 'admin01', // Should be current admin
-            issuedAt: new Date().toISOString(),
-        };
-        await addDoc(collection(db, "officialDocuments"), newDoc);
-
-        toast({ title: "Bulletin généré", description: `Le bulletin pour ${studentName} a été créé.` });
     };
     
     const loading = loadingUsers || loadingData;
@@ -678,8 +725,8 @@ export default function StudentsPage() {
                                                     </DropdownMenuSubTrigger>
                                                     <DropdownMenuPortal>
                                                         <DropdownMenuSubContent>
-                                                            <DropdownMenuItem onClick={() => handleGenerateCertificate(student)}>Certificat de scolarité</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => handleGenerateBulletin(student)}>Bulletin de notes</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => generateAndStoreDocument(student, 'certificat', createCertificatePdf)}>Certificat de scolarité</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => generateAndStoreDocument(student, 'bulletin', createTranscriptPdf)}>Bulletin de notes</DropdownMenuItem>
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuPortal>
                                                </DropdownMenuSub>
@@ -712,12 +759,14 @@ export default function StudentsPage() {
                 parents={parents}
                 students={studentsFromUsers}
             />
-            <UserDeleteDialog
+            {selectedStudent && <UserDeleteDialog
                 isOpen={isDeleteOpen}
                 setIsOpen={setIsDeleteOpen}
                 onConfirm={confirmDelete}
-                user={selectedStudent}
-            />
+                item={selectedStudent}
+                title="Supprimer cet étudiant ?"
+                description={`L'étudiant "${selectedStudent.firstName} ${selectedStudent.lastName}" et toutes ses données associées (notes, paiements, etc.) seront définitivement supprimés. Cette action est irréversible.`}
+            />}
         </div>
     );
 }

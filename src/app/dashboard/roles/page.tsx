@@ -28,8 +28,9 @@ import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDescription } from "@/components/ui/form";
 import { useUser } from "@/hooks/use-user";
-import { collection, doc, writeBatch } from "firebase/firestore";
+import { collection, doc, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import UserDeleteDialog from "@/components/user-delete-dialog";
 
 const roleSchema = z.object({
   id: z.string(),
@@ -54,6 +55,8 @@ export default function RolesPage() {
   const { roles: initialRoles, loading: loadingRoles } = useUser();
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<AdminRole | null>(null);
 
   const form = useForm<RolesFormValues>({
     resolver: zodResolver(rolesFormSchema),
@@ -65,10 +68,11 @@ export default function RolesPage() {
   const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "roles",
+    keyName: "formId", // Use a different name for the key to avoid conflict with `id`
   });
 
   useEffect(() => {
-    if (!loadingRoles) {
+    if (!loadingRoles && initialRoles) {
         replace(initialRoles);
     }
   }, [initialRoles, loadingRoles, replace]);
@@ -77,8 +81,10 @@ export default function RolesPage() {
     setSubmitting(true);
     const batch = writeBatch(db);
     data.roles.forEach(role => {
-        const roleRef = doc(db, 'adminRoles', role.id);
-        batch.set(roleRef, role);
+        if(role.id) {
+            const roleRef = doc(db, 'adminRoles', role.id);
+            batch.set(roleRef, role);
+        }
     });
 
     try {
@@ -101,13 +107,34 @@ export default function RolesPage() {
     });
   }
 
-  const removeRole = (index: number) => {
-    // Note: This only removes from the form state. 
-    // The actual deletion from DB would need a separate mechanism 
-    // or be handled on submit (by checking which roles are missing from the form data).
-    // For simplicity, we just remove it visually and it will be removed on next save.
-    remove(index);
+  const handleDeleteRole = (index: number) => {
+    const role = fields[index];
+    if (role.id.startsWith("role_")) { // New role not yet saved
+        remove(index);
+    } else {
+        setRoleToDelete(role as AdminRole);
+        setIsDeleteOpen(true);
+    }
   }
+
+  const confirmDelete = async () => {
+    if(!roleToDelete) return;
+    try {
+        await deleteDoc(doc(db, 'adminRoles', roleToDelete.id));
+        const roleIndex = fields.findIndex(field => field.id === roleToDelete.id);
+        if (roleIndex > -1) {
+            remove(roleIndex);
+        }
+        toast({ title: "Rôle supprimé" });
+    } catch (error) {
+        console.error("Error deleting role:", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le rôle." });
+    } finally {
+        setIsDeleteOpen(false);
+        setRoleToDelete(null);
+    }
+  }
+
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -127,7 +154,7 @@ export default function RolesPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <div className="space-y-6">
                 {fields.map((field, index) => (
-                    <Card key={field.id}>
+                    <Card key={field.formId}>
                         <CardHeader className="flex flex-row items-center justify-between">
                              <div className="flex-1">
                                 <FormField
@@ -144,7 +171,7 @@ export default function RolesPage() {
                                 />
                                 <CardDescription>ID du rôle: {field.id}</CardDescription>
                              </div>
-                             <Button type="button" variant="ghost" size="icon" onClick={() => removeRole(index)}>
+                             <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteRole(index)}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
                              </Button>
                         </CardHeader>
@@ -205,7 +232,14 @@ export default function RolesPage() {
             </form>
             </Form>
         )}
-
+        <UserDeleteDialog 
+            isOpen={isDeleteOpen}
+            setIsOpen={setIsDeleteOpen}
+            onConfirm={confirmDelete}
+            item={roleToDelete}
+            title="Supprimer ce rôle ?"
+            description="La suppression de ce rôle est définitive. Les utilisateurs avec ce rôle perdront leurs permissions."
+        />
     </div>
   );
 }

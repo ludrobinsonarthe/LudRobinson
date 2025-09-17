@@ -1,6 +1,6 @@
 
 
-import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
+import type { User, AdminRole, Sector, Field, Program, Class, Course, Message, Payment, Grade, TeacherSalary, CashTransaction, Attendance, OfficialDocument, FeeStructure } from './types';
 import { adminPermissions } from './types';
 
 // This file is now primarily for bootstrapping the Super Admin role and user if the database is empty.
