@@ -100,6 +100,7 @@ function MainSidebar() {
   
   const showStudentMenu = user?.role === 'student' || user?.role === 'admin' || user?.role === 'parent';
   const showAdminMenu = user?.role === 'admin';
+  const isSuperAdmin = user?.admin?.position?.toLowerCase().includes('super');
 
 
   return (
@@ -149,7 +150,7 @@ function MainSidebar() {
           {showAdminMenu && <SidebarGroup>
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             {adminManagementItems.map((item) => (
-              hasPermission(item.permission) &&
+              (isSuperAdmin || hasPermission(item.permission)) &&
               <SidebarMenuItem key={item.href + item.label}>
                   <SidebarMenuButton
                       asChild
