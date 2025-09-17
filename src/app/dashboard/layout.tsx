@@ -14,6 +14,7 @@ import {
   SidebarInset,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarGroupContent,
 } from "@/components/ui/sidebar";
 import {
   Home,
