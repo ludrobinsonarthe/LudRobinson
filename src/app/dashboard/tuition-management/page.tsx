@@ -108,11 +108,23 @@ export default function TuitionManagementPage() {
         doc.text(`Reçu de: ${student.firstName} ${student.lastName}`, 20, 90);
         doc.text(`Matricule: ${student.student?.matricule}`, 20, 100);
 
+        const amountPaidText = `Montant payé: ${payment.amountPaid.toLocaleString()} ${payment.currency}`;
+        const balanceText = `Solde restant pour ce paiement: ${payment.balance.toLocaleString()} ${payment.currency}`;
+
         doc.text(`Motif du paiement: ${payment.month} (${payment.year})`, 20, 120);
-        doc.text(`Montant payé: ${payment.amountPaid.toLocaleString()} ${payment.currency}`, 20, 130);
-        doc.text(`Méthode: ${payment.method}`, 20, 140);
+        doc.autoTable({
+            startY: 125,
+            head: [['Description', 'Montant']],
+            body: [
+                ['Montant Attendu', `${payment.amountExpected.toLocaleString()} ${payment.currency}`],
+                ['Montant Versé', `${payment.amountPaid.toLocaleString()} ${payment.currency}`],
+                ['Solde pour ce versement', `${payment.balance.toLocaleString()} ${payment.currency}`]
+            ],
+            theme: 'striped',
+            headStyles: { fillColor: [22, 163, 74] }
+        });
         
-        doc.text("Signature de l'administration", doc.internal.pageSize.getWidth() - 20, 180, { align: 'right' });
+        doc.text("Signature de l'administration", doc.internal.pageSize.getWidth() - 20, (doc as any).lastAutoTable.finalY + 30, { align: 'right' });
 
         doc.save(`recu_${payment.id}.pdf`);
         toast({ title: "Reçu généré", description: `Le reçu pour ${student.firstName} ${student.lastName} a été téléchargé.` });
@@ -237,3 +249,5 @@ export default function TuitionManagementPage() {
         </div>
     );
 }
+
+    

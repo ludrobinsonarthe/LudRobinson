@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -16,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText, ClipboardList } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -611,12 +612,20 @@ export default function StudentsPage() {
                                            <DropdownMenuContent align="end">
                                                <DropdownMenuItem onClick={() => handleEdit(student)}>
                                                     <Edit className="mr-2 h-4 w-4" />
-                                                    Modifier
+                                                    Modifier le profil
                                                </DropdownMenuItem>
-                                               <DropdownMenuItem>
-                                                    <Receipt className="mr-2 h-4 w-4" />
-                                                    Voir les paiements
-                                               </DropdownMenuItem>
+                                                <DropdownMenuItem asChild>
+                                                    <Link href={`/dashboard/tuition-management?studentId=${student.uid}`}>
+                                                        <Receipt className="mr-2 h-4 w-4" />
+                                                        Voir les paiements
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                                 <DropdownMenuItem asChild>
+                                                    <Link href={`/dashboard/grade-management?studentId=${student.uid}`}>
+                                                        <ClipboardList className="mr-2 h-4 w-4" />
+                                                        Gérer les notes
+                                                    </Link>
+                                                </DropdownMenuItem>
                                                <DropdownMenuSub>
                                                     <DropdownMenuSubTrigger>
                                                         <FileText className="mr-2 h-4 w-4" />
@@ -666,3 +675,5 @@ export default function StudentsPage() {
         </div>
     );
 }
+
+    
