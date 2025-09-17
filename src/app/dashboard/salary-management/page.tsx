@@ -97,9 +97,29 @@ function SalaryManagementContent() {
             }
         });
         
+        // Process admin salaries from user data
+        const currentMonth = getMonth(new Date());
+        const currentYear = getYear(new Date());
+        
+        users.filter(u => u.role === 'admin' && u.admin?.baseSalary).forEach(admin => {
+             allSalaries.push({
+                id: `admin-${admin.uid}-${currentYear}-${currentMonth}`,
+                userId: admin.uid,
+                userName: `${admin.firstName} ${admin.lastName}`,
+                userRole: 'admin',
+                month: format(new Date(), 'MMMM', { locale: fr }),
+                year: `${currentYear}`,
+                totalSalary: admin.admin!.baseSalary!,
+                status: 'pending', // Admin salaries are not marked as paid via this flow yet
+                createdAt: new Date().toISOString(),
+                currency: 'XAF',
+                baseSalary: admin.admin!.baseSalary!,
+            });
+        });
+
         return allSalaries.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    }, [teacherSalaries, usersById]);
+    }, [teacherSalaries, users, usersById]);
 
     const filteredSalaries = useMemo(() => {
         if (userFilter === 'all') return unifiedSalaries;
@@ -417,5 +437,3 @@ export default function SalaryManagementPage() {
         </Suspense>
     )
 }
-
-    
