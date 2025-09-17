@@ -9,14 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, where, orderBy, or } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy, or, doc, setDoc, addDoc, deleteDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+import UserDeleteDialog from "@/components/user-delete-dialog";
+
 
 export default function DashboardPage() {
     const { user: currentUser, userPermissions } = useUser();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<Message | null>(null);
     const [announcements, setAnnouncements] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
+    const { toast } = useToast();
 
     useEffect(() => {
         if (!currentUser) return;
@@ -57,6 +62,45 @@ export default function DashboardPage() {
         setEditingAnnouncement(announcement);
         setIsDialogOpen(true);
     };
+    
+    const handleDeleteAnnouncement = (announcement: Message) => {
+        setEditingAnnouncement(announcement);
+        setIsDeleteDialogOpen(true);
+    };
+    
+    const confirmDelete = async () => {
+        if (!editingAnnouncement) return;
+        try {
+            await deleteDoc(doc(db, "messages", editingAnnouncement.id));
+            toast({ title: "Annonce supprimée" });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'annonce." });
+        } finally {
+            setIsDeleteDialogOpen(false);
+        }
+    }
+
+    const handleSaveAnnouncement = async (data: Omit<Message, 'id' | 'createdAt' | 'senderId' | 'type'>) => {
+        if (!currentUser) return;
+        try {
+            if (editingAnnouncement) {
+                await setDoc(doc(db, "messages", editingAnnouncement.id), data, { merge: true });
+                toast({ title: "Annonce modifiée" });
+            } else {
+                await addDoc(collection(db, "messages"), {
+                    ...data,
+                    senderId: currentUser.uid,
+                    type: 'announcement',
+                    createdAt: new Date().toISOString(),
+                });
+                toast({ title: "Annonce publiée" });
+            }
+        } catch (error) {
+            console.error("Error saving announcement: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'annonce." });
+        }
+    }
+
 
     return (
         <div className="space-y-6">
@@ -82,7 +126,7 @@ export default function DashboardPage() {
                     </div>
                 ) : announcements.length > 0 ? (
                     announcements.map(announcement => (
-                        <AnnouncementCard key={announcement.id} announcement={announcement} onEdit={handleEditAnnouncement} />
+                        <AnnouncementCard key={announcement.id} announcement={announcement} onEdit={handleEditAnnouncement} onDelete={handleDeleteAnnouncement} />
                     ))
                 ) : (
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
@@ -97,7 +141,18 @@ export default function DashboardPage() {
                 isOpen={isDialogOpen}
                 setIsOpen={setIsDialogOpen}
                 announcement={editingAnnouncement}
+                onSave={handleSaveAnnouncement}
             />
+            {editingAnnouncement && (
+                 <UserDeleteDialog
+                    isOpen={isDeleteDialogOpen}
+                    setIsOpen={setIsDeleteDialogOpen}
+                    onConfirm={confirmDelete}
+                    user={editingAnnouncement as Partial<User>} // Casting to fit the prop type
+                    title="Supprimer cette annonce ?"
+                    description={`L'annonce "${editingAnnouncement.title || 'Sans titre'}" sera définitivement supprimée.`}
+                />
+            )}
         </div>
     );
 }

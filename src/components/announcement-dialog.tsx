@@ -41,12 +41,11 @@ interface AnnouncementDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   announcement: Message | null;
-  onSave: (message: Message) => void;
+  onSave: (data: AnnouncementFormValues) => Promise<void>;
 }
 
 export default function AnnouncementDialog({ isOpen, setIsOpen, announcement, onSave }: AnnouncementDialogProps) {
   const { user, roles } = useUser();
-  const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   
   const form = useForm<AnnouncementFormValues>({
@@ -76,28 +75,8 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement, on
   }
 
   const onSubmit = async (data: AnnouncementFormValues) => {
-    if (!user) {
-        toast({ variant: "destructive", title: "Erreur", description: "Utilisateur non authentifié."});
-        return;
-    }
     setSubmitting(true);
-    
-    const messageData : Message = announcement 
-      ? { ...announcement, ...data }
-      : { 
-          id: `msg_${Date.now()}`,
-          senderId: user.uid,
-          type: 'announcement',
-          createdAt: new Date().toISOString(),
-          ...data
-        };
-
-    onSave(messageData);
-    
-    toast({
-        title: announcement ? "Annonce modifiée (Simulation)" : "Annonce publiée (Simulation)",
-    });
-
+    await onSave(data);
     setSubmitting(false);
     setIsOpen(false);
   };

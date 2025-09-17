@@ -11,16 +11,19 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Pencil } from "lucide-react";
+import { Paperclip, Pencil, Trash2 } from "lucide-react";
 import type { Message, User } from "@/lib/types";
 import { format, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from "@/hooks/use-user";
 import React, { useState, useEffect } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 interface AnnouncementCardProps {
   announcement: Message;
   onEdit: (announcement: Message) => void;
+  onDelete: (announcement: Message) => void;
 }
 
 const roleTranslation: { [key: string]: string } = {
@@ -34,7 +37,7 @@ const getInitials = (firstName: string, lastName:string ) => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
 };
 
-export default function AnnouncementCard({ announcement, onEdit }: AnnouncementCardProps) {
+export default function AnnouncementCard({ announcement, onEdit, onDelete }: AnnouncementCardProps) {
   const { user: currentUser, users } = useUser();
   const [sender, setSender] = useState<User | null>(null);
 
@@ -99,10 +102,23 @@ export default function AnnouncementCard({ announcement, onEdit }: AnnouncementC
             )}
           </div>
            {currentUser?.role === 'admin' && (
-            <Button variant="ghost" size="icon" onClick={() => onEdit(announcement)}>
-              <Pencil className="h-4 w-4" />
-              <span className="sr-only">Modifier</span>
-            </Button>
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onEdit(announcement)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Modifier
+                    </DropdownMenuItem>
+                     <DropdownMenuItem onClick={() => onDelete(announcement)} className="text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Supprimer
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+             </DropdownMenu>
           )}
         </div>
         {announcement.title && <CardTitle className="font-headline text-2xl pt-2">{announcement.title}</CardTitle>}
