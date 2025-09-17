@@ -121,6 +121,13 @@ export default function ChatLayout({
     setSelectedConversation(userId);
     setIsNewMessageDialogOpen(false);
   }
+  
+  const handleFeatureNotAvailable = () => {
+    toast({
+        title: "Fonctionnalité à venir",
+        description: "Les appels vocaux et vidéo seront bientôt disponibles.",
+    });
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -234,11 +241,11 @@ export default function ChatLayout({
                   </Avatar>
                   <div className="font-semibold flex-1">{`${selectedUser.firstName} ${selectedUser.lastName}`}</div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" onClick={handleFeatureNotAvailable}>
                         <Phone className="h-5 w-5" />
                         <span className="sr-only">Appel vocal</span>
                     </Button>
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" onClick={handleFeatureNotAvailable}>
                         <Video className="h-5 w-5" />
                         <span className="sr-only">Appel vidéo</span>
                     </Button>
@@ -338,3 +345,5 @@ export default function ChatLayout({
     </>
   );
 }
+
+    
