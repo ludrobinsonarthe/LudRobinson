@@ -88,31 +88,25 @@ export default function ProfileForm() {
         try {
             let photoUrl = user.photoUrl;
             const photoFile = data.photo;
-
-            if (photoFile && photoFile instanceof Blob) {
-                const storageRef = ref(storage, `profile-pictures/${user.uid}/profile.jpg`);
-                const uploadResult = await uploadBytes(storageRef, photoFile, { contentType: 'image/jpeg' });
-                photoUrl = await getDownloadURL(uploadResult.ref);
-            }
-
-            const updatedUserData: Partial<User> = {
+            let updatedUserData : Partial<User> = {
                 firstName: data.firstName,
                 lastName: data.lastName,
                 email: data.email,
                 phone: data.phone,
                 address: data.address,
-                photoUrl: photoUrl,
-            };
+            }
 
-            const userRef = doc(db, "users", user.uid);
-            await updateDoc(userRef, updatedUserData);
+            if (photoFile && photoFile instanceof Blob) {
+                photoUrl = URL.createObjectURL(photoFile);
+                updatedUserData.photoUrl = photoUrl;
+            }
 
             // Optimistically update user context
             setUser({ ...user, ...updatedUserData } as User);
 
             toast({
-                title: "Profil mis à jour",
-                description: "Vos informations ont été enregistrées avec succès.",
+                title: "Profil mis à jour (Simulation)",
+                description: "Vos informations ont été enregistrées localement.",
             });
         } catch (error) {
             console.error("Error updating profile:", error);

@@ -31,7 +31,7 @@ interface ChatLayoutProps {
   defaultLayout: number[] | undefined;
   messages: Message[];
   users: User[];
-  onNewMessage: (message: Omit<Message, 'id'>) => void;
+  onNewMessage: (message: Omit<Message, 'id' | 'createdAt'>) => void;
 }
 
 export default function ChatLayout({
@@ -118,19 +118,18 @@ export default function ChatLayout({
       if (!messageContent.trim() || !currentUser || !selectedConversation) return;
 
       setIsSending(true);
-      const newMessage: Omit<Message, 'id'> = {
+      const newMessage: Omit<Message, 'id'|'createdAt'> = {
           senderId: currentUser.uid,
           receiverId: selectedConversation,
           content: messageContent,
           type: 'private',
-          createdAt: new Date().toISOString(),
       };
 
       try {
         await onNewMessage(newMessage);
         setMessageContent("");
         toast({
-          title: "Message envoyé",
+          title: "Message envoyé (Simulation)",
         });
       } catch (error) {
           toast({

@@ -44,54 +44,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setLoading(true);
 
-    const usersQuery = query(collection(db, "users"));
-    const rolesQuery = query(collection(db, "roles"));
-    const settingsQuery = query(collection(db, "settings"));
+    // Fallback to mock data
+    setAllUsers(mockUsers);
+    const superAdmin = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
+    if (!currentUser) setCurrentUser(superAdmin || mockUsers[0]);
+    setRoles(mockAdminRoles);
+    setSettings(defaultSettings);
+    setLoading(false);
 
-    const unsubUsers = onSnapshot(usersQuery, (querySnapshot) => {
-      const usersData = querySnapshot.docs.map(doc => ({ ...doc.data() } as User));
-      setAllUsers(usersData);
-      if (!currentUser && usersData.length > 0) {
-        const superAdmin = usersData.find(u => u.admin?.position === 'Super-Administrateur');
-        setCurrentUser(superAdmin || usersData[0]);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching users: ", error);
-      // Fallback to mock data on error
-      setAllUsers(mockUsers);
-      const superAdmin = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
-      if (!currentUser) setCurrentUser(superAdmin || mockUsers[0]);
-      setLoading(false);
-    });
-
-    const unsubRoles = onSnapshot(rolesQuery, (querySnapshot) => {
-      const rolesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
-      setRoles(rolesData);
-    }, (error) => {
-      console.error("Error fetching roles: ", error);
-      setRoles(mockAdminRoles);
-    });
-    
-    const unsubSettings = onSnapshot(settingsQuery, (querySnapshot) => {
-      if (!querySnapshot.empty) {
-        const settingsData = querySnapshot.docs.map(doc => ({...doc.data() } as Settings));
-        const systemSettings = settingsData.find(s => s.id === 'system');
-        setSettings(systemSettings || defaultSettings);
-      } else {
-        setSettings(defaultSettings);
-      }
-    }, (error) => {
-      console.error("Error fetching settings: ", error);
-      setSettings(defaultSettings);
-    });
-
-
-    return () => {
-      unsubUsers();
-      unsubRoles();
-      unsubSettings();
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   

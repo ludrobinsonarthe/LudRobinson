@@ -25,29 +25,18 @@ export default function MessagesPage() {
         or(where('senderId', '==', user.uid), where('receiverId', '==', user.uid))
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const userMessages = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Message);
-        userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        setMessages(userMessages);
-        setLoading(false);
-    }, (error) => {
-        console.error("Error fetching messages: ", error);
-        // Fallback to mock data
-        const userMessages = mockMessages.filter(m => m.type === 'private' && (m.senderId === user.uid || m.receiverId === user.uid));
-        userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        setMessages(userMessages);
-        setLoading(false);
-    });
-
-    return () => unsubscribe();
+    // This is a mock implementation
+    const userMessages = mockMessages.filter(m => m.type === 'private' && (m.senderId === user.uid || m.receiverId === user.uid));
+    userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    setMessages(userMessages);
+    setLoading(false);
 
   }, [user]);
   
   const handleNewMessage = async (newMessage: Omit<Message, 'id' | 'createdAt'>) => {
-    await addDoc(collection(db, 'messages'), {
-        ...newMessage,
-        createdAt: serverTimestamp()
-    });
+    // This is a mock implementation
+    const fullMessage = { ...newMessage, id: `msg_${Date.now()}`, createdAt: new Date().toISOString() };
+    setMessages(prev => [...prev, fullMessage]);
   }
 
   return (
