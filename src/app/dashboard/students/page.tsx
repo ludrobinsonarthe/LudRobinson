@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance } from "@/lib/types";
+import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance, FeeStructure } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText, ClipboardList } from "lucide-react";
 import { format } from 'date-fns';
@@ -47,12 +47,13 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { users, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
+    const { user: adminUser, users, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
+    const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -75,6 +76,8 @@ export default function StudentsPage() {
         const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course)));
         const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
+        const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), snapshot => setFeeStructures(snapshot.docs.map(doc => doc.data() as FeeStructure)));
+
         
         setLoadingData(false);
         return () => {
@@ -83,6 +86,7 @@ export default function StudentsPage() {
             unsubGrades();
             unsubCourses();
             unsubAttendances();
+            unsubFeeStructures();
         };
     }, []);
 
@@ -152,6 +156,7 @@ export default function StudentsPage() {
 
     const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => {
         const batch = writeBatch(db);
+        const isNewStudent = !selectedStudent;
         let studentUid = selectedStudent?.uid || doc(collection(db, "users")).id;
         let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl;
 
@@ -208,8 +213,45 @@ export default function StudentsPage() {
 
 
             batch.set(studentRef, finalStudentData);
+
+            // If it's a new student, create the registration fee payment
+            if (isNewStudent && finalStudentData.student) {
+                const feeStructure = feeStructures.find(fs => fs.level === finalStudentData.student?.level && fs.cycle === finalStudentData.student?.cycle);
+                if (feeStructure && feeStructure.registration > 0) {
+                    const registrationPaymentRef = doc(collection(db, "payments"));
+                    const cashTransactionRef = doc(collection(db, 'cashTransactions'));
+
+                    const payment: Payment = {
+                        id: registrationPaymentRef.id,
+                        studentId: studentUid,
+                        amountExpected: feeStructure.registration,
+                        amountPaid: feeStructure.registration,
+                        balance: 0,
+                        month: "Inscription",
+                        year: settings?.academicYear || new Date().getFullYear().toString(),
+                        method: "cash",
+                        status: "validated",
+                        validatedBy: adminUser?.uid,
+                        createdAt: new Date().toISOString(),
+                        currency: feeStructure.currency,
+                    };
+                    batch.set(registrationPaymentRef, payment);
+
+                    batch.set(cashTransactionRef, {
+                        type: 'income',
+                        category: 'tuition',
+                        amount: payment.amountPaid,
+                        currency: payment.currency,
+                        description: `Inscription - ${finalStudentData.firstName} ${finalStudentData.lastName}`,
+                        date: new Date().toISOString(),
+                        createdBy: adminUser?.uid || 'system',
+                        relatedDocId: payment.id,
+                    });
+                }
+            }
+
             await batch.commit();
-            toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté" });
+            toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté", description: isNewStudent ? "Les frais d'inscription ont été automatiquement enregistrés." : "" });
             
         } catch (error) {
             console.error("Error saving student:", error);
@@ -383,14 +425,16 @@ export default function StudentsPage() {
                 const batch = writeBatch(db);
 
                 for (const studentRow of importedStudentsData) {
-                    const fieldId = fields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
                     const studentId = doc(collection(db, 'users')).id;
+                    const fieldId = fields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
+                    const studentLevel = studentRow['Niveau'];
+                    const studentCycle = cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value || 'local';
 
                     const newUser: User = {
                         uid: studentId,
                         firstName: studentRow['Prénom'] || '',
                         lastName: studentRow['Nom'] || '',
-                        email: studentRow['Email'] || '',
+                        email: studentRow['Email'] || `student${Date.now()}@isgi.com`,
                         phone: studentRow['Téléphone'] || '',
                         role: 'student',
                         status: 'active',
@@ -398,9 +442,9 @@ export default function StudentsPage() {
                         photoUrl: `https://picsum.photos/seed/${studentId}/100/100`,
                         student: {
                            matricule: studentRow['Matricule'] || `ISGI-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-                           level: studentRow['Niveau'],
+                           level: studentLevel,
                            fieldId: fieldId,
-                           cycle: cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value || 'local',
+                           cycle: studentCycle,
                            programId: 'prog01', 
                            enrollmentDate: new Date().toISOString(),
                            endDate: ''
@@ -408,10 +452,42 @@ export default function StudentsPage() {
                     };
                     const userDocRef = doc(db, 'users', studentId);
                     batch.set(userDocRef, newUser);
+
+                     // Create registration fee payment
+                    const feeStructure = feeStructures.find(fs => fs.level === studentLevel && fs.cycle === studentCycle);
+                    if (feeStructure && feeStructure.registration > 0) {
+                        const registrationPaymentRef = doc(collection(db, "payments"));
+                        const cashTransactionRef = doc(collection(db, 'cashTransactions'));
+                        const payment: Payment = {
+                            id: registrationPaymentRef.id,
+                            studentId: studentId,
+                            amountExpected: feeStructure.registration,
+                            amountPaid: feeStructure.registration,
+                            balance: 0,
+                            month: "Inscription",
+                            year: settings?.academicYear || new Date().getFullYear().toString(),
+                            method: "cash",
+                            status: "validated",
+                            validatedBy: adminUser?.uid,
+                            createdAt: new Date().toISOString(),
+                            currency: feeStructure.currency,
+                        };
+                        batch.set(registrationPaymentRef, payment);
+                        batch.set(cashTransactionRef, {
+                            type: 'income',
+                            category: 'tuition',
+                            amount: payment.amountPaid,
+                            currency: payment.currency,
+                            description: `Inscription - ${newUser.firstName} ${newUser.lastName}`,
+                            date: new Date().toISOString(),
+                            createdBy: adminUser?.uid || 'system',
+                            relatedDocId: payment.id,
+                        });
+                    }
                 }
                 
                 await batch.commit();
-                toast({ title: "Importation réussie", description: `${importedStudentsData.length} étudiants ont été ajoutés à la base de données.` });
+                toast({ title: "Importation réussie", description: `${importedStudentsData.length} étudiants ont été ajoutés, avec leurs frais d'inscription.` });
             } catch (error) {
                 console.error("Error importing file:", error);
                 toast({ variant: "destructive", title: "Erreur d'importation", description: "Le fichier est peut-être corrompu ou mal formaté." });
