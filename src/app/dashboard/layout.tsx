@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link";
-import { usePathname, redirect } from "next/navigation";
+import { usePathname, redirect, useRouter } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
