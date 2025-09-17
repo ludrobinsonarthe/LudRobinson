@@ -57,11 +57,12 @@ export default function AdminManagementPage() {
 
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
+        // In a real app, you'd save this to your database
         setSettings({ id: 'system', ...data });
         setTimeout(() => {
             toast({
-                title: "Paramètres enregistrés",
-                description: "Les paramètres globaux de l'application ont été mis à jour.",
+                title: "Paramètres enregistrés (Simulation)",
+                description: "Les paramètres globaux de l'application ont été mis à jour localement.",
             });
             setSubmitting(false);
         }, 500);
