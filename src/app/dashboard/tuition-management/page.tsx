@@ -2,7 +2,8 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -15,21 +16,25 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
-import { Payment } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, Download } from "lucide-react";
+import { Payment, User } from "@/lib/types";
+import { MoreHorizontal, PlusCircle, Trash2, Download, Check, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch, addDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import PaymentFormDialog from '@/components/payment-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
-import { mockPayments } from '@/lib/mock-data';
 import jsPDF from "jspdf";
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function TuitionManagementPage() {
+function TuitionManagementContent() {
     const { users, loading: usersLoading, settings } = useUser();
+    const searchParams = useSearchParams();
+    const studentIdFilter = searchParams.get('studentId');
+
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loadingPayments, setLoadingPayments] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -37,10 +42,21 @@ export default function TuitionManagementPage() {
     const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
     const { toast } = useToast();
 
+    // Filters
+    const [studentFilter, setStudentFilter] = useState(studentIdFilter || 'all');
+    const [statusFilter, setStatusFilter] = useState('all');
+
     useEffect(() => {
         setLoadingPayments(true);
-        setPayments(mockPayments.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        setLoadingPayments(false);
+        const q = query(collection(db, "payments"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const allPayments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment))
+                .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setPayments(allPayments);
+            setLoadingPayments(false);
+        });
+
+        return () => unsubscribe();
     }, []);
     
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -48,6 +64,13 @@ export default function TuitionManagementPage() {
         const student = students.find(s => s.uid === studentId);
         return student ? `${student.firstName} ${student.lastName}` : 'Inconnu';
     }
+    
+    const filteredPayments = useMemo(() => {
+        return payments.filter(p => 
+            (studentFilter === 'all' || p.studentId === studentFilter) &&
+            (statusFilter === 'all' || p.status === statusFilter)
+        )
+    }, [payments, studentFilter, statusFilter]);
 
     const handleAdd = () => {
         setSelectedPayment(null);
@@ -55,21 +78,49 @@ export default function TuitionManagementPage() {
     }
 
     const handleSave = async (paymentData: Omit<Payment, 'id' | 'createdAt' | 'status' | 'balance'>) => {
-        const newPayment: Payment = {
-            id: `pay_${Date.now()}`,
+         const newPayment: Omit<Payment, 'id'> = {
             createdAt: new Date().toISOString(),
             status: 'pending',
             balance: paymentData.amountExpected - paymentData.amountPaid,
             ...paymentData
         };
-        setPayments(prev => [newPayment, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        toast({ title: "Paiement enregistré (Simulation)", description: "Le paiement a été enregistré localement." });
-        setIsFormOpen(false);
+
+        try {
+            await addDoc(collection(db, 'payments'), newPayment);
+            toast({ title: "Paiement enregistré", description: "Le paiement a été soumis pour validation." });
+            setIsFormOpen(false);
+        } catch (error) {
+            console.error("Error saving payment: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le paiement." });
+        }
     }
     
     const handleUpdateStatus = async (payment: Payment, status: 'validated' | 'rejected') => {
-        setPayments(prev => prev.map(p => p.id === payment.id ? { ...p, status } : p));
-        toast({ title: "Statut mis à jour (Simulation)", description: `Le paiement a été marqué comme ${status === 'validated' ? 'validé' : 'rejeté'}.` });
+        const paymentRef = doc(db, 'payments', payment.id);
+        try {
+            const batch = writeBatch(db);
+            batch.update(paymentRef, { status });
+
+            if (status === 'validated') {
+                const transactionRef = doc(collection(db, 'cashTransactions'));
+                batch.set(transactionRef, {
+                    type: 'income',
+                    category: 'tuition',
+                    amount: payment.amountPaid,
+                    currency: payment.currency,
+                    description: `Scolarité ${payment.month} - ${getStudentName(payment.studentId)}`,
+                    date: new Date().toISOString(),
+                    createdBy: 'system', // or current admin ID
+                    relatedDocId: payment.id,
+                });
+            }
+
+            await batch.commit();
+            toast({ title: "Statut mis à jour", description: `Le paiement a été marqué comme ${status === 'validated' ? 'validé' : 'rejeté'}.` });
+        } catch (error) {
+            console.error("Error updating status: ", error);
+            toast({ variant: 'destructive', title: "Erreur", description: "Impossible de mettre à jour le statut." });
+        }
     }
 
     const handleDelete = (payment: Payment) => {
@@ -79,10 +130,16 @@ export default function TuitionManagementPage() {
 
     const confirmDelete = async () => {
         if(selectedPayment) {
-            setPayments(prev => prev.filter(p => p.id !== selectedPayment.id));
-            toast({ title: "Paiement supprimé (Simulation)" });
-            setIsDeleteOpen(false);
-            setSelectedPayment(null);
+            try {
+                await deleteDoc(doc(db, 'payments', selectedPayment.id));
+                 toast({ title: "Paiement supprimé" });
+            } catch(error) {
+                console.error("Error deleting payment: ", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le paiement." });
+            } finally {
+                setIsDeleteOpen(false);
+                setSelectedPayment(null);
+            }
         }
     }
 
@@ -108,14 +165,11 @@ export default function TuitionManagementPage() {
         doc.text(`Reçu de: ${student.firstName} ${student.lastName}`, 20, 90);
         doc.text(`Matricule: ${student.student?.matricule}`, 20, 100);
 
-        const amountPaidText = `Montant payé: ${payment.amountPaid.toLocaleString()} ${payment.currency}`;
-        const balanceText = `Solde restant pour ce paiement: ${payment.balance.toLocaleString()} ${payment.currency}`;
-
-        doc.text(`Motif du paiement: ${payment.month} (${payment.year})`, 20, 120);
         doc.autoTable({
-            startY: 125,
+            startY: 110,
             head: [['Description', 'Montant']],
             body: [
+                ['Motif du paiement', `${payment.month} (${payment.year})`],
                 ['Montant Attendu', `${payment.amountExpected.toLocaleString()} ${payment.currency}`],
                 ['Montant Versé', `${payment.amountPaid.toLocaleString()} ${payment.currency}`],
                 ['Solde pour ce versement', `${payment.balance.toLocaleString()} ${payment.currency}`]
@@ -140,6 +194,9 @@ export default function TuitionManagementPage() {
         pending: "En attente",
         rejected: "Rejeté",
     }
+    const formatCurrency = (amount: number, currency: string = 'XAF') => {
+        return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
+    }
 
     const loading = usersLoading || loadingPayments;
 
@@ -162,10 +219,32 @@ export default function TuitionManagementPage() {
                 <CardHeader>
                     <CardTitle>Historique des Paiements</CardTitle>
                     <CardDescription>
-                        Liste de tous les paiements enregistrés dans le système.
+                        Filtrez et gérez tous les paiements enregistrés dans le système.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <div className="flex items-center gap-4 mb-4">
+                        <Select value={studentFilter} onValueChange={setStudentFilter}>
+                            <SelectTrigger className="w-[280px]">
+                                <SelectValue placeholder="Filtrer par étudiant" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les étudiants</SelectItem>
+                                {students.map(s => <SelectItem key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filtrer par statut" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les statuts</SelectItem>
+                                <SelectItem value="pending">En attente</SelectItem>
+                                <SelectItem value="validated">Validé</SelectItem>
+                                <SelectItem value="rejected">Rejeté</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                      <Table>
                         <TableHeader>
                             <TableRow>
@@ -184,10 +263,10 @@ export default function TuitionManagementPage() {
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
-                            ) : payments.length > 0 ? payments.map(payment => (
+                            ) : filteredPayments.length > 0 ? filteredPayments.map(payment => (
                                 <TableRow key={payment.id}>
                                     <TableCell className="font-medium">{getStudentName(payment.studentId)}</TableCell>
-                                    <TableCell>{payment.amountPaid.toLocaleString()} {payment.currency}</TableCell>
+                                    <TableCell>{formatCurrency(payment.amountPaid, payment.currency)}</TableCell>
                                     <TableCell>{payment.month}</TableCell>
                                     <TableCell>{format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}</TableCell>
                                     <TableCell>
@@ -203,8 +282,8 @@ export default function TuitionManagementPage() {
                                            <DropdownMenuContent align="end">
                                                {payment.status === 'pending' && (
                                                 <>
-                                                    <DropdownMenuItem onClick={() => handleUpdateStatus(payment, 'validated')}>Valider</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleUpdateStatus(payment, 'rejected')}>Rejeter</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleUpdateStatus(payment, 'validated')}><Check className="mr-2 h-4 w-4"/>Valider</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleUpdateStatus(payment, 'rejected')} className="text-amber-600"><X className="mr-2 h-4 w-4"/>Rejeter</DropdownMenuItem>
                                                 </>
                                                )}
                                                <DropdownMenuItem onClick={() => handleGenerateReceipt(payment)} disabled={payment.status !== 'validated'}>
@@ -222,7 +301,7 @@ export default function TuitionManagementPage() {
                             )) : (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
-                                        Aucun paiement trouvé.
+                                        Aucun paiement trouvé pour les filtres sélectionnés.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -236,6 +315,7 @@ export default function TuitionManagementPage() {
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
                 students={students}
+                initialStudentId={studentIdFilter}
             />
 
             {selectedPayment && (
@@ -250,4 +330,12 @@ export default function TuitionManagementPage() {
     );
 }
 
+export default function TuitionManagementPage() {
+    return (
+        <Suspense fallback={<div>Chargement...</div>}>
+            <TuitionManagementContent />
+        </Suspense>
+    )
+}
     
+

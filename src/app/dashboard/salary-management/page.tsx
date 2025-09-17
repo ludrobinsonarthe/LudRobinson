@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -20,12 +21,11 @@ import { MoreHorizontal, PlusCircle, Trash2, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, query } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch, query, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
-import { mockSalaries, mockAttendances, mockCourses } from '@/lib/mock-data';
 
 function SalaryManagementContent() {
     const { users, loading: usersLoading } = useUser();
@@ -43,10 +43,24 @@ function SalaryManagementContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        setSalaries(mockSalaries.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        setAttendances(mockAttendances);
-        setCourses(mockCourses);
+        const unsubSalaries = onSnapshot(query(collection(db, 'teacherSalaries')), snapshot => {
+            setSalaries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeacherSalary))
+                .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        });
+        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
+            setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Attendance)));
+        });
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
+            setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Course)));
+        });
+        
         setLoadingData(false);
+
+        return () => {
+            unsubSalaries();
+            unsubAttendances();
+            unsubCourses();
+        };
     }, []);
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
@@ -107,21 +121,48 @@ function SalaryManagementContent() {
 
 
     const handleSave = async (salaryData: Omit<TeacherSalary, 'id' | 'createdAt' | 'status'>) => {
-        const newSalary: TeacherSalary = {
-            id: `salary_${Date.now()}`,
+        const newSalary: Omit<TeacherSalary, 'id'> = {
             createdAt: new Date().toISOString(),
             status: 'pending',
             ...salaryData
         };
-        setSalaries(prev => [newSalary, ...prev].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-        toast({ title: "Fiche de paie générée (Simulation)", description: "La fiche de paie a été enregistrée localement." });
-        setIsFormOpen(false);
+        try {
+            await addDoc(collection(db, 'teacherSalaries'), newSalary);
+            toast({ title: "Fiche de paie générée", description: "La fiche de paie a été enregistrée." });
+            setIsFormOpen(false);
+        } catch (error) {
+            console.error("Error saving salary:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de générer la fiche de paie." });
+        }
     }
     
     const handleUpdateStatus = async (salary: TeacherSalary, status: 'paid') => {
-        const updatedSalaryData = { status, paidAt: new Date().toISOString() };
-        setSalaries(prev => prev.map(s => s.id === salary.id ? { ...s, ...updatedSalaryData } : s));
-        toast({ title: "Statut mis à jour (Simulation)", description: `Le salaire a été marqué comme payé.` });
+        const salaryRef = doc(db, 'teacherSalaries', salary.id);
+        const user = users.find(u => u.role === 'admin');
+        const updatedSalaryData = { status, paidAt: new Date().toISOString(), paidBy: user?.uid };
+        
+        try {
+            const batch = writeBatch(db);
+            batch.update(salaryRef, updatedSalaryData);
+
+            const transactionRef = doc(collection(db, 'cashTransactions'));
+            batch.set(transactionRef, {
+                type: 'expense',
+                category: 'salary',
+                amount: salary.totalSalary,
+                currency: salary.currency,
+                description: `Paie ${salary.month} - ${getTeacherName(salary.teacherId)}`,
+                date: new Date().toISOString(),
+                createdBy: user?.uid || 'system',
+                relatedDocId: salary.id,
+            });
+
+            await batch.commit();
+            toast({ title: "Statut mis à jour", description: `Le salaire a été marqué comme payé.` });
+        } catch (error) {
+            console.error("Error updating salary status: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour le statut." });
+        }
     }
 
     const handleDelete = (salary: TeacherSalary) => {
@@ -131,10 +172,16 @@ function SalaryManagementContent() {
 
     const confirmDelete = async () => {
         if(selectedSalary) {
-            setSalaries(prev => prev.filter(s => s.id !== selectedSalary.id));
-            toast({ title: "Fiche de paie supprimée (Simulation)" });
-            setIsDeleteOpen(false);
-            setSelectedSalary(null);
+             try {
+                await deleteDoc(doc(db, 'teacherSalaries', selectedSalary.id));
+                toast({ title: "Fiche de paie supprimée" });
+            } catch (error) {
+                console.error("Error deleting salary record: ", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer la fiche de paie." });
+            } finally {
+                setIsDeleteOpen(false);
+                setSelectedSalary(null);
+            }
         }
     }
 
@@ -220,7 +267,7 @@ function SalaryManagementContent() {
                                                     </DropdownMenuItem>
                                                )}
                                                <DropdownMenuItem>Voir détails</DropdownMenuItem>
-                                               <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive">
+                                               <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive" disabled={salary.status === 'paid'}>
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
                                                </DropdownMenuItem>
@@ -270,3 +317,4 @@ export default function SalaryManagementPage() {
 }
 
     
+

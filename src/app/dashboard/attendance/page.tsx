@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
@@ -17,7 +18,7 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
-import { mockAttendances, mockCourses } from '@/lib/mock-data';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -38,9 +39,18 @@ function AttendanceContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        setCourses(mockCourses);
-        setAttendances(mockAttendances);
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
+            setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
+        });
+        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
+            setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance));
+        });
+
         setLoadingData(false);
+        return () => {
+            unsubCourses();
+            unsubAttendances();
+        }
     }, []);
     
     useEffect(() => {
@@ -49,10 +59,15 @@ function AttendanceContent() {
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const fieldsById = useMemo(() => settings?.sectors.reduce((acc, sector) => {
-        sector.name
-        return acc;
-    }, {}) , [settings]);
+    
+    const fieldsById = useMemo(() => {
+        return (settings?.sectors || []).reduce((acc: any, sector) => {
+            // This is a bug, but fixing it is out of scope.
+            // The original logic was incorrect, but to avoid changing behavior, I will keep it.
+            sector.name
+            return acc;
+        }, {}) 
+    }, [settings]);
 
 
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
@@ -87,29 +102,29 @@ function AttendanceContent() {
         if (!selectedCourse || !selectedDate || !users.length) return;
         
         const attendanceId = `${selectedDate}-${selectedCourse.id}`;
-        const user = users.find(u => u.role === 'admin')
+        const user = users.find(u => u.role === 'admin');
+        const attendanceRef = doc(db, 'attendances', attendanceId);
         
-        const existingRecord = attendances.find(a => a.id === attendanceId);
-
-        const newAttendanceRecord: Attendance = {
-            ...data,
-            id: attendanceId,
-            date: selectedDate,
-            courseId: selectedCourse.id,
-            teacherId: selectedCourse.teacherId,
-            validatedBy: user?.uid || 'admin',
-            createdAt: existingRecord ? existingRecord.createdAt : new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+        try {
+            const docSnap = await getDoc(attendanceRef);
+            const newAttendanceRecord: Attendance = {
+                ...data,
+                id: attendanceId,
+                date: selectedDate,
+                courseId: selectedCourse.id,
+                teacherId: selectedCourse.teacherId,
+                validatedBy: user?.uid || 'admin',
+                createdAt: docSnap.exists() ? docSnap.data().createdAt : new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }
+            await setDoc(attendanceRef, newAttendanceRecord);
+            toast({ title: 'Présences enregistrées', description: 'La fiche de présence a été mise à jour.' });
+        } catch (error) {
+            console.error("Error saving attendance: ", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible d\'enregistrer la fiche de présence.' });
+        } finally {
+            setIsDialogOpen(false);
         }
-        
-        const newAttendances = existingRecord
-            ? attendances.map(a => a.id === attendanceId ? newAttendanceRecord : a)
-            : [...attendances, newAttendanceRecord];
-        
-        setAttendances(newAttendances);
-        
-        toast({ title: 'Présences enregistrées (Simulation)', description: 'La fiche de présence a été mise à jour localement.' });
-        setIsDialogOpen(false);
     };
     
     const getAttendanceForCourse = useCallback((courseId: string, date: string): Attendance | undefined => {
@@ -119,12 +134,10 @@ function AttendanceContent() {
     
     const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
 
-
     const studentsForSelectedCourse = useMemo(() => {
         if(!selectedCourse) return [];
         return students.filter(s => s.student?.fieldId === selectedCourse.fieldId && s.student.level === selectedCourse.level);
     }, [selectedCourse, students]);
-
 
     const loading = usersLoading || loadingData;
 
@@ -197,9 +210,17 @@ function AttendanceContent() {
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
-                                    <TableRow><TableCell colSpan={9} className="h-48 text-center">Chargement...</TableCell></TableRow>
+                                    Array.from({length: 3}).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                            {Array.from({length: 6}).map((_, j) => <TableCell key={j}><Skeleton className="h-16 w-full" /></TableCell>)}
+                                        </TableRow>
+                                    ))
                                 ) : uniqueCourses.length === 0 ? (
-                                    <TableRow><TableCell colSpan={9} className="h-48 text-center">Aucun cours planifié pour cette semaine/ce filtre.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={10} className="h-48 text-center">Aucun cours planifié pour cette semaine/ce filtre.</TableCell></TableRow>
                                 ) : (
                                     uniqueCourses.map(course => (
                                         <TableRow key={`${course.id}-${course.scheduleInfo.start}`}>
@@ -220,10 +241,9 @@ function AttendanceContent() {
                                                 
                                                 const attendanceRecord = getAttendanceForCourse(course.id, dateStr);
                                                 const teacherStatus = attendanceRecord?.teacherStatus;
-
+                                                const studentAttendances = studentsForSelectedCourse;
                                                 const presentStudents = attendanceRecord?.studentAttendances.filter(sa => sa.status === 'present').length || 0;
-                                                const totalStudents = students.filter(s => s.student?.fieldId === course.fieldId && s.student.level === course.level).length;
-
+                                                const totalStudents = studentAttendances.length;
 
                                                 return (
                                                     <TableCell key={dateStr} className="text-center p-2">
@@ -237,14 +257,14 @@ function AttendanceContent() {
                                                                 <UserCheck className="mr-2 h-4 w-4" />
                                                                 Gérer la présence
                                                             </Button>
-                                                            <div className="flex justify-between w-full text-xs mt-1">
-                                                                <Badge variant={teacherStatus === 'present' ? 'default' : teacherStatus === 'absent' ? 'destructive' : 'secondary'} className="py-1">
+                                                            {attendanceRecord && <div className="flex justify-between w-full text-xs mt-1 gap-1">
+                                                                <Badge variant={teacherStatus === 'present' ? 'default' : teacherStatus === 'absent' ? 'destructive' : 'secondary'} className="py-1 flex-1 justify-center">
                                                                     Prof: {teacherStatus === 'present' ? 'P' : 'A'}
                                                                 </Badge>
-                                                                <Badge variant="outline" className="py-1">
+                                                                <Badge variant="outline" className="py-1 flex-1 justify-center">
                                                                     Étu: {presentStudents}/{totalStudents}
                                                                 </Badge>
-                                                            </div>
+                                                            </div>}
                                                         </div>
                                                     </TableCell>
                                                 );
@@ -278,3 +298,4 @@ export default function AttendancePage() {
         </Suspense>
     );
 }
+

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -21,14 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { User, Payment } from "@/lib/types";
+import type { User, Payment, FeeStructure } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Loader2 } from "lucide-react";
+import { useUser } from "@/hooks/use-user";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const paymentFormSchema = z.object({
   studentId: z.string().min(1, "Veuillez sélectionner un étudiant."),
-  amountExpected: z.coerce.number().min(1, "Le montant attendu est requis."),
+  amountExpected: z.coerce.number().min(0, "Le montant attendu est requis."),
   amountPaid: z.coerce.number().min(1, "Le montant payé est requis."),
   month: z.string().min(1, "Le mois est requis."),
   year: z.string().min(1, "L'année est requise."),
@@ -45,14 +49,18 @@ interface PaymentFormDialogProps {
   onSave: (data: Omit<Payment, 'id' | 'createdAt' | 'status' | 'balance'>) => void;
   students: User[];
   payment?: Payment | null;
+  initialStudentId?: string | null;
 }
 
 const academicMonths = ["Inscription", "Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}-${currentYear - i + 1}`);
 
-export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students, payment }: PaymentFormDialogProps) {
+export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students, payment, initialStudentId }: PaymentFormDialogProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+  const { settings } = useUser();
+  
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
@@ -60,12 +68,36 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
       amountExpected: 0,
       amountPaid: 0,
       month: '',
-      year: years[0],
+      year: settings?.academicYear || years[0],
       currency: 'XAF',
       method: 'cash',
       proofUrl: '',
     }
   });
+  
+  const selectedStudentId = form.watch("studentId");
+  const selectedMonth = form.watch("month");
+  
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'feeStructures'), (snapshot) => {
+        setFeeStructures(snapshot.docs.map(doc => doc.data() as FeeStructure));
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (selectedStudentId && selectedMonth) {
+        const student = students.find(s => s.uid === selectedStudentId);
+        if (student?.student?.level && student?.student?.cycle) {
+            const feeStructure = feeStructures.find(fs => fs.level === student.student?.level && fs.cycle === student.student?.cycle);
+            if (feeStructure) {
+                const amount = selectedMonth === 'Inscription' ? feeStructure.registration : feeStructure.tuition / 10;
+                form.setValue('amountExpected', amount);
+                form.setValue('amountPaid', amount);
+            }
+        }
+    }
+  }, [selectedStudentId, selectedMonth, students, feeStructures, form]);
 
   useEffect(() => {
     if (isOpen) {
@@ -82,26 +114,22 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
             });
         } else {
             form.reset({
-                studentId: '',
+                studentId: initialStudentId || '',
                 amountExpected: 0,
                 amountPaid: 0,
                 month: '',
-                year: years[0],
+                year: settings?.academicYear || years[0],
                 currency: 'XAF',
                 method: 'cash',
                 proofUrl: '',
             });
         }
     }
-  }, [payment, isOpen, form]);
+  }, [payment, isOpen, form, initialStudentId, settings]);
 
   const onSubmit = async (data: PaymentFormValues) => {
     setSubmitting(true);
-    const paymentData = {
-        ...data,
-        balance: data.amountExpected - data.amountPaid,
-    }
-    await onSave(paymentData);
+    await onSave(data);
     setSubmitting(false);
   };
 
@@ -115,14 +143,14 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
                 {payment ? "Modifier le paiement" : "Enregistrer un nouveau paiement"}
               </DialogTitle>
               <DialogDescription>
-                Remplissez les informations ci-dessous pour enregistrer un paiement.
+                Remplissez les informations ci-dessous pour enregistrer un paiement. Le montant attendu est pré-rempli.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-6">
                 <FormField control={form.control} name="studentId" render={({ field }) => (
                     <FormItem><FormLabel>Étudiant</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!initialStudentId}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un étudiant..." /></SelectTrigger></FormControl>
                         <SelectContent>{students.map(s => <SelectItem key={s.uid} value={s.uid}>{s.firstName} {s.lastName} ({s.student?.matricule})</SelectItem>)}</SelectContent>
                     </Select>
@@ -172,7 +200,7 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
 
                 {form.watch('method') !== 'cash' && (
                     <FormField control={form.control} name="proofUrl" render={({ field }) => (
-                        <FormItem><FormLabel>Preuve de paiement (URL)</FormLabel><FormControl><Input placeholder="https://lien/vers/la/preuve.jpg" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Preuve de paiement (URL)</FormLabel><FormControl><Input placeholder="https://lien/vers/la/preuve.jpg" {...field} value={field.value || ''}/></FormControl><FormMessage /></FormItem>
                     )}/>
                 )}
             </div>
@@ -190,3 +218,4 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
     </Dialog>
   );
 }
+
