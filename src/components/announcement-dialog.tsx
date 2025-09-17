@@ -28,7 +28,7 @@ import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const announcementSchema = z.object({
@@ -83,16 +83,33 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     }
     setSubmitting(true);
     
-    // Simulate DB operation
-    setTimeout(() => {
-      if (announcement) {
-          toast({ title: "Annonce modifiée (Simulation)", description: "L'annonce a été mise à jour localement." });
-      } else {
-          toast({ title: "Annonce publiée (Simulation)", description: "La nouvelle annonce a été publiée localement." });
-      }
-      setSubmitting(false);
-      setIsOpen(false);
-    }, 1000);
+    try {
+        if (announcement) {
+            const announcementRef = doc(db, 'messages', announcement.id);
+            await setDoc(announcementRef, {
+                ...data,
+                senderId: user.uid,
+                type: 'announcement',
+                createdAt: announcement.createdAt, // Keep original creation date
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
+            toast({ title: "Annonce modifiée", description: "L'annonce a été mise à jour." });
+        } else {
+            await addDoc(collection(db, 'messages'), {
+                ...data,
+                senderId: user.uid,
+                type: 'announcement',
+                createdAt: serverTimestamp(),
+            });
+            toast({ title: "Annonce publiée", description: "La nouvelle annonce a été publiée." });
+        }
+        setIsOpen(false);
+    } catch(e) {
+        console.error(e);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de publier l'annonce."});
+    } finally {
+        setSubmitting(false);
+    }
   };
 
   return (

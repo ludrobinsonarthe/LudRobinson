@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import ChatLayout from "@/components/chat-layout";
 import { useUser } from "@/hooks/use-user";
 import { Message } from "@/lib/types";
-import { collection, query, where, onSnapshot, or, addDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, or, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 import { mockMessages } from "@/lib/mock-data";
@@ -19,17 +19,35 @@ export default function MessagesPage() {
     if (!user) return;
     setLoading(true);
 
-    const userMessages = mockMessages.filter(m => m.type === 'private' && (m.senderId === user.uid || m.receiverId === user.uid));
-    userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    setMessages(userMessages);
-    setLoading(false);
+    const q = query(
+        collection(db, 'messages'),
+        where('type', '==', 'private'),
+        or(where('senderId', '==', user.uid), where('receiverId', '==', user.uid))
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const userMessages = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Message);
+        userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        setMessages(userMessages);
+        setLoading(false);
+    }, (error) => {
+        console.error("Error fetching messages: ", error);
+        // Fallback to mock data
+        const userMessages = mockMessages.filter(m => m.type === 'private' && (m.senderId === user.uid || m.receiverId === user.uid));
+        userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        setMessages(userMessages);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
 
   }, [user]);
   
-  const handleNewMessage = async (newMessage: Omit<Message, 'id'>) => {
-    const messageWithId = { ...newMessage, id: `msg_${Date.now()}` };
-    setMessages(prev => [...prev, messageWithId]);
-    // No actual DB write, just local state update
+  const handleNewMessage = async (newMessage: Omit<Message, 'id' | 'createdAt'>) => {
+    await addDoc(collection(db, 'messages'), {
+        ...newMessage,
+        createdAt: serverTimestamp()
+    });
   }
 
   return (

@@ -23,20 +23,38 @@ export default function DashboardPage() {
         if (!currentUser) return;
         
         setLoading(true);
-        // Using mock data
         const targetReceivers = ['all', currentUser.role];
         if (currentUser.admin?.roleId) {
             targetReceivers.push(currentUser.admin.roleId);
         }
-        
-        const fetchedAnnouncements = mockMessages.filter(m => 
-            m.type === 'announcement' &&
-            targetReceivers.includes(m.receiverId)
-        ).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        
-        setAnnouncements(fetchedAnnouncements);
-        setLoading(false);
 
+        const q = query(
+            collection(db, 'messages'), 
+            where('type', '==', 'announcement'),
+            where('receiverId', 'in', targetReceivers),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const fetchedAnnouncements = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as Message));
+            setAnnouncements(fetchedAnnouncements);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching announcements: ", error);
+            // Fallback to mock data on error
+            const fetchedAnnouncements = mockMessages.filter(m => 
+                m.type === 'announcement' &&
+                targetReceivers.includes(m.receiverId)
+            ).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setAnnouncements(fetchedAnnouncements);
+            setLoading(false);
+        });
+
+
+        return () => unsubscribe();
     }, [currentUser]);
 
 
