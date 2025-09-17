@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -66,7 +65,13 @@ function SalaryManagementContent() {
         };
     }, []);
 
-    const teachersAndAdmins = useMemo(() => users.filter(u => u.role === 'teacher' || u.role === 'admin'), [users]);
+    const teachersAndAdmins = useMemo(() => {
+      const all = users.filter(u => u.role === 'teacher' || u.role === 'admin');
+      return all.filter((user, index, self) => 
+        index === self.findIndex(u => u.uid === user.uid)
+      );
+    }, [users]);
+
     const usersById = useMemo(() => teachersAndAdmins.reduce((acc, user) => ({ ...acc, [user.uid]: user }), {} as Record<string, User>), [teachersAndAdmins]);
     
     const getUserName = (userId: string) => {
@@ -435,3 +440,5 @@ export default function SalaryManagementPage() {
         </Suspense>
     )
 }
+
+    
