@@ -22,10 +22,12 @@ export default function ReportingPage() {
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
         const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction)));
 
-        setLoadingData(false);
+        const timeoutId = setTimeout(() => setLoadingData(false), 500); // Simulate loading
+        
         return () => {
             unsubCourses();
             unsubTransactions();
+            clearTimeout(timeoutId);
         }
     }, []);
 

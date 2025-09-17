@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useForm } from "react-hook-form";
+import React, { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -88,8 +88,9 @@ const cycles: { value: Cycle, label: string }[] = [
     { value: 'entrepreneur', label: 'Cycle Entrepreneur' },
 ];
 
-export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, parents }: StudentFormDialogProps) {
-    const { settings } = useUser();
+const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProps>(
+    ({ isOpen, setIsOpen, onSave, student, parents }, ref) => {
+    const { settings, fields, sectors } = useUser();
 
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema),
@@ -119,9 +120,6 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
 
   const parentSelection = form.watch('parentSelection');
   const selectedSector = form.watch('sectorId');
-
-  const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(fs => fs.id === s.id)) || [], [settings]);
-  const sectors = useMemo(() => settings?.sectors || [], [settings]);
 
   const availableFields = useMemo(() => {
       if (!selectedSector) return [];
@@ -232,7 +230,7 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
   return (
     <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl" ref={ref}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <DialogHeader>
@@ -389,6 +387,6 @@ export default function StudentFormDialog({ isOpen, setIsOpen, onSave, student, 
     />
     </>
   );
-}
-
-    
+});
+StudentFormDialog.displayName = 'StudentFormDialog';
+export default StudentFormDialog;
