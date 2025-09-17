@@ -62,7 +62,7 @@ const studentFormSchema = z.object({
     path: ["parentFirstName"]
 }).refine(data => {
     if (data.parentSelection === 'new' && data.parentEmail) {
-        return z.string().email("L'e-mail du tuteur est invalide.").safeParse(data.parentEmail).success;
+        return z.string().email("L'e-mail du tuteur est invalide.").optional().or(z.literal('')).safeParse(data.parentEmail).success;
     }
     return true;
 },
@@ -228,7 +228,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             level: data.level,
             fieldId: data.fieldId,
             parentalLink: data.parentalLink,
-            parentUid: data.parentSelection === 'existing' ? data.parentUid : undefined,
             programId: student?.student?.programId || 'prog01', // Keep existing or default
             enrollmentDate: student?.student?.enrollmentDate || new Date().toISOString(),
             endDate: student?.student?.endDate || '',
@@ -236,13 +235,21 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
     };
     
     let parentData : Partial<User> | undefined;
-    if (data.parentSelection === 'new' && data.parentFirstName && data.parentLastName) {
+
+    if (data.parentSelection === 'existing' && data.parentUid) {
+        if(studentData.student) studentData.student.parentUid = data.parentUid;
+    } else if (data.parentSelection === 'new' && data.parentFirstName && data.parentLastName) {
         parentData = {
             firstName: data.parentFirstName,
             lastName: data.parentLastName,
             email: data.parentEmail || '',
             phone: data.parentPhone,
             address: data.parentAddress,
+        }
+    } else {
+        // Ensure parentUid is not undefined
+        if(studentData.student && 'parentUid' in studentData.student) {
+             delete studentData.student.parentUid;
         }
     }
 
@@ -413,3 +420,5 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
+
+    
