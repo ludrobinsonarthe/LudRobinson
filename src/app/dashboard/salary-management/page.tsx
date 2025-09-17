@@ -4,6 +4,8 @@
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Table,
   TableBody,
@@ -16,8 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
-import { TeacherSalary, Attendance, Course } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, CheckCircle } from "lucide-react";
+import { TeacherSalary, Attendance, Course, UnifiedSalary, User } from "@/lib/types";
+import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -26,26 +28,27 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function SalaryManagementContent() {
-    const { users, loading: usersLoading } = useUser();
+    const { users, loading: usersLoading, settings } = useUser();
     const searchParams = useSearchParams();
-    const teacherIdFilter = searchParams.get('teacherId');
+    const userIdFilter = searchParams.get('userId');
 
-    const [salaries, setSalaries] = useState<TeacherSalary[]>([]);
+    const [teacherSalaries, setTeacherSalaries] = useState<TeacherSalary[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [selectedSalary, setSelectedSalary] = useState<TeacherSalary | null>(null);
+    const [selectedSalary, setSelectedSalary] = useState<UnifiedSalary | null>(null);
+    const [userFilter, setUserFilter] = useState(userIdFilter || 'all');
     const { toast } = useToast();
 
     useEffect(() => {
         setLoadingData(true);
         const unsubSalaries = onSnapshot(query(collection(db, 'teacherSalaries')), snapshot => {
-            setSalaries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeacherSalary))
-                .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setTeacherSalaries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeacherSalary)));
         });
         const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
             setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Attendance)));
@@ -62,27 +65,65 @@ function SalaryManagementContent() {
             unsubCourses();
         };
     }, []);
+
+    const teachersAndAdmins = useMemo(() => users.filter(u => u.role === 'teacher' || u.role === 'admin'), [users]);
+    const usersById = useMemo(() => teachersAndAdmins.reduce((acc, user) => ({ ...acc, [user.uid]: user }), {} as Record<string, User>), [teachersAndAdmins]);
     
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
-    
-    const getTeacherName = (teacherId: string) => {
-        const teacher = teachers.find(s => s.uid === teacherId);
-        return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Inconnu';
+    const getUserName = (userId: string) => {
+        const user = usersById[userId];
+        return user ? `${user.firstName} ${user.lastName}` : 'Inconnu';
     }
 
-    const filteredSalaries = useMemo(() => {
-        if (!teacherIdFilter) return salaries;
-        return salaries.filter(s => s.teacherId === teacherIdFilter);
-    }, [salaries, teacherIdFilter]);
+    const unifiedSalaries = useMemo((): UnifiedSalary[] => {
+        const allSalaries: UnifiedSalary[] = [];
+        
+        // Process teacher salaries
+        teacherSalaries.forEach(ts => {
+            const user = usersById[ts.teacherId];
+            if (user) {
+                allSalaries.push({
+                    ...ts,
+                    id: ts.id,
+                    userId: ts.teacherId,
+                    userName: getUserName(ts.teacherId),
+                    userRole: 'teacher',
+                });
+            }
+        });
 
-    const pageTitle = useMemo(() => {
-        if (teacherIdFilter) {
-            const teacher = teachers.find(t => t.uid === teacherIdFilter);
-            return `Salaires pour ${teacher ? `${teacher.firstName} ${teacher.lastName}`: 'Professeur'}`;
+        // Generate monthly salaries for admins for the last 12 months
+        const adminUsers = teachersAndAdmins.filter(u => u.role === 'admin' && u.admin?.baseSalary);
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const month = format(date, 'MMMM', { locale: fr });
+            const year = format(date, 'yyyy');
+
+            adminUsers.forEach(admin => {
+                 allSalaries.push({
+                    id: `admin-${admin.uid}-${year}-${month}`,
+                    userId: admin.uid,
+                    userName: `${admin.firstName} ${admin.lastName}`,
+                    userRole: 'admin',
+                    month: month,
+                    year: year,
+                    totalSalary: admin.admin?.baseSalary || 0,
+                    status: 'pending', // This should be checked against a real record if implemented
+                    currency: 'XAF',
+                    createdAt: date.toISOString(),
+                    baseSalary: admin.admin?.baseSalary || 0,
+                 });
+            });
         }
-        return "Gestion des Salaires";
-    }, [teacherIdFilter, teachers]);
+        
+        return allSalaries.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    }, [teacherSalaries, teachersAndAdmins, usersById]);
+
+    const filteredSalaries = useMemo(() => {
+        if (userFilter === 'all') return unifiedSalaries;
+        return unifiedSalaries.filter(s => s.userId === userFilter);
+    }, [unifiedSalaries, userFilter]);
 
     const handleAdd = () => {
         setSelectedSalary(null);
@@ -136,7 +177,12 @@ function SalaryManagementContent() {
         }
     }
     
-    const handleUpdateStatus = async (salary: TeacherSalary, status: 'paid') => {
+    const handleUpdateStatus = async (salary: UnifiedSalary, status: 'paid') => {
+        if (salary.userRole === 'admin') {
+            toast({ variant: "destructive", title: "Action non supportée", description: "Le paiement des salaires du personnel admin n'est pas encore implémenté." });
+            return;
+        }
+
         const salaryRef = doc(db, 'teacherSalaries', salary.id);
         const user = users.find(u => u.role === 'admin');
         const updatedSalaryData = { status, paidAt: new Date().toISOString(), paidBy: user?.uid };
@@ -151,7 +197,7 @@ function SalaryManagementContent() {
                 category: 'salary',
                 amount: salary.totalSalary,
                 currency: salary.currency,
-                description: `Paie ${salary.month} - ${getTeacherName(salary.teacherId)}`,
+                description: `Paie ${salary.month} - ${getUserName(salary.userId)}`,
                 date: new Date().toISOString(),
                 createdBy: user?.uid || 'system',
                 relatedDocId: salary.id,
@@ -165,7 +211,11 @@ function SalaryManagementContent() {
         }
     }
 
-    const handleDelete = (salary: TeacherSalary) => {
+    const handleDelete = (salary: UnifiedSalary) => {
+        if (salary.userRole === 'admin') {
+             toast({ variant: "destructive", title: "Action non supportée", description: "La suppression des salaires du personnel admin n'est pas implémentée." });
+            return;
+        }
         setSelectedSalary(salary);
         setIsDeleteOpen(true);
     };
@@ -183,6 +233,64 @@ function SalaryManagementContent() {
                 setSelectedSalary(null);
             }
         }
+    }
+    
+    const handleGeneratePayslip = (salary: UnifiedSalary) => {
+        const user = usersById[salary.userId];
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Utilisateur introuvable' });
+            return;
+        }
+
+        const doc = new jsPDF();
+        const schoolName = settings?.schoolName || "Institut Supérieur";
+        const academicYear = settings?.academicYear || "2024-2025";
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        
+        doc.setFontSize(20);
+        doc.text("BULLETIN DE PAIE", doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Période: ${salary.month} ${salary.year}`, doc.internal.pageSize.getWidth() - 20, 60, { align: 'right' });
+        doc.text(`Date d'émission: ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 20, 60);
+
+        doc.text(`Employé: ${user.firstName} ${user.lastName}`, 20, 80);
+        doc.text(`Poste: ${user.role === 'teacher' ? 'Professeur' : user.admin?.position || 'Personnel'}`, 20, 90);
+
+        const body: (string | number)[][] = [];
+        if (salary.userRole === 'teacher' && salary.hourlyRate && salary.hoursWorked) {
+            body.push(['Taux horaire', formatCurrency(salary.hourlyRate, salary.currency)]);
+            body.push(['Heures travaillées', `${salary.hoursWorked.toFixed(2)}h`]);
+            body.push(['Salaire brut (Taux * Heures)', formatCurrency(salary.totalSalary, salary.currency)]);
+        } else if (salary.userRole === 'admin' && salary.baseSalary) {
+            body.push(['Salaire de base mensuel', formatCurrency(salary.baseSalary, salary.currency)]);
+        }
+        body.push(['', '']); // spacer
+        body.push(['Impôts & Cotisations (Exemple)', formatCurrency(0, salary.currency)]);
+        body.push(['Primes & Bonus (Exemple)', formatCurrency(0, salary.currency)]);
+
+        autoTable(doc, {
+            startY: 100,
+            head: [['Description', 'Montant']],
+            body: body,
+            theme: 'grid',
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            didDrawPage: function(data) {
+                // Total
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Salaire Net à Payer', data.settings.margin.left, data.cursor.y + 15);
+                doc.text(formatCurrency(salary.totalSalary, salary.currency), data.settings.margin.left + 100, data.cursor.y + 15);
+            }
+        });
+        
+        doc.save(`bulletin_paie_${user.lastName}_${salary.month}_${salary.year}.pdf`);
+        toast({ title: 'Bulletin de paie généré' });
     }
 
     const statusVariant: { [key: string]: "default" | "secondary" } = {
@@ -205,9 +313,9 @@ function SalaryManagementContent() {
         <div className="space-y-6">
             <div className="flex justify-between items-start">
                 <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">{pageTitle}</h1>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Salaires</h1>
                     <p className="text-muted-foreground">
-                        Suivez et gérez la paie des professeurs.
+                        Générez, suivez et gérez la paie des professeurs et du personnel.
                     </p>
                 </div>
                 <Button onClick={handleAdd}>
@@ -217,19 +325,29 @@ function SalaryManagementContent() {
             </div>
             <Card>
                 <CardHeader>
-                    <CardTitle>Historique des fiches de paie</CardTitle>
-                    <CardDescription>
-                        Liste de toutes les fiches de paie générées et leur statut.
-                    </CardDescription>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Historique des fiches de paie</CardTitle>
+                            <CardDescription>Liste de toutes les fiches de paie générées et leur statut.</CardDescription>
+                        </div>
+                        <Select value={userFilter} onValueChange={setUserFilter}>
+                            <SelectTrigger className="w-[280px]">
+                                <SelectValue placeholder="Filtrer par employé..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les employés</SelectItem>
+                                {teachersAndAdmins.map(u => <SelectItem key={u.uid} value={u.uid}>{u.firstName} {u.lastName}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </CardHeader>
                 <CardContent>
                      <Table>
                         <TableHeader>
                             <TableRow>
-                                {!teacherIdFilter && <TableHead>Professeur</TableHead>}
+                                <TableHead>Employé</TableHead>
+                                <TableHead>Rôle</TableHead>
                                 <TableHead>Mois/Année</TableHead>
-                                <TableHead>Taux Horaire</TableHead>
-                                <TableHead>Heures</TableHead>
                                 <TableHead>Salaire Total</TableHead>
                                 <TableHead>Statut</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -238,16 +356,15 @@ function SalaryManagementContent() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
                             ) : filteredSalaries.length > 0 ? filteredSalaries.map(salary => (
                                 <TableRow key={salary.id}>
-                                    {!teacherIdFilter && <TableCell className="font-medium">{getTeacherName(salary.teacherId)}</TableCell>}
+                                    <TableCell className="font-medium">{salary.userName}</TableCell>
+                                    <TableCell><Badge variant="outline">{salary.userRole === 'teacher' ? 'Professeur' : 'Admin'}</Badge></TableCell>
                                     <TableCell>{salary.month} {salary.year}</TableCell>
-                                    <TableCell>{formatCurrency(salary.hourlyRate, salary.currency)}</TableCell>
-                                    <TableCell>{salary.hoursWorked.toFixed(2)}h</TableCell>
                                     <TableCell className='font-semibold'>{formatCurrency(salary.totalSalary, salary.currency)}</TableCell>
                                     <TableCell>
                                         <Badge variant={statusVariant[salary.status]}>{statusTranslation[salary.status]}</Badge>
@@ -260,13 +377,16 @@ function SalaryManagementContent() {
                                                </Button>
                                            </DropdownMenuTrigger>
                                            <DropdownMenuContent align="end">
-                                               {salary.status === 'pending' && (
+                                               {salary.status === 'pending' && salary.userRole === 'teacher' && (
                                                     <DropdownMenuItem onClick={() => handleUpdateStatus(salary, 'paid')}>
                                                         <CheckCircle className="mr-2 h-4 w-4" />
                                                         Marquer comme Payé
                                                     </DropdownMenuItem>
                                                )}
-                                               <DropdownMenuItem>Voir détails</DropdownMenuItem>
+                                               <DropdownMenuItem onClick={() => handleGeneratePayslip(salary)}>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Télécharger le bulletin
+                                                </DropdownMenuItem>
                                                <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive" disabled={salary.status === 'paid'}>
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
@@ -277,7 +397,7 @@ function SalaryManagementContent() {
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         Aucune fiche de paie trouvée.
                                     </TableCell>
                                 </TableRow>
@@ -291,8 +411,8 @@ function SalaryManagementContent() {
                 isOpen={isFormOpen}
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
-                teachers={teachers}
-                initialTeacherId={teacherIdFilter}
+                teachers={teachersAndAdmins.filter(u => u.role === 'teacher')}
+                initialTeacherId={userIdFilter}
                 calculateHours={calculateHours}
             />
 
@@ -301,7 +421,7 @@ function SalaryManagementContent() {
                     isOpen={isDeleteOpen}
                     setIsOpen={setIsDeleteOpen}
                     onConfirm={confirmDelete}
-                    user={{uid: selectedSalary.id, firstName: `Fiche de paie pour ${getTeacherName(selectedSalary.teacherId)}`, lastName: ''}}
+                    user={{uid: selectedSalary.id, firstName: `Fiche de paie pour ${selectedSalary.userName}`, lastName: ''}}
                 />
             )}
         </div>
@@ -315,6 +435,3 @@ export default function SalaryManagementPage() {
         </Suspense>
     )
 }
-
-    
-

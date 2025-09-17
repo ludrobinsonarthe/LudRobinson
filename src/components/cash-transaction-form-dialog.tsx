@@ -33,7 +33,7 @@ import { Loader2 } from "lucide-react";
 
 const transactionFormSchema = z.object({
   type: z.enum(['income', 'expense']),
-  category: z.enum(['equipment', 'utilities', 'other']),
+  category: z.enum(['equipment', 'utilities', 'other', 'diverse']),
   description: z.string().min(5, "La description est requise."),
   amount: z.coerce.number().min(1, "Le montant est requis."),
   currency: z.string().default('XAF'),
@@ -49,6 +49,7 @@ interface CashTransactionFormDialogProps {
 const categories = [
     { value: 'equipment', label: "Achat de matériel"},
     { value: 'utilities', label: "Factures & Services"},
+    { value: 'diverse', label: "Dépenses diverses"},
     { value: 'other', label: "Autre"},
 ]
 
@@ -61,7 +62,7 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
         type: 'expense',
-        category: 'other',
+        category: 'diverse',
         description: '',
         amount: 0,
         currency: 'XAF',
@@ -72,7 +73,7 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
     if (isOpen) {
         form.reset({
             type: 'expense',
-            category: 'other',
+            category: 'diverse',
             description: '',
             amount: 0,
             currency: 'XAF',

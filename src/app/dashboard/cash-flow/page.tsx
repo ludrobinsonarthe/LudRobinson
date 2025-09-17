@@ -92,11 +92,12 @@ export default function CashFlowPage() {
         income: "Entrée",
         expense: "Sortie",
     }
-    const categoryTranslation: { [key: string]: string } = {
+    const categoryTranslation: { [key in CashTransaction['category']]: string } = {
         tuition: "Scolarité",
         salary: "Salaire",
         equipment: "Matériel",
         utilities: "Services",
+        diverse: "Dépenses diverses",
         other: "Autre",
     }
 

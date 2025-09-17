@@ -45,6 +45,7 @@ export interface User {
   admin?: {
     roleId: string;
     position?: string;
+    baseSalary?: number;
   };
   student?: {
     matricule: string;
@@ -169,7 +170,7 @@ export interface CashTransaction {
     id: string;
     date: string;
     type: 'income' | 'expense';
-    category: 'tuition' | 'salary' | 'equipment' | 'utilities' | 'other';
+    category: 'tuition' | 'salary' | 'equipment' | 'utilities' | 'other' | 'diverse';
     description: string;
     amount: number;
     currency: string;
@@ -225,4 +226,25 @@ export interface Settings {
   currency: string;
   levels: { value: string }[];
   sectors: { id: string; name: string }[];
+}
+
+// Unified salary type for both teachers and admin staff
+export interface UnifiedSalary {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: 'teacher' | 'admin';
+  month: string;
+  year: string;
+  totalSalary: number;
+  status: 'pending' | 'paid';
+  paidAt?: string;
+  paidBy?: string;
+  createdAt: string;
+  currency: string;
+  // Teacher specific
+  hourlyRate?: number;
+  hoursWorked?: number;
+  // Admin specific
+  baseSalary?: number;
 }

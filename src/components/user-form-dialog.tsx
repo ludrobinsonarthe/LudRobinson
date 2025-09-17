@@ -29,6 +29,7 @@ const userFormSchema = z.object({
   specialty: z.string().optional(),
   roleId: z.string().optional(),
   position: z.string().optional(),
+  baseSalary: z.coerce.number().optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -52,6 +53,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         specialty: '',
         roleId: '',
         position: '',
+        baseSalary: 0,
     }
   });
   
@@ -79,6 +81,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             specialty: user.teacher?.specialty || '',
             roleId: user.admin?.roleId || '',
             position: user.admin?.position || '',
+            baseSalary: user.admin?.baseSalary || 0,
         });
         } else {
         form.reset({
@@ -88,6 +91,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             specialty: '',
             roleId: '',
             position: '',
+            baseSalary: 0,
         });
         }
     }
@@ -122,7 +126,11 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         userData.teacher = { specialty: userDataValues.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
     }
      if (userType === 'admin') {
-        userData.admin = { roleId: userDataValues.roleId || '', position: userDataValues.position || '' };
+        userData.admin = { 
+            roleId: userDataValues.roleId || '', 
+            position: userDataValues.position || '',
+            baseSalary: userDataValues.baseSalary || 0
+        };
     }
     
     onSave(userData, photo);
@@ -242,6 +250,19 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                             )}
                         />
                     )}
+                    <FormField
+                        control={form.control}
+                        name="baseSalary"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Salaire de base</FormLabel>
+                                <FormControl>
+                                    <Input type="number" placeholder="500000" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </>
             )}
 
