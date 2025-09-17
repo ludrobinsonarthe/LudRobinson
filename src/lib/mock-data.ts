@@ -318,3 +318,4 @@ export const mockFeeStructures: FeeStructure[] = [
     { id: 'local-licence_2', cycle: 'local', level: 'Licence 2', registration: 100000, tuition: 500000, currency: 'XAF'},
 ]
 
+    
