@@ -27,7 +27,7 @@ import { Bot, ChromeIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { auth } from "@/lib/firebase";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthErrorCodes } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 const loginSchema = z.object({
@@ -58,10 +58,16 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error);
+      let description = "Une erreur inattendue est survenue. Veuillez réessayer.";
+      if (error.code === AuthErrorCodes.INVALID_LOGIN_CREDENTIALS) {
+        description = "L'adresse e-mail ou le mot de passe est incorrect.";
+      } else if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+         description = "L'adresse e-mail ou le mot de passe est incorrect.";
+      }
       toast({
         variant: "destructive",
         title: "Erreur de connexion",
-        description: "L'e-mail ou le mot de passe est incorrect. Assurez-vous d'avoir créé cet compte dans la console Firebase.",
+        description: description,
       });
     } finally {
       setLoading(false);
@@ -79,8 +85,8 @@ export default function LoginPage() {
        console.error("Google sign-in error:", error);
        toast({
         variant: "destructive",
-        title: "Erreur de connexion",
-        description: "Impossible de se connecter avec Google. Assurez-vous que le domaine est autorisé dans votre console Firebase.",
+        title: "Erreur de connexion Google",
+        description: "Impossible de se connecter avec Google. Veuillez réessayer ou contacter le support.",
       });
     } finally {
         setLoading(false);
