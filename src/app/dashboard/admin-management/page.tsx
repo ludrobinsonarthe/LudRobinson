@@ -10,12 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck } from "lucide-react";
 import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
+import { useUser } from "@/hooks/use-user";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
@@ -31,23 +30,14 @@ const settingsFormSchema = z.object({
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
-const defaultSettings: Settings = {
-    id: 'system',
-    schoolName: "Institut Supérieur de Gestion et d'Ingénierie",
-    logoUrl: "",
-    academicYear: "2024-2025",
-    currency: "XAF",
-    levels: [{value: "Licence 1"}, {value: "Licence 2"}, {value: "Licence 3"}, {value: "Master 1"}, {value: "Master 2"}],
-    sectors: [],
-};
-
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const [loading, setLoading] = useState(true);
+    const { settings, setSettings, loading: loadingSettings } = useUser();
+    const [submitting, setSubmitting] = useState(false);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
-        defaultValues: defaultSettings,
+        defaultValues: settings || {},
     });
 
     const { fields: levelFields, append: appendLevel, remove: removeLevel } = useFieldArray({
@@ -60,24 +50,24 @@ export default function AdminManagementPage() {
     });
 
     useEffect(() => {
-        // Using mock data for now
-        setLoading(true);
-        form.reset(defaultSettings);
-        setLoading(false);
-    }, [form]);
+        if(settings) {
+            form.reset(settings);
+        }
+    }, [settings, form]);
 
     const onSubmit = async (data: SettingsFormValues) => {
-        setLoading(true);
-        // Simulate DB operation
+        setSubmitting(true);
+        setSettings({ id: 'system', ...data });
         setTimeout(() => {
             toast({
-                title: "Paramètres enregistrés (Simulation)",
-                description: "Les paramètres globaux de l'application ont été mis à jour localement.",
+                title: "Paramètres enregistrés",
+                description: "Les paramètres globaux de l'application ont été mis à jour.",
             });
-            setLoading(false);
-        }, 1000);
+            setSubmitting(false);
+        }, 500);
     };
 
+    const loading = loadingSettings;
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -87,7 +77,7 @@ export default function AdminManagementPage() {
                     Gérez les paramètres globaux et les accès de la plateforme de l'institut.
                 </p>
             </div>
-             {loading && !form.formState.isDirty ? (
+             {loading ? (
                  <div className="flex items-center justify-center h-96">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                  </div>
@@ -205,8 +195,8 @@ export default function AdminManagementPage() {
                             </Card>
 
                             <div className="flex justify-end pt-4">
-                                <Button type="submit" disabled={loading}>
-                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <Button type="submit" disabled={submitting}>
+                                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Enregistrer les paramètres
                                 </Button>
                             </div>

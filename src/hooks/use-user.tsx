@@ -2,11 +2,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockUsers, mockAdminRoles } from '@/lib/mock-data';
+import { mockUsers, mockAdminRoles, mockSectors } from '@/lib/mock-data';
 
 type UserContextType = {
   user: User | null;
@@ -17,13 +17,27 @@ type UserContextType = {
   roles: AdminRole[];
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
+  settings: Settings | null;
+  setSettings: React.Dispatch<React.SetStateAction<Settings | null>>;
 }
 
 const UserContext = createContext<UserContextType | null>(null);
 
+const defaultSettings: Settings = {
+    id: 'system',
+    schoolName: "Institut Supérieur de Gestion et d'Ingénierie",
+    logoUrl: "",
+    academicYear: "2024-2025",
+    currency: "XAF",
+    levels: [{value: "Licence 1"}, {value: "Licence 2"}, {value: "Licence 3"}, {value: "Master 1"}, {value: "Master 2"}],
+    sectors: mockSectors,
+};
+
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
-  const [roles, setRoles] = useState<AdminRole[]>(mockAdminRoles);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,6 +48,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(superAdmin || mockUsers[0] || null);
     setRoles(mockAdminRoles);
     setAllUsers(mockUsers);
+    setSettings(defaultSettings);
     setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -71,7 +86,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       loading,
       roles,
       userPermissions,
-      hasPermission
+      hasPermission,
+      settings,
+      setSettings
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
