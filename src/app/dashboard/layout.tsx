@@ -1,8 +1,6 @@
-
-
 "use client"
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, redirect } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
@@ -38,12 +36,12 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserProvider, useUser } from "@/hooks/use-user";
 import DashboardHeader from "@/components/dashboard-header";
-import React from "react";
-import { AdminPermission } from "@/lib/types";
+import React, { useEffect } from "react";
+import { UserProvider, useUser } from "@/hooks/use-user";
+import { useAuth } from "@/hooks/use-auth";
 
 function AppLogo() {
   return (
@@ -74,8 +72,8 @@ function MainSidebar() {
     { href: "/dashboard/documents", label: "Documents", icon: FileText },
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
   ];
-
-  const adminManagementItems: {href: string, label: string, icon: React.ElementType, permission: AdminPermission}[] = [
+  
+  const adminManagementItems = [
     { href: "/dashboard/reporting", label: "Tableau de Bord", icon: LayoutDashboard, permission: 'view_reporting' },
     { href: "/dashboard/students", label: "Étudiants", icon: Users, permission: 'manage_students' },
     { href: "/dashboard/teachers", label: "Professeurs", icon: GraduationCap, permission: 'manage_teachers' },
@@ -183,20 +181,46 @@ function MainSidebar() {
   );
 }
 
+function ProtectedLayout({ children }: { children: React.ReactNode }) {
+    const { user: authUser, loading: authLoading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!authLoading && !authUser) {
+            redirect('/login');
+        }
+    }, [authUser, authLoading]);
+
+    if (authLoading || !authUser) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        );
+    }
+    
+    return (
+        <UserProvider>
+            <SidebarProvider>
+                <MainSidebar />
+                <SidebarInset>
+                    <DashboardHeader />
+                    <main className="p-4 sm:p-6 lg:p-8">{children}</main>
+                </SidebarInset>
+            </SidebarProvider>
+        </UserProvider>
+    );
+}
+
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <UserProvider>
-      <SidebarProvider>
-        <MainSidebar />
-        <SidebarInset>
-          <DashboardHeader />
-          <main className="p-4 sm:p-6 lg:p-8">{children}</main>
-        </SidebarInset>
-      </SidebarProvider>
-    </UserProvider>
+    <ProtectedLayout>
+      {children}
+    </ProtectedLayout>
   );
 }

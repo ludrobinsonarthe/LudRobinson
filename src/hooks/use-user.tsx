@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -7,7 +5,8 @@ import type { User, AdminRole, AdminPermission, Settings } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockUsers, mockAdminRoles } from '@/lib/mock-data';
+import { mockAdminRoles, mockUsers } from '@/lib/mock-data';
+import { useAuth } from './use-auth';
 
 type UserContextType = {
   user: User | null;
@@ -26,6 +25,7 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
+  const { user: authUser } = useAuth();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -37,47 +37,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        const combinedUsers = [...mockUsers];
-        usersData.forEach(liveUser => {
-            const index = combinedUsers.findIndex(mockUser => mockUser.uid === liveUser.uid);
-            if (index !== -1) {
-                combinedUsers[index] = liveUser;
-            } else {
-                combinedUsers.push(liveUser);
-            }
-        });
-
-        setAllUsers(combinedUsers);
-        if(!currentUser && combinedUsers.length > 0) {
-            const superAdmin = combinedUsers.find(u => u.admin?.position === 'Super-Administrateur');
-            setCurrentUser(superAdmin || combinedUsers[0] || null);
-        }
+         setAllUsers(usersData);
         setLoading(false);
     }, (error) => {
         console.error("Error fetching users:", error);
-        setAllUsers(mockUsers);
-        if(!currentUser && mockUsers.length > 0) {
-            const superAdmin = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
-            setCurrentUser(superAdmin || mockUsers[0] || null);
-        }
         setLoading(false);
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
         const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
-         const combinedRoles = [...mockAdminRoles];
-        rolesData.forEach(liveRole => {
-            const index = combinedRoles.findIndex(mockRole => mockRole.id === liveRole.id);
-            if (index !== -1) {
-                combinedRoles[index] = liveRole;
-            } else {
-                combinedRoles.push(liveRole);
-            }
-        });
-        setRoles(combinedRoles);
+        setRoles(rolesData);
     }, (error) => {
         console.error("Error fetching roles:", error);
-        setRoles(mockAdminRoles);
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
@@ -96,48 +67,50 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     });
 
-    // Subscriptions to other collections to ensure they are being listened to
-    const unsubCourses = onSnapshot(collection(db, 'courses'), (snapshot) => {});
-    const unsubStudents = onSnapshot(collection(db, 'students'), (snapshot) => {});
-    const unsubTeachers = onSnapshot(collection(db, 'teachers'), (snapshot) => {});
-    const unsubGrades = onSnapshot(collection(db, 'grades'), (snapshot) => {});
-    const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {});
-    const unsubSalaries = onSnapshot(collection(db, 'salaries'), (snapshot) => {});
-    const unsubAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {});
-    const unsubCashFlow = onSnapshot(collection(db, 'cashTransactions'), (snapshot) => {});
-    const unsubAnnouncements = onSnapshot(collection(db, 'messages'), (snapshot) => {});
-    const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), (snapshot) => {});
-    const unsubDocuments = onSnapshot(collection(db, 'documents'), (snapshot) => {});
-
     return () => {
       unsubUsers();
       unsubRoles();
       unsubSettings();
-      unsubCourses();
-      unsubStudents();
-      unsubTeachers();
-      unsubGrades();
-      unsubPayments();
-      unsubSalaries();
-      unsubAttendance();
-      unsubCashFlow();
-      unsubAnnouncements();
-      unsubFeeStructures();
-      unsubDocuments();
     };
    
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  
+  useEffect(() => {
+      if (authUser && allUsers.length > 0) {
+          const matchedUser = allUsers.find(u => u.uid === authUser.uid);
+          if (matchedUser) {
+              setCurrentUser(matchedUser);
+          } else {
+              // This is a new user authenticated via Google for example
+              const newUserProfile: User = {
+                  uid: authUser.uid,
+                  email: authUser.email || '',
+                  firstName: authUser.displayName?.split(' ')[0] || 'Nouveau',
+                  lastName: authUser.displayName?.split(' ')[1] || 'Utilisateur',
+                  photoUrl: authUser.photoURL || `https://picsum.photos/seed/${authUser.uid}/100/100`,
+                  role: 'student', // Default role for new users
+                  status: 'active',
+                  createdAt: new Date().toISOString(),
+              };
+              // Here you would typically save the new user to Firestore
+              // For now, we add to local state
+              setAllUsers(prev => [...prev, newUserProfile]);
+              setCurrentUser(newUserProfile);
+          }
+      } else if (!authUser) {
+          setCurrentUser(null);
+      }
+  }, [authUser, allUsers]);
+
   
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
       
-      // Super admin gets all permissions
-      if(currentUser.admin?.position === 'Super-Administrateur'){
+      const superAdminUser = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
+      if (currentUser.uid === superAdminUser?.uid || currentUser.email === "semfranslinbourangon@gmail.com") {
           return Object.keys(adminPermissions) as AdminPermission[];
       }
 
-      // Other admins get permissions from their assigned role
       if (currentUser.admin?.roleId) {
           const userRole = roles.find(r => r.id === currentUser.admin?.roleId);
           return userRole?.permissions || [];
@@ -151,7 +124,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }
 
   const setUser = (user: User) => {
-    setCurrentUser(user);
+      // This is now mainly for demo purposes to switch between user profiles
+      // The actual logged-in user is determined by Firebase Auth
+      const matchedUser = allUsers.find(u => u.uid === user.uid);
+      if(matchedUser) setCurrentUser(matchedUser);
   };
   
   const value = { 

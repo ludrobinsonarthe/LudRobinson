@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
 import { LogOut, User, LifeBuoy, Settings } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
 
 const roleTranslation: { [key: string]: string } = {
   admin: "Administrateur",
@@ -25,17 +26,25 @@ const roleTranslation: { [key: string]: string } = {
 };
 
 export default function DashboardHeader() {
-  const { user, users, setUser } = useUser();
+  const { user } = useUser();
+  const { signOut } = useAuth();
+  const router = useRouter();
+
 
   if (!user) {
     return (
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
         <SidebarTrigger className="sm:hidden" />
         <div className="ml-auto flex items-center gap-2">
-            Loading...
+            Chargement...
         </div>
       </header>
     );
+  }
+  
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
   }
 
   const getInitials = (firstName: string, lastName: string) => {
@@ -91,20 +100,7 @@ export default function DashboardHeader() {
                 </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Changer d'utilisateur (Démo)</DropdownMenuLabel>
-            {users.map(u => (
-                 <DropdownMenuItem key={u.uid} onClick={() => setUser(u)}>
-                    <div className="flex items-center">
-                        <Avatar className="h-6 w-6 mr-2">
-                            <AvatarImage src={u.photoUrl} />
-                            <AvatarFallback>{getInitials(u.firstName, u.lastName)}</AvatarFallback>
-                        </Avatar>
-                        <span>{u.firstName} {u.lastName} ({roleTranslation[u.role]})</span>
-                    </div>
-                </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Se déconnecter</span>
             </DropdownMenuItem>
