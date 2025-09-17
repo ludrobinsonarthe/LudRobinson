@@ -87,8 +87,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     });
     
-    // This part was missing. Let's fetch the fields from firestore.
-    // The collection name should be `fields`.
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
         if (!snapshot.empty) {
             const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
@@ -141,7 +139,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               
               const userDocRef = doc(db, 'users', authUser.uid);
               setDoc(userDocRef, newUserProfile).then(() => {
-                 setAllUsers(prev => [...prev, newUserProfile]);
+                 setAllUsers(prev => {
+                    const userExists = prev.some(u => u.uid === newUserProfile.uid);
+                    if (userExists) {
+                        return prev.map(u => u.uid === newUserProfile.uid ? newUserProfile : u);
+                    }
+                    return [...prev, newUserProfile];
+                 });
                  setCurrentUser(newUserProfile);
               });
           }
