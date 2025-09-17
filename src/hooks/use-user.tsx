@@ -127,8 +127,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               const newUserProfile: User = {
                   uid: authUser.uid,
                   email: authUser.email || '',
-                  firstName: authUser.displayName?.split(' ')[0] || 'Nouveau',
-                  lastName: authUser.displayName?.split(' ')[1] || 'Utilisateur',
+                  firstName: isSuperAdminEmail ? "ISGI Admin" : authUser.displayName?.split(' ')[0] || 'Nouveau',
+                  lastName: isSuperAdminEmail ? "User" : authUser.displayName?.split(' ')[1] || 'Utilisateur',
                   photoUrl: authUser.photoURL || `https://picsum.photos/seed/${authUser.uid}/100/100`,
                   role: isSuperAdminEmail ? 'admin' : 'student',
                   status: 'active',
