@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Download, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { mockPayments } from '@/lib/mock-data';
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
     validated: "default",
@@ -62,17 +63,10 @@ export default function PaymentsPage() {
             return;
         }
 
-        const q = query(collection(db, 'payments'), where('studentId', '==', studentToView.uid));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const userPayments = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
-            setPayments(userPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching payments: ", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        const userPayments = mockPayments.filter(p => p.studentId === studentToView.uid)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setPayments(userPayments);
+        setLoading(false);
     }, [studentToView]);
 
      const { totalExpected, totalPaid, totalBalance } = useMemo(() => {

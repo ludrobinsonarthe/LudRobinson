@@ -8,6 +8,7 @@ import { Message } from "@/lib/types";
 import { collection, query, where, onSnapshot, or, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
+import { mockMessages } from "@/lib/mock-data";
 
 export default function MessagesPage() {
   const { user, users } = useUser();
@@ -18,31 +19,17 @@ export default function MessagesPage() {
     if (!user) return;
     setLoading(true);
 
-    const q = query(
-        collection(db, 'messages'),
-        where('type', '==', 'private'),
-        or(where('senderId', '==', user.uid), where('receiverId', '==', user.uid))
-    );
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const userMessages = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Message));
-        userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        setMessages(userMessages);
-        setLoading(false);
-    }, (error) => {
-        console.error("Error fetching messages: ", error);
-        setLoading(false);
-    });
-
-    return () => unsubscribe();
+    const userMessages = mockMessages
+        .filter(m => m.type === 'private' && (m.senderId === user.uid || m.receiverId === user.uid))
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    
+    setMessages(userMessages);
+    setLoading(false);
 
   }, [user]);
   
   const handleNewMessage = async (newMessage: Omit<Message, 'id' | 'createdAt'>) => {
-    await addDoc(collection(db, 'messages'), {
-        ...newMessage,
-        createdAt: new Date().toISOString()
-    });
+    console.log("Simulating new message:", newMessage);
   }
 
   return (

@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { BookOpenCheck, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { mockCourses } from '@/lib/mock-data';
 
 export default function CoursesPage() {
     const { user: currentUser, users } = useUser();
@@ -50,18 +51,9 @@ export default function CoursesPage() {
         }
 
         setLoading(true);
-        const q = query(collection(db, 'courses'), where('fieldId', '==', studentToView.student.fieldId));
-        
-        const unsub = onSnapshot(q, (querySnapshot) => {
-            const studentCourses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
-            setCourses(studentCourses);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching courses: ", error);
-            setLoading(false);
-        });
-
-        return () => unsub();
+        const studentCourses = mockCourses.filter(c => c.fieldId === studentToView.student?.fieldId);
+        setCourses(studentCourses);
+        setLoading(false);
         
     }, [studentToView]);
 
