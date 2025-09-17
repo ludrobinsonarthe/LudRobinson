@@ -23,12 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CashTransaction } from "@/lib/types";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Loader2 } from "lucide-react";
 
 const transactionFormSchema = z.object({
   type: z.enum(['income', 'expense']),
@@ -54,6 +55,7 @@ const categories = [
 export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTransactionFormDialogProps) {
   const { toast } = useToast();
   const { user } = useUser();
+  const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -83,11 +85,24 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
         toast({ variant: "destructive", title: "Erreur", description: "Vous devez être connecté pour effectuer cette action." });
         return;
     }
+    setSubmitting(true);
     
-    setTimeout(() => {
-      toast({ title: "Transaction enregistrée (Simulation)", description: "L'opération a été ajoutée à la caisse localement." });
-      setIsOpen(false);
-    }, 1000);
+    const newTransaction: Omit<CashTransaction, 'id'> = {
+        ...data,
+        date: new Date().toISOString(),
+        createdBy: user.uid,
+    }
+
+    try {
+        await addDoc(collection(db, 'cashTransactions'), newTransaction);
+        toast({ title: "Transaction enregistrée", description: "L'opération a été ajoutée à la caisse." });
+        setIsOpen(false);
+    } catch(error) {
+        console.error("Error saving transaction: ", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la transaction." });
+    } finally {
+        setSubmitting(false);
+    }
   };
 
   return (
@@ -135,8 +150,11 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit">Enregistrer</Button>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={submitting}>Annuler</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Enregistrer
+              </Button>
             </DialogFooter>
           </form>
         </Form>

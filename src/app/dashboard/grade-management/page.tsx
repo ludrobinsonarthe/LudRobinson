@@ -14,7 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import GradeFormDialog from '@/components/grade-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { mockCourses, mockGrades } from '@/lib/mock-data';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDoc, doc, onSnapshot, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
@@ -43,24 +44,38 @@ function GradeManagementContent() {
         }
 
         setLoading(true);
-        const courseData = mockCourses.find(c => c.id === courseId);
+        
+        const unsubCourse = onSnapshot(doc(db, "courses", courseId), (doc) => {
+            if (doc.exists()) {
+                const courseData = { id: doc.id, ...doc.data() } as Course;
+                setCourse(courseData);
+                
+                if (courseData.fieldId && courseData.level) {
+                     const courseStudents = users.filter(user => 
+                        user.role === 'student' &&
+                        user.student?.fieldId === courseData.fieldId &&
+                        user.student?.level === courseData.level
+                    );
+                    setStudents(courseStudents);
+                }
 
-        if (courseData) {
-            setCourse(courseData);
+            } else {
+                toast({ variant: 'destructive', title: 'Erreur', description: 'Cours non trouvé.' });
+                setCourse(null);
+            }
+        });
 
-            const courseStudents = users.filter(user => 
-                user.role === 'student' &&
-                user.student?.fieldId === courseData.fieldId &&
-                user.student?.level === courseData.level
-            );
-            setStudents(courseStudents);
+        const qGrades = query(collection(db, "grades"), where("courseId", "==", courseId));
+        const unsubGrades = onSnapshot(qGrades, (snapshot) => {
+            setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
+            setLoading(false);
+        });
 
-            const courseGrades = mockGrades.filter(g => g.courseId === courseId);
-            setGrades(courseGrades);
-        } else {
-            setCourse(null);
-        }
-        setLoading(false);
+
+        return () => {
+            unsubCourse();
+            unsubGrades();
+        };
 
     }, [courseId, users, toast]);
 
@@ -106,23 +121,35 @@ function GradeManagementContent() {
         setIsDeleteOpen(true);
     };
 
-    const handleSaveGrade = (data: Grade) => {
-        if (selectedGrade) {
-            setGrades(prev => prev.map(g => g.id === selectedGrade.id ? data : g));
-            toast({ title: "Note mise à jour (Simulation)" });
-        } else {
-            setGrades(prev => [...prev, data]);
-            toast({ title: "Note ajoutée (Simulation)" });
+    const handleSaveGrade = async (data: Omit<Grade, 'id'>) => {
+        try {
+            if (selectedGrade) {
+                await setDoc(doc(db, "grades", selectedGrade.id), data, { merge: true });
+                toast({ title: "Note mise à jour" });
+            } else {
+                await addDoc(collection(db, "grades"), data);
+                toast({ title: "Note ajoutée" });
+            }
+        } catch (error) {
+            console.error("Error saving grade:", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible d\'enregistrer la note.' });
+        } finally {
+            setIsFormOpen(false);
         }
-        setIsFormOpen(false);
     };
 
     const confirmDeleteGrade = async () => {
         if (!selectedGrade) return;
-        setGrades(prev => prev.filter(g => g.id !== selectedGrade.id));
-        toast({ title: "Note supprimée (Simulation)" });
-        setIsDeleteOpen(false);
-        setSelectedGrade(null);
+        try {
+            await deleteDoc(doc(db, "grades", selectedGrade.id));
+            toast({ title: "Note supprimée" });
+        } catch (error) {
+            console.error("Error deleting grade:", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la note.' });
+        } finally {
+            setIsDeleteOpen(false);
+            setSelectedGrade(null);
+        }
     };
 
     if (loading || usersLoading) {

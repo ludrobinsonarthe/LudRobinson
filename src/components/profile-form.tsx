@@ -24,6 +24,7 @@ import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
 import ImageCropperDialog from "./image-cropper-dialog";
+import type { User } from "@/lib/types";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, { message: "Le prénom doit comporter au moins 2 caractères." }),
@@ -88,25 +89,29 @@ export default function ProfileForm() {
         try {
             let photoUrl = user.photoUrl;
             const photoFile = data.photo;
-            let updatedUserData : Partial<User> = {
+            
+            const userRef = doc(db, "users", user.uid);
+            
+            if (photoFile && photoFile instanceof Blob) {
+                const photoRef = ref(storage, `avatars/${user.uid}`);
+                const snapshot = await uploadBytes(photoRef, photoFile);
+                photoUrl = await getDownloadURL(snapshot.ref);
+            }
+
+            const updatedData = {
                 firstName: data.firstName,
                 lastName: data.lastName,
                 email: data.email,
                 phone: data.phone,
                 address: data.address,
-            }
-
-            if (photoFile && photoFile instanceof Blob) {
-                photoUrl = URL.createObjectURL(photoFile);
-                updatedUserData.photoUrl = photoUrl;
-            }
-
-            // Optimistically update user context
-            setUser({ ...user, ...updatedUserData } as User);
+                photoUrl,
+            };
+            
+            await updateDoc(userRef, updatedData);
 
             toast({
-                title: "Profil mis à jour (Simulation)",
-                description: "Vos informations ont été enregistrées localement.",
+                title: "Profil mis à jour",
+                description: "Vos informations ont été enregistrées.",
             });
         } catch (error) {
             console.error("Error updating profile:", error);

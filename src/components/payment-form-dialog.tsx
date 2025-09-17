@@ -22,8 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { User, Payment } from "@/lib/types";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { Loader2 } from "lucide-react";
 
 const paymentFormSchema = z.object({
   studentId: z.string().min(1, "Veuillez sélectionner un étudiant."),
@@ -41,7 +42,7 @@ type PaymentFormValues = z.infer<typeof paymentFormSchema>;
 interface PaymentFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (data: PaymentFormValues) => void;
+  onSave: (data: Omit<Payment, 'id' | 'createdAt' | 'status' | 'balance'>) => void;
   students: User[];
   payment?: Payment | null;
 }
@@ -51,6 +52,7 @@ const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}-${currentYear - i + 1}`);
 
 export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students, payment }: PaymentFormDialogProps) {
+  const [submitting, setSubmitting] = useState(false);
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
@@ -93,8 +95,14 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
     }
   }, [payment, isOpen, form]);
 
-  const onSubmit = (data: PaymentFormValues) => {
-    onSave(data);
+  const onSubmit = async (data: PaymentFormValues) => {
+    setSubmitting(true);
+    const paymentData = {
+        ...data,
+        balance: data.amountExpected - data.amountPaid,
+    }
+    await onSave(paymentData);
+    setSubmitting(false);
   };
 
   return (
@@ -170,8 +178,11 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Annuler</Button>
-              <Button type="submit">{payment ? "Enregistrer" : "Enregistrer le paiement"}</Button>
+              <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={submitting}>Annuler</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {payment ? "Enregistrer" : "Enregistrer le paiement"}
+                </Button>
             </DialogFooter>
           </form>
         </Form>

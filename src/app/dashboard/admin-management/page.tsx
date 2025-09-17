@@ -15,6 +15,8 @@ import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
@@ -32,12 +34,12 @@ type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, setSettings, loading: loadingSettings } = useUser();
+    const { settings, loading: loadingSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
-        defaultValues: settings || {
+        defaultValues: {
             schoolName: "",
             logoUrl: "",
             academicYear: "",
@@ -64,15 +66,22 @@ export default function AdminManagementPage() {
 
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
-        // In a real app, you'd save this to your database
-        setSettings({ id: 'system', ...data });
-        setTimeout(() => {
+        try {
+            await setDoc(doc(db, "system", "settings"), { id: 'system', ...data }, { merge: true });
             toast({
-                title: "Paramètres enregistrés (Simulation)",
-                description: "Les paramètres globaux de l'application ont été mis à jour localement.",
+                title: "Paramètres enregistrés",
+                description: "Les paramètres globaux de l'application ont été mis à jour.",
             });
+        } catch (error) {
+            console.error("Error saving settings:", error);
+            toast({
+                variant: "destructive",
+                title: "Erreur",
+                description: "Impossible d'enregistrer les paramètres."
+            })
+        } finally {
             setSubmitting(false);
-        }, 500);
+        }
     };
 
     if (loadingSettings || !settings) {

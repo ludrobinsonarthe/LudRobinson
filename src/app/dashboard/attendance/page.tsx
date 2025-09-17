@@ -17,15 +17,13 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
-import { mockCourses, mockFields, mockAttendances } from '@/lib/mock-data';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
     const teacherIdFilter = searchParams.get('teacherId');
 
-    const { users, loading: usersLoading } = useUser();
+    const { users, loading: usersLoading, settings } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
-    const [fields, setFields] = useState<Field[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -39,10 +37,17 @@ function AttendanceContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        setCourses(mockCourses);
-        setFields(mockFields);
-        setAttendances(mockAttendances);
+        const coursesUnsub = onSnapshot(collection(db, 'courses'), snapshot => {
+            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
+        });
+        const attendancesUnsub = onSnapshot(collection(db, 'attendances'), snapshot => {
+            setAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendance)));
+        });
         setLoadingData(false);
+        return () => {
+            coursesUnsub();
+            attendancesUnsub();
+        }
     }, []);
     
     useEffect(() => {
@@ -51,7 +56,10 @@ function AttendanceContent() {
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
+    const fieldsById = useMemo(() => settings?.sectors.reduce((acc, sector) => {
+        sector.name
+        return acc;
+    }, {}) , [settings]);
 
 
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
@@ -70,12 +78,11 @@ function AttendanceContent() {
                     ...c,
                     scheduleInfo: s,
                     teacher: teachers.find(t => t.uid === c.teacherId),
-                    field: fieldsById[c.fieldId],
                 }))
             ).sort((a,b) => a.scheduleInfo.start.localeCompare(b.scheduleInfo.start));
         });
         return schedule;
-    }, [courses, weekDays, selectedTeacher, teachers, fieldsById]);
+    }, [courses, weekDays, selectedTeacher, teachers]);
 
     const handleManageAttendance = (course: Course, date: string) => {
         setSelectedCourse(course);
@@ -87,30 +94,30 @@ function AttendanceContent() {
         if (!selectedCourse || !selectedDate || !users.length) return;
         
         const attendanceId = `${selectedDate}-${selectedCourse.id}`;
+        const user = users.find(u => u.role === 'admin')
         
-        const newAttendanceRecord: Attendance = {
-            ...data,
-            id: attendanceId,
-            date: selectedDate,
-            courseId: selectedCourse.id,
-            teacherId: selectedCourse.teacherId,
-            validatedBy: 'admin01', // Should be current user
-            createdAt: existingAttendance ? existingAttendance.createdAt : new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }
+        try {
+            const existingRecord = await getDoc(doc(db, 'attendances', attendanceId));
 
-        setAttendances(prev => {
-            const existingIndex = prev.findIndex(a => a.id === attendanceId);
-            if (existingIndex > -1) {
-                const newAttendances = [...prev];
-                newAttendances[existingIndex] = newAttendanceRecord;
-                return newAttendances;
+            const newAttendanceRecord: Attendance = {
+                ...data,
+                id: attendanceId,
+                date: selectedDate,
+                courseId: selectedCourse.id,
+                teacherId: selectedCourse.teacherId,
+                validatedBy: user?.uid || 'admin',
+                createdAt: existingRecord.exists() ? existingRecord.data().createdAt : new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             }
-            return [...prev, newAttendanceRecord];
-        });
 
-        toast({ title: 'Présences enregistrées (Simulation)', description: 'La fiche de présence a été mise à jour localement.' });
-        setIsDialogOpen(false);
+            await setDoc(doc(db, 'attendances', attendanceId), newAttendanceRecord);
+            
+            toast({ title: 'Présences enregistrées', description: 'La fiche de présence a été mise à jour.' });
+            setIsDialogOpen(false);
+        } catch (error) {
+            console.error("Error saving attendance:", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: "La fiche n'a pas pu être sauvegardée." });
+        }
     };
     
     const getAttendanceForCourse = useCallback((courseId: string, date: string): Attendance | undefined => {

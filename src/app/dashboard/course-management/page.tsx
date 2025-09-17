@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -25,7 +24,6 @@ import UserDeleteDialog from "@/components/user-delete-dialog";
 import CourseFormDialog from "@/components/course-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockCourses, mockSectors, mockFields } from "@/lib/mock-data";
 
 const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
 const cycles: { value: Cycle, label: string }[] = [
@@ -35,10 +33,8 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { users } = useUser();
+    const { users, settings } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
-    const [sectors, setSectors] = useState<Sector[]>([]);
-    const [fields, setFields] = useState<Field[]>([]);
     const [loading, setLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -54,14 +50,17 @@ export default function CourseManagementPage() {
     
     useEffect(() => {
         setLoading(true);
-        setCourses(mockCourses);
-        setSectors(mockSectors);
-        setFields(mockFields);
-        setLoading(false);
+        const unsub = onSnapshot(collection(db, 'courses'), snapshot => {
+            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
+            setLoading(false);
+        });
+        return () => unsub();
     }, []);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(fs => fs.id === s.id)) || [], [settings]);
     const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
+    const sectors = useMemo(() => settings?.sectors || [], [settings]);
     const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
     const getTeacherName = (teacherId: string) => {
@@ -116,23 +115,34 @@ export default function CourseManagementPage() {
     }
 
     const handleSave = async (courseData: Partial<Course>) => {
-        if (selectedCourse) {
-            setCourses(prev => prev.map(c => c.id === selectedCourse.id ? { ...selectedCourse, ...courseData } as Course : c));
-            toast({ title: "Cours mis à jour (Simulation)", description: "Les informations du cours ont été mises à jour localement."});
-        } else {
-            const newCourse = { ...courseData, id: `course_${Date.now()}` } as Course;
-            setCourses(prev => [newCourse, ...prev]);
-            toast({ title: "Cours ajouté (Simulation)", description: "Le nouveau cours a été créé localement."});
+        try {
+            if (selectedCourse) {
+                await setDoc(doc(db, "courses", selectedCourse.id), courseData, { merge: true });
+                toast({ title: "Cours mis à jour", description: "Les informations du cours ont été mises à jour."});
+            } else {
+                await addDoc(collection(db, "courses"), courseData);
+                toast({ title: "Cours ajouté", description: "Le nouveau cours a été créé."});
+            }
+        } catch(error) {
+            console.error("Error saving course: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le cours." });
+        } finally {
+            setIsFormOpen(false);
         }
-        setIsFormOpen(false);
     }
     
     const confirmDelete = async () => {
         if(selectedCourse) {
-            setCourses(prev => prev.filter(c => c.id !== selectedCourse.id));
-            toast({ title: "Cours supprimé (Simulation)" });
-            setIsDeleteOpen(false);
-            setSelectedCourse(null);
+            try {
+                await deleteDoc(doc(db, "courses", selectedCourse.id));
+                toast({ title: "Cours supprimé" });
+            } catch (error) {
+                console.error("Error deleting course: ", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le cours." });
+            } finally {
+                setIsDeleteOpen(false);
+                setSelectedCourse(null);
+            }
         }
     }
 
@@ -286,5 +296,3 @@ export default function CourseManagementPage() {
         </div>
     );
 }
-
-    

@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from "@/lib/firebase";
-import { collection, doc, writeBatch, getDocs, query } from "firebase/firestore";
+import { collection, doc, writeBatch, getDocs, query, onSnapshot, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { FeeStructure, Cycle } from "@/lib/types";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockFeeStructures } from "@/lib/mock-data";
+import { useUser } from "@/hooks/use-user";
 
 const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
 const cycles: { value: Cycle; label: string }[] = [
@@ -73,6 +73,7 @@ type FeeManagementFormValues = z.infer<typeof feeManagementFormSchema>;
 export default function FeeManagementPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { settings } = useUser();
 
   const form = useForm<FeeManagementFormValues>({
     resolver: zodResolver(feeManagementFormSchema),
@@ -87,28 +88,44 @@ export default function FeeManagementPage() {
   });
 
   useEffect(() => {
-    setLoading(true);
-    replace(mockFeeStructures);
-    setLoading(false);
+      setLoading(true);
+      const unsub = onSnapshot(collection(db, 'feeStructures'), (snapshot) => {
+          const structures = snapshot.docs.map(doc => doc.data() as FeeStructure);
+          replace(structures);
+          setLoading(false);
+      });
+      return () => unsub();
   }, [replace]);
 
   const onSubmit = async (data: FeeManagementFormValues) => {
     setLoading(true);
-    // This is a simulation, we just update the local state for now
-    replace(data.feeStructures);
-    setTimeout(() => {
-      toast({
-        title: "Frais mis à jour (Simulation)",
-        description: "La structure des frais a été enregistrée localement.",
-      });
-      setLoading(false);
-    }, 1000);
+    const batch = writeBatch(db);
+    data.feeStructures.forEach((structure) => {
+      const docRef = doc(db, "feeStructures", structure.id);
+      batch.set(docRef, structure);
+    });
+    try {
+        await batch.commit();
+        toast({
+            title: "Frais mis à jour",
+            description: "La structure des frais a été enregistrée.",
+        });
+    } catch(error) {
+        console.error("Error saving fee structures:", error);
+        toast({
+            variant: "destructive",
+            title: "Erreur",
+            description: "Impossible d'enregistrer la structure des frais.",
+        });
+    } finally {
+        setLoading(false);
+    }
   };
   
   const addNewFeeStructure = () => {
     const existingIds = fields.map(f => f.id);
     const newCycle = cycles[0].value;
-    const newLevel = levels[0];
+    const newLevel = settings?.levels[0]?.value || levels[0];
     let newId = `${newCycle}-${newLevel.toLowerCase().replace(" ", "_")}`;
     let counter = 1;
     while(existingIds.includes(newId)) {
@@ -190,7 +207,7 @@ export default function FeeManagementPage() {
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {levels.map((l) => (<SelectItem key={l} value={l}>{l}</SelectItem>))}
+                                  {(settings?.levels || []).map((l) => (<SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>))}
                                 </SelectContent>
                               </Select>
                             )}
@@ -249,5 +266,3 @@ export default function FeeManagementPage() {
     </div>
   );
 }
-
-    

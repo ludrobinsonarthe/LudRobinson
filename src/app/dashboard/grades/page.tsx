@@ -11,7 +11,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { mockGrades, mockCourses } from '@/lib/mock-data';
 
 interface CourseWithGrades extends Course {
     grades: Grade[];
@@ -51,13 +50,26 @@ export default function GradesPage() {
         }
 
         setLoading(true);
-        const studentGrades = mockGrades.filter(g => g.studentId === studentToView.uid);
-        setGrades(studentGrades);
-        
-        const studentCourseIds = studentGrades.map(g => g.courseId);
-        const studentCourses = mockCourses.filter(c => studentCourseIds.includes(c.id));
-        setCourses(studentCourses);
-        setLoading(false);
+        const qGrades = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
+        const unsubGrades = onSnapshot(qGrades, (snapshot) => {
+            const studentGrades = snapshot.docs.map(doc => doc.data() as Grade);
+            setGrades(studentGrades);
+
+            if (studentGrades.length > 0) {
+                const courseIds = [...new Set(studentGrades.map(g => g.courseId))];
+                const qCourses = query(collection(db, "courses"), where("__name__", "in", courseIds));
+                const unsubCourses = onSnapshot(qCourses, (courseSnapshot) => {
+                    setCourses(courseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
+                    setLoading(false);
+                });
+                return () => unsubCourses();
+            } else {
+                setCourses([]);
+                setLoading(false);
+            }
+        });
+
+        return () => unsubGrades();
         
     }, [studentToView]);
 

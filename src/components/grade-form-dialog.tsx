@@ -40,7 +40,7 @@ type GradeFormValues = z.infer<typeof gradeFormSchema>;
 interface GradeFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (data: Grade) => void;
+  onSave: (data: Omit<Grade, 'id'>) => void;
   grade: Grade | null;
   studentId: string;
   courseId: string;
@@ -88,8 +88,7 @@ export default function GradeFormDialog({ isOpen, setIsOpen, onSave, grade, stud
   }, [grade, isOpen, form]);
 
   const onSubmit = (data: GradeFormValues) => {
-    const newGrade: Grade = {
-      id: grade?.id || `grade_${Date.now()}`,
+    const newGrade: Omit<Grade, 'id'> = {
       studentId: grade?.studentId || studentId,
       courseId: grade?.courseId || courseId,
       createdAt: grade?.createdAt || new Date().toISOString(),

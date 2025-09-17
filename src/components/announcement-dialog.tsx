@@ -83,13 +83,21 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     }
     setSubmitting(true);
     
-    // This is a mock implementation
-    setTimeout(() => {
-        const message = announcement ? "Annonce modifiée" : "Annonce publiée";
-        toast({ title: `${message} (Simulation)` });
-        setSubmitting(false);
+    try {
+        if (announcement) {
+            await setDoc(doc(db, 'messages', announcement.id), { ...data, senderId: user.uid, type: 'announcement', createdAt: announcement.createdAt }, { merge: true });
+            toast({ title: "Annonce modifiée" });
+        } else {
+            await addDoc(collection(db, 'messages'), { ...data, senderId: user.uid, type: 'announcement', createdAt: new Date().toISOString() });
+            toast({ title: "Annonce publiée" });
+        }
         setIsOpen(false);
-    }, 1000);
+    } catch(error) {
+        console.error("Error saving announcement: ", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de sauvegarder l'annonce." });
+    } finally {
+        setSubmitting(false);
+    }
   };
 
   return (

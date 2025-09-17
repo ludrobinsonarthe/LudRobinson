@@ -6,28 +6,31 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useUser } from '@/hooks/use-user';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Course, CashTransaction, Payment } from '@/lib/types';
+import { Course, CashTransaction, Payment, Field } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
 import StudentFieldDistributionChart from '@/components/charts/student-field-distribution-chart';
 import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
-import { mockFields, mockCourses, mockCashTransactions, mockPayments } from '@/lib/mock-data';
 
 export default function ReportingPage() {
-    const { users, loading: usersLoading } = useUser();
+    const { users, loading: usersLoading, settings } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
-    const [payments, setPayments] = useState<Payment[]>([]);
     const [loadingData, setLoadingData] = useState(true);
 
     useEffect(() => {
         setLoadingData(true);
-        setCourses(mockCourses);
-        setTransactions(mockCashTransactions);
-        setPayments(mockPayments);
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
+        const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction)));
+
         setLoadingData(false);
+        return () => {
+            unsubCourses();
+            unsubTransactions();
+        }
     }, []);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const fields = useMemo(() => settings?.sectors.flatMap(s => settings.sectors.find(f => f.id === s.id)) || [], [settings]);
 
     const stats = useMemo(() => {
         const studentCount = students.length;
@@ -150,7 +153,7 @@ export default function ReportingPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <StudentFieldDistributionChart students={students} fields={mockFields} />
+                       <StudentFieldDistributionChart students={students} fields={fields as Field[]} />
                     </CardContent>
                 </Card>
                  <Card>

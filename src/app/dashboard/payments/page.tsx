@@ -7,14 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from '@/components/ui/button';
 import { useUser } from "@/hooks/use-user";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Payment, User } from '@/lib/types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Download, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockPayments } from '@/lib/mock-data';
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
     validated: "default",
@@ -59,11 +58,21 @@ export default function PaymentsPage() {
         setLoading(true);
         if (!studentToView || !studentToView.uid) {
             setPayments([]);
-        } else {
-            const userPayments = mockPayments.filter(p => p.studentId === studentToView.uid);
-            setPayments(userPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setLoading(false);
+            return;
         }
-        setLoading(false);
+
+        const q = query(collection(db, 'payments'), where('studentId', '==', studentToView.uid));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const userPayments = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
+            setPayments(userPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching payments: ", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [studentToView]);
 
      const { totalExpected, totalPaid, totalBalance } = useMemo(() => {
@@ -191,5 +200,3 @@ export default function PaymentsPage() {
         </div>
     );
 }
-
-    

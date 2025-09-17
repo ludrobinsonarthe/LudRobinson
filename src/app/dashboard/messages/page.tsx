@@ -8,7 +8,6 @@ import { Message } from "@/lib/types";
 import { collection, query, where, onSnapshot, or, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
-import { mockMessages } from "@/lib/mock-data";
 
 export default function MessagesPage() {
   const { user, users } = useUser();
@@ -25,18 +24,25 @@ export default function MessagesPage() {
         or(where('senderId', '==', user.uid), where('receiverId', '==', user.uid))
     );
 
-    // This is a mock implementation
-    const userMessages = mockMessages.filter(m => m.type === 'private' && (m.senderId === user.uid || m.receiverId === user.uid));
-    userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    setMessages(userMessages);
-    setLoading(false);
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const userMessages = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Message));
+        userMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        setMessages(userMessages);
+        setLoading(false);
+    }, (error) => {
+        console.error("Error fetching messages: ", error);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
 
   }, [user]);
   
   const handleNewMessage = async (newMessage: Omit<Message, 'id' | 'createdAt'>) => {
-    // This is a mock implementation
-    const fullMessage = { ...newMessage, id: `msg_${Date.now()}`, createdAt: new Date().toISOString() };
-    setMessages(prev => [...prev, fullMessage]);
+    await addDoc(collection(db, 'messages'), {
+        ...newMessage,
+        createdAt: new Date().toISOString()
+    });
   }
 
   return (

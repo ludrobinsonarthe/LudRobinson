@@ -28,6 +28,8 @@ import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDescription } from "@/components/ui/form";
 import { useUser } from "@/hooks/use-user";
+import { writeBatch, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const roleSchema = z.object({
   id: z.string(),
@@ -49,7 +51,7 @@ const permissionGroups = {
 }
 
 export default function RolesPage() {
-  const { roles: initialRoles, loading: loadingRoles, setUsers, users } = useUser();
+  const { roles: initialRoles, loading: loadingRoles, users, setUsers } = useUser();
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -73,21 +75,22 @@ export default function RolesPage() {
 
   const onSubmit = async (data: RolesFormValues) => {
     setSubmitting(true);
-    // This is a simulation, we just update the local state for now
-    const updatedUsers = users.map(u => {
-        if(u.role === 'admin' && u.admin?.roleId && !data.roles.find(r => r.id === u.admin?.roleId)) {
-            return { ...u, admin: { ...u.admin, roleId: ''}};
-        }
-        return u;
-    });
-    // This is a hacky way to update roles, but since we use mock data it's fine
-    // @ts-ignore
-    setUsers(updatedUsers);
+    const batch = writeBatch(db);
 
-    setTimeout(() => {
-        toast({ title: "Rôles mis à jour (Simulation)", description: "Les permissions ont été enregistrées localement." });
+    data.roles.forEach(role => {
+        const docRef = doc(db, 'adminRoles', role.id);
+        batch.set(docRef, role);
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: "Rôles mis à jour", description: "Les permissions ont été enregistrées." });
+    } catch (error) {
+        console.error("Error saving roles:", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les rôles." });
+    } finally {
         setSubmitting(false);
-    }, 1000);
+    }
   };
 
   const addNewRole = () => {
@@ -100,8 +103,27 @@ export default function RolesPage() {
   }
 
   const removeRole = async (index: number) => {
-    remove(index);
-    toast({ title: "Rôle supprimé (Simulation)" });
+    const roleToRemove = fields[index];
+    const batch = writeBatch(db);
+    const docRef = doc(db, 'adminRoles', roleToRemove.id);
+    batch.delete(docRef);
+
+    // Also update users who have this role
+    users.forEach(user => {
+        if(user.role === 'admin' && user.admin?.roleId === roleToRemove.id) {
+            const userRef = doc(db, 'users', user.uid);
+            batch.update(userRef, { 'admin.roleId': '' });
+        }
+    });
+
+    try {
+        await batch.commit();
+        remove(index);
+        toast({ title: "Rôle supprimé" });
+    } catch (error) {
+        console.error("Error removing role:", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le rôle." });
+    }
   }
 
   return (
@@ -204,5 +226,3 @@ export default function RolesPage() {
     </div>
   );
 }
-
-    
