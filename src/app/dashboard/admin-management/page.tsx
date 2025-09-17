@@ -15,8 +15,6 @@ import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
@@ -32,21 +30,23 @@ const settingsFormSchema = z.object({
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
+const defaultSettings: Partial<SettingsFormValues> = {
+    schoolName: "",
+    logoUrl: "",
+    academicYear: "",
+    currency: "",
+    levels: [],
+    sectors: [],
+};
+
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings } = useUser();
+    const { settings, setSettings, loading: loadingSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
-        defaultValues: {
-            schoolName: "",
-            logoUrl: "",
-            academicYear: "",
-            currency: "",
-            levels: [],
-            sectors: [],
-        },
+        defaultValues: settings || defaultSettings
     });
 
     const { fields: levelFields, append: appendLevel, remove: removeLevel } = useFieldArray({
@@ -66,22 +66,14 @@ export default function AdminManagementPage() {
 
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
-        try {
-            await setDoc(doc(db, "system", "settings"), { id: 'system', ...data }, { merge: true });
-            toast({
-                title: "Paramètres enregistrés",
-                description: "Les paramètres globaux de l'application ont été mis à jour.",
-            });
-        } catch (error) {
-            console.error("Error saving settings:", error);
-            toast({
-                variant: "destructive",
-                title: "Erreur",
-                description: "Impossible d'enregistrer les paramètres."
-            })
-        } finally {
-            setSubmitting(false);
-        }
+        // This is a simulation, we update the state in the context
+        setSettings({ id: 'system', ...data });
+        
+        toast({
+            title: "Paramètres enregistrés (Simulation)",
+            description: "Les paramètres globaux ont été mis à jour localement.",
+        });
+        setSubmitting(false);
     };
 
     if (loadingSettings || !settings) {

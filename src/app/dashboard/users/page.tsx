@@ -23,9 +23,6 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection, getDocs, query } from "firebase/firestore";
-import { db, storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
     active: "default",
@@ -87,7 +84,7 @@ export default function UsersPage() {
         };
 
         if (selectedUser) {
-            setUsers(prev => prev.map(u => u.uid === selectedUser.uid ? { ...selectedUser, ...finalUserData } as User : u));
+            setUsers(prev => prev.map(u => u.uid === selectedUser.uid ? { ...u, ...finalUserData } as User : u));
             toast({ title: "Administrateur mis à jour (Simulation)" });
         } else {
             const newUser: User = {

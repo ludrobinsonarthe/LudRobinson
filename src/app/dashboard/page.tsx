@@ -8,8 +8,6 @@ import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
-import { collection, query, orderBy, onSnapshot, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { mockMessages } from "@/lib/mock-data";
 
 export default function DashboardPage() {
@@ -46,6 +44,14 @@ export default function DashboardPage() {
         setEditingAnnouncement(announcement);
         setIsDialogOpen(true);
     };
+    
+    const handleSaveAnnouncement = (message: Message) => {
+        if (editingAnnouncement) {
+            setAnnouncements(prev => prev.map(a => a.id === message.id ? message : a));
+        } else {
+            setAnnouncements(prev => [message, ...prev]);
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -76,7 +82,7 @@ export default function DashboardPage() {
                 ) : (
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
                         <h3 className="text-2xl font-bold tracking-tight">Aucune annonce</h3>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-muted-foreground">
                             Il n'y a pas d'annonces pour le moment.
                         </p>
                     </div>
@@ -86,6 +92,7 @@ export default function DashboardPage() {
                 isOpen={isDialogOpen}
                 setIsOpen={setIsDialogOpen}
                 announcement={editingAnnouncement}
+                onSave={handleSaveAnnouncement}
             />
         </div>
     );

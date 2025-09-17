@@ -1,5 +1,4 @@
 
-
 import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
 
 // Mock data is now being used as the primary source until Firestore rules are configured.

@@ -19,10 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Camera, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useRef, useState, useTransition } from "react";
-import { storage, db } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, updateDoc } from "firebase/firestore";
+import { useRef, useState, useTransition, useEffect } from "react";
 import ImageCropperDialog from "./image-cropper-dialog";
 import type { User } from "@/lib/types";
 
@@ -42,9 +39,9 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function ProfileForm() {
-  const { user, setUser } = useUser();
+  const { user, setUser, setUsers } = useUser();
   const { toast } = useToast();
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.photoUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -55,14 +52,27 @@ export default function ProfileForm() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      email: user?.email || "",
-      phone: user?.phone || "",
-      address: user?.address || "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      address: "",
     },
     mode: "onChange",
   });
+  
+  useEffect(() => {
+    if (user) {
+        form.reset({
+            firstName: user.firstName || "",
+            lastName: user.lastName || "",
+            email: user.email || "",
+            phone: user.phone || "",
+            address: user.address || "",
+        });
+        setAvatarPreview(user.photoUrl);
+    }
+  }, [user, form]);
   
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -90,15 +100,12 @@ export default function ProfileForm() {
             let photoUrl = user.photoUrl;
             const photoFile = data.photo;
             
-            const userRef = doc(db, "users", user.uid);
-            
             if (photoFile && photoFile instanceof Blob) {
-                const photoRef = ref(storage, `avatars/${user.uid}`);
-                const snapshot = await uploadBytes(photoRef, photoFile);
-                photoUrl = await getDownloadURL(snapshot.ref);
+                // Simulate upload
+                photoUrl = URL.createObjectURL(photoFile);
             }
 
-            const updatedData = {
+            const updatedData: Partial<User> = {
                 firstName: data.firstName,
                 lastName: data.lastName,
                 email: data.email,
@@ -107,11 +114,14 @@ export default function ProfileForm() {
                 photoUrl,
             };
             
-            await updateDoc(userRef, updatedData);
+            // Update local state (simulation)
+            const updatedUser = { ...user, ...updatedData };
+            setUsers(prevUsers => prevUsers.map(u => u.uid === user.uid ? updatedUser : u));
+            setUser(updatedUser);
 
             toast({
-                title: "Profil mis à jour",
-                description: "Vos informations ont été enregistrées.",
+                title: "Profil mis à jour (Simulation)",
+                description: "Vos informations ont été enregistrées localement.",
             });
         } catch (error) {
             console.error("Error updating profile:", error);
@@ -125,7 +135,11 @@ export default function ProfileForm() {
   }
 
   if (!user) {
-    return <div>Chargement du profil...</div>;
+    return (
+        <div className="flex items-center justify-center h-48">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
   }
 
   return (

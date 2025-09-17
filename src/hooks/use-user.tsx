@@ -15,6 +15,7 @@ type UserContextType = {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   loading: boolean;
   roles: AdminRole[];
+  setRoles: React.Dispatch<React.SetStateAction<AdminRole[]>>;
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
   settings: Settings | null;
@@ -37,7 +38,7 @@ const defaultSettings: Settings = {
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(defaultSettings);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -92,6 +93,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUsers: setAllUsers, 
       loading,
       roles,
+      setRoles,
       userPermissions,
       hasPermission,
       settings,
