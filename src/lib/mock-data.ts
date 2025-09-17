@@ -51,4 +51,3 @@ export const mockCashTransactions: CashTransaction[] = [];
 export const mockAttendances: Attendance[] = [];
 export const mockDocuments: OfficialDocument[] = [];
 export const mockFeeStructures: FeeStructure[] = [];
-
