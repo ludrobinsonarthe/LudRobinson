@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -6,6 +7,7 @@ import type { User, AdminRole, AdminPermission, Settings } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
+import { mockUsers, mockAdminRoles } from '@/lib/mock-data';
 
 type UserContextType = {
   user: User | null;
@@ -24,8 +26,8 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [roles, setRoles] = useState<AdminRole[]>(mockAdminRoles);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,20 +37,44 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        setAllUsers(usersData);
-        if(!currentUser && usersData.length > 0) {
-            const superAdmin = usersData.find(u => u.admin?.position === 'Super-Administrateur');
-            setCurrentUser(superAdmin || usersData[0] || null);
+        const combinedUsers = [...mockUsers];
+        usersData.forEach(liveUser => {
+            const index = combinedUsers.findIndex(mockUser => mockUser.uid === liveUser.uid);
+            if (index !== -1) {
+                combinedUsers[index] = liveUser;
+            } else {
+                combinedUsers.push(liveUser);
+            }
+        });
+
+        setAllUsers(combinedUsers);
+        if(!currentUser && combinedUsers.length > 0) {
+            const superAdmin = combinedUsers.find(u => u.admin?.position === 'Super-Administrateur');
+            setCurrentUser(superAdmin || combinedUsers[0] || null);
         }
         setLoading(false);
     }, (error) => {
         console.error("Error fetching users:", error);
+        // Fallback to mock data if firestore fails
+        if(!currentUser && mockUsers.length > 0) {
+            const superAdmin = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
+            setCurrentUser(superAdmin || mockUsers[0] || null);
+        }
         setLoading(false);
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
         const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
-        setRoles(rolesData);
+         const combinedRoles = [...mockAdminRoles];
+        rolesData.forEach(liveRole => {
+            const index = combinedRoles.findIndex(mockRole => mockRole.id === liveRole.id);
+            if (index !== -1) {
+                combinedRoles[index] = liveRole;
+            } else {
+                combinedRoles.push(liveRole);
+            }
+        });
+        setRoles(combinedRoles);
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
@@ -67,6 +93,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     });
 
+    // Subscriptions to other collections to ensure they are being listened to
     const unsubCourses = onSnapshot(collection(db, 'courses'), (snapshot) => {});
     const unsubStudents = onSnapshot(collection(db, 'students'), (snapshot) => {});
     const unsubTeachers = onSnapshot(collection(db, 'teachers'), (snapshot) => {});
