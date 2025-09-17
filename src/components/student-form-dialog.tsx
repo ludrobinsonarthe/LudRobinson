@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -79,6 +80,7 @@ interface StudentFormDialogProps {
   onSave: (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => void;
   student: User | null;
   parents: User[];
+  students: User[];
 }
 
 const cycles: { value: Cycle, label: string }[] = [
@@ -88,7 +90,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProps>(
-    ({ isOpen, setIsOpen, onSave, student, parents }, ref) => {
+    ({ isOpen, setIsOpen, onSave, student, parents, students }, ref) => {
     const { settings, fields, sectors } = useUser();
 
   const form = useForm<StudentFormValues>({
@@ -119,38 +121,50 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
   const parentSelection = form.watch('parentSelection');
   const selectedSector = form.watch('sectorId');
+  const selectedLevel = form.watch('level');
 
   const availableFields = useMemo(() => {
       if (!selectedSector) return [];
       return fields.filter(f => f.sectorId === selectedSector);
   }, [selectedSector, fields]);
 
+  const generateMatricule = (level: string) => {
+    if (!level) return '';
+    const year = new Date().getFullYear();
+    const levelCode = level.replace(' ', '').slice(-2).toUpperCase(); // L1, L2, M1...
+    const studentsInLevel = students.filter(s => s.student?.level === level).length;
+    const nextId = (studentsInLevel + 1).toString().padStart(4, '0');
+    return `ISGI-${year}-${levelCode}-${nextId}`;
+  };
+
   useEffect(() => {
     if (isOpen) {
-        const studentSectorId = fields.find(f => f.id === student?.student?.fieldId)?.sectorId || '';
         if (student) {
-          form.reset({
-            firstName: student.firstName,
-            lastName: student.lastName,
-            email: student.email,
-            phone: student.phone,
-            matricule: student.student?.matricule,
-            level: student.student?.level,
-            sectorId: studentSectorId,
-            fieldId: student.student?.fieldId,
-            cycle: student.student?.cycle,
-            parentUid: student.student?.parentUid,
-            parentalLink: student.student?.parentalLink,
-            parentSelection: student.student?.parentUid ? 'existing' : 'new'
-          });
+            const studentSectorId = fields.find(f => f.id === student.student?.fieldId)?.sectorId || '';
+            form.reset({
+                firstName: student.firstName,
+                lastName: student.lastName,
+                email: student.email,
+                phone: student.phone,
+                matricule: student.student?.matricule,
+                level: student.student?.level,
+                sectorId: studentSectorId,
+                fieldId: student.student?.fieldId,
+                cycle: student.student?.cycle,
+                parentUid: student.student?.parentUid,
+                parentalLink: student.student?.parentalLink,
+                parentSelection: student.student?.parentUid ? 'existing' : 'new'
+            });
         } else {
+          // Reset and generate new matricule if level is already selected
+          const initialLevel = settings?.levels[0]?.value || '';
           form.reset({
             firstName: '',
             lastName: '',
             email: '',
             phone: '',
-            matricule: `ISGI-${new Date().getFullYear()}-L1-${Math.floor(100 + Math.random() * 900)}`,
-            level: '',
+            matricule: generateMatricule(initialLevel),
+            level: initialLevel,
             sectorId: '',
             fieldId: '',
             cycle: 'local',
@@ -165,8 +179,14 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
           });
         }
     }
-  }, [student, isOpen, form, fields]);
+  }, [student, isOpen, form, fields, settings]);
   
+  useEffect(() => {
+    if (isOpen && !student && selectedLevel) {
+        form.setValue('matricule', generateMatricule(selectedLevel));
+    }
+  }, [selectedLevel, isOpen, student, form]);
+
    useEffect(() => {
     if(!form.getValues('fieldId')) return;
     const currentField = fields.find(f => f.id === form.getValues('fieldId'));
@@ -265,7 +285,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="email" render={({ field }) => (
-                        <FormItem><FormLabel>Adresse e-mail (Optionnel)</FormLabel><FormControl><Input type="email" placeholder="email@isgi.com" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Adresse e-mail (Optionnel)</FormLabel><FormControl><Input type="email" placeholder="email@isgi.com" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="phone" render={({ field }) => (
                         <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} /></FormControl><FormMessage /></FormItem>
@@ -275,7 +295,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
                 <div className="grid grid-cols-2 gap-4">
                      <FormField control={form.control} name="matricule" render={({ field }) => (
-                        <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input {...field} readOnly /></FormControl><FormMessage /></FormItem>
                     )}/>
                      <FormField control={form.control} name="level" render={({ field }) => (
                         <FormItem><FormLabel>Niveau</FormLabel>
@@ -393,5 +413,3 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
-
-    

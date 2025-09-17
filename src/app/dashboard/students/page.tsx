@@ -682,6 +682,7 @@ export default function StudentsPage() {
                 onSave={handleSave}
                 student={selectedStudent}
                 parents={parents}
+                students={studentsFromUsers}
             />
             <UserDeleteDialog
                 isOpen={isDeleteOpen}
@@ -692,8 +693,3 @@ export default function StudentsPage() {
         </div>
     );
 }
-
-    
-
-    
-
