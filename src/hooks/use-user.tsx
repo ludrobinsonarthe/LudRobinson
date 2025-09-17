@@ -26,8 +26,8 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
-  const [roles, setRoles] = useState<AdminRole[]>(mockAdminRoles);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<AdminRole[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +55,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
     }, (error) => {
         console.error("Error fetching users:", error);
-        // Fallback to mock data if firestore fails
+        setAllUsers(mockUsers);
         if(!currentUser && mockUsers.length > 0) {
             const superAdmin = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
             setCurrentUser(superAdmin || mockUsers[0] || null);
@@ -75,6 +75,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             }
         });
         setRoles(combinedRoles);
+    }, (error) => {
+        console.error("Error fetching roles:", error);
+        setRoles(mockAdminRoles);
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
@@ -127,11 +130,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   const userPermissions = useMemo((): AdminPermission[] => {
-      if (currentUser?.role === 'admin') {
+      if (currentUser?.role !== 'admin') return [];
+      
+      // Super admin gets all permissions
+      if(currentUser.admin?.position === 'Super-Administrateur'){
           return Object.keys(adminPermissions) as AdminPermission[];
       }
+
+      // Other admins get permissions from their assigned role
+      if (currentUser.admin?.roleId) {
+          const userRole = roles.find(r => r.id === currentUser.admin?.roleId);
+          return userRole?.permissions || [];
+      }
+      
       return [];
-  }, [currentUser]);
+  }, [currentUser, roles]);
 
   const hasPermission = (permission: AdminPermission) => {
       return userPermissions.includes(permission);

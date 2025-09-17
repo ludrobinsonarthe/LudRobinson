@@ -32,7 +32,7 @@ export const mockAdminRoles: AdminRole[] = [
     { 
         id: 'compta', 
         name: 'Comptable', 
-        permissions: ['manage_tuition', 'manage_cash_flow']
+        permissions: ['manage_tuition', 'manage_cash_flow', 'manage_fees', 'view_reporting']
     }
 ];
 

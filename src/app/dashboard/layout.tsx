@@ -13,8 +13,6 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
-  SidebarGroup,
-  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import {
   Home,
@@ -62,7 +60,7 @@ function AppLogo() {
 
 function MainSidebar() {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -98,7 +96,7 @@ function MainSidebar() {
     { href: "/dashboard/messages", label: "Messagerie", icon: MessageSquare },
   ];
   
-  const showStudentMenu = user?.role === 'student' || user?.role === 'admin' || user?.role === 'parent';
+  const showStudentMenu = user?.role === 'student' || user?.role === 'parent';
   const showAdminMenu = user?.role === 'admin';
 
 
@@ -110,8 +108,6 @@ function MainSidebar() {
       <SidebarContent>
         {isMounted && <SidebarMenu>
           
-          <SidebarGroup>
-            <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
@@ -126,11 +122,8 @@ function MainSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-          </SidebarGroup>
-
-        {showStudentMenu && <SidebarGroup>
-            <SidebarGroupLabel>Espace Personnel</SidebarGroupLabel>
-             {studentMenuItems.map((item) => (
+          
+          {showStudentMenu && studentMenuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
@@ -144,11 +137,9 @@ function MainSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-          </SidebarGroup>}
 
-          {showAdminMenu && <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
-            {adminManagementItems.map((item) => (
+          {showAdminMenu && adminManagementItems.map((item) => 
+            hasPermission(item.permission) && (
               <SidebarMenuItem key={item.href + item.label}>
                   <SidebarMenuButton
                       asChild
@@ -161,8 +152,8 @@ function MainSidebar() {
                       </Link>
                   </SidebarMenuButton>
               </SidebarMenuItem>
-            ))}
-          </SidebarGroup>}
+            )
+          )}
 
         </SidebarMenu>}
       </SidebarContent>
