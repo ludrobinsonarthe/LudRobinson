@@ -3,7 +3,7 @@
 import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
 import { adminPermissions } from './types';
 
-// This file is now primarily for bootstrapping the Super Admin role if the database is empty.
+// This file is now primarily for bootstrapping the Super Admin role and user if the database is empty.
 // Most other mock data is no longer needed as the app is connected to Firestore.
 
 export const mockUsers: User[] = [
@@ -51,6 +51,4 @@ export const mockCashTransactions: CashTransaction[] = [];
 export const mockAttendances: Attendance[] = [];
 export const mockDocuments: OfficialDocument[] = [];
 export const mockFeeStructures: FeeStructure[] = [];
-
-    
 

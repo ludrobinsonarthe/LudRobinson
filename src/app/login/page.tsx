@@ -59,10 +59,9 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Login error:", error);
       let description = "Une erreur inattendue est survenue. Veuillez réessayer.";
-      if (error.code === AuthErrorCodes.INVALID_LOGIN_CREDENTIALS) {
+      // Catch specific Firebase auth errors for a better user experience
+      if (error.code === AuthErrorCodes.INVALID_LOGIN_CREDENTIALS || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         description = "L'adresse e-mail ou le mot de passe est incorrect.";
-      } else if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
-         description = "L'adresse e-mail ou le mot de passe est incorrect.";
       }
       toast({
         variant: "destructive",
