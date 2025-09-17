@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission, Settings } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { mockAdminRoles, mockUsers } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
@@ -35,9 +36,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setLoading(true);
     
+    // Start with mock data and then let Firestore overwrite it
+    setAllUsers(mockUsers);
+    setRoles(mockAdminRoles);
+
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-         setAllUsers(usersData);
+        if (!snapshot.empty) {
+            const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
+            setAllUsers(usersData);
+        }
         setLoading(false);
     }, (error) => {
         console.error("Error fetching users:", error);
@@ -45,8 +52,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
-        const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
-        setRoles(rolesData);
+        if (!snapshot.empty) {
+            const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
+            setRoles(rolesData);
+        }
     }, (error) => {
         console.error("Error fetching roles:", error);
     });
@@ -76,37 +85,49 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-      if (authUser && allUsers.length > 0) {
+      if (authUser && (allUsers.length > 0 || !loading)) {
           const matchedUser = allUsers.find(u => u.uid === authUser.uid);
           if (matchedUser) {
               setCurrentUser(matchedUser);
           } else {
               // This is a new user authenticated via Google for example
+              const isSuperAdminEmail = authUser.email === "semfranslinbourangon@gmail.com";
+              
               const newUserProfile: User = {
                   uid: authUser.uid,
                   email: authUser.email || '',
                   firstName: authUser.displayName?.split(' ')[0] || 'Nouveau',
                   lastName: authUser.displayName?.split(' ')[1] || 'Utilisateur',
                   photoUrl: authUser.photoURL || `https://picsum.photos/seed/${authUser.uid}/100/100`,
-                  role: 'student', // Default role for new users
+                  role: isSuperAdminEmail ? 'admin' : 'student', // Assign 'admin' role if super admin email
                   status: 'active',
                   createdAt: new Date().toISOString(),
               };
-              // Here you would typically save the new user to Firestore
-              // For now, we add to local state
-              setAllUsers(prev => [...prev, newUserProfile]);
-              setCurrentUser(newUserProfile);
+
+              if (isSuperAdminEmail) {
+                newUserProfile.admin = {
+                    roleId: 'super_admin',
+                    position: 'Super-Administrateur'
+                }
+              }
+              
+              // Save the new user to Firestore
+              const userDocRef = doc(db, 'users', authUser.uid);
+              setDoc(userDocRef, newUserProfile).then(() => {
+                 setAllUsers(prev => [...prev, newUserProfile]);
+                 setCurrentUser(newUserProfile);
+              });
           }
       } else if (!authUser) {
           setCurrentUser(null);
       }
-  }, [authUser, allUsers]);
+  }, [authUser, allUsers, loading]);
 
   
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
       
-      const superAdminUser = mockUsers.find(u => u.admin?.position === 'Super-Administrateur');
+      const superAdminUser = allUsers.find(u => u.admin?.position === 'Super-Administrateur');
       if (currentUser.uid === superAdminUser?.uid || currentUser.email === "semfranslinbourangon@gmail.com") {
           return Object.keys(adminPermissions) as AdminPermission[];
       }
@@ -117,15 +138,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
       
       return [];
-  }, [currentUser, roles]);
+  }, [currentUser, roles, allUsers]);
 
   const hasPermission = (permission: AdminPermission) => {
       return userPermissions.includes(permission);
   }
 
   const setUser = (user: User) => {
-      // This is now mainly for demo purposes to switch between user profiles
-      // The actual logged-in user is determined by Firebase Auth
       const matchedUser = allUsers.find(u => u.uid === user.uid);
       if(matchedUser) setCurrentUser(matchedUser);
   };
