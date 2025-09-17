@@ -80,28 +80,6 @@ export default function DashboardPage() {
         }
     }
 
-    const handleSaveAnnouncement = async (data: Omit<Message, 'id' | 'createdAt' | 'senderId' | 'type'>) => {
-        if (!currentUser) return;
-        try {
-            if (editingAnnouncement) {
-                await setDoc(doc(db, "messages", editingAnnouncement.id), data, { merge: true });
-                toast({ title: "Annonce modifiée" });
-            } else {
-                await addDoc(collection(db, "messages"), {
-                    ...data,
-                    senderId: currentUser.uid,
-                    type: 'announcement',
-                    createdAt: new Date().toISOString(),
-                });
-                toast({ title: "Annonce publiée" });
-            }
-        } catch (error) {
-            console.error("Error saving announcement: ", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'annonce." });
-        }
-    }
-
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
@@ -141,14 +119,13 @@ export default function DashboardPage() {
                 isOpen={isDialogOpen}
                 setIsOpen={setIsDialogOpen}
                 announcement={editingAnnouncement}
-                onSave={handleSaveAnnouncement}
             />
             {editingAnnouncement && (
                  <UserDeleteDialog
                     isOpen={isDeleteDialogOpen}
                     setIsOpen={setIsDeleteDialogOpen}
                     onConfirm={confirmDelete}
-                    user={editingAnnouncement as Partial<User>} // Casting to fit the prop type
+                    item={{id: editingAnnouncement.id, name: editingAnnouncement.title || "Annonce sans titre"}}
                     title="Supprimer cette annonce ?"
                     description={`L'annonce "${editingAnnouncement.title || 'Sans titre'}" sera définitivement supprimée.`}
                 />

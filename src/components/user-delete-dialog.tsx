@@ -12,19 +12,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "./ui/button";
-import type { User } from "@/lib/types";
 
 interface UserDeleteDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   onConfirm: () => void;
-  user: Partial<User> | null;
+  item: { id: string; name: string } | null;
   title?: string;
   description?: string;
 }
 
-export default function UserDeleteDialog({ isOpen, setIsOpen, onConfirm, user, title, description }: UserDeleteDialogProps) {
-  if (!user) return null;
+export default function UserDeleteDialog({ isOpen, setIsOpen, onConfirm, item, title, description }: UserDeleteDialogProps) {
+  if (!item) return null;
 
   return (
     <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
@@ -32,7 +31,7 @@ export default function UserDeleteDialog({ isOpen, setIsOpen, onConfirm, user, t
         <AlertDialogHeader>
           <AlertDialogTitle>{title || "Êtes-vous sûr de vouloir supprimer cet élément ?"}</AlertDialogTitle>
           <AlertDialogDescription>
-            {description || `Cette action est irréversible. L'élément "${user.firstName} ${user.lastName || ''}" sera définitivement supprimé.`}
+            {description || `Cette action est irréversible. L'élément "${item.name}" sera définitivement supprimé.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

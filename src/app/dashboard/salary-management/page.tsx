@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -95,35 +96,10 @@ function SalaryManagementContent() {
                 });
             }
         });
-
-        // Generate monthly salaries for admins for the last 12 months
-        const adminUsers = teachersAndAdmins.filter(u => u.role === 'admin' && u.admin?.baseSalary);
-        const today = new Date();
-        for (let i = 0; i < 12; i++) {
-            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const month = format(date, 'MMMM', { locale: fr });
-            const year = format(date, 'yyyy');
-
-            adminUsers.forEach(admin => {
-                 allSalaries.push({
-                    id: `admin-${admin.uid}-${year}-${month}`,
-                    userId: admin.uid,
-                    userName: `${admin.firstName} ${admin.lastName}`,
-                    userRole: 'admin',
-                    month: month,
-                    year: year,
-                    totalSalary: admin.admin?.baseSalary || 0,
-                    status: 'pending', // This should be checked against a real record if implemented
-                    currency: 'XAF',
-                    createdAt: date.toISOString(),
-                    baseSalary: admin.admin?.baseSalary || 0,
-                 });
-            });
-        }
         
         return allSalaries.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    }, [teacherSalaries, teachersAndAdmins, usersById]);
+    }, [teacherSalaries, usersById]);
 
     const filteredSalaries = useMemo(() => {
         if (userFilter === 'all') return unifiedSalaries;
@@ -167,7 +143,7 @@ function SalaryManagementContent() {
 
 
     const handleSave = async (salaryData: Omit<TeacherSalary, 'id' | 'createdAt' | 'status'>) => {
-        const newSalary: Omit<TeacherSalary, 'id'> = {
+        const newSalary: Omit<TeacherSalary, 'id'> => {
             createdAt: new Date().toISOString(),
             status: 'pending',
             ...salaryData
@@ -426,7 +402,8 @@ function SalaryManagementContent() {
                     isOpen={isDeleteOpen}
                     setIsOpen={setIsDeleteOpen}
                     onConfirm={confirmDelete}
-                    user={{uid: selectedSalary.id, firstName: `Fiche de paie pour ${selectedSalary.userName}`, lastName: ''}}
+                    item={{id: selectedSalary.id, name: `Fiche de paie pour ${selectedSalary.userName}`}}
+                    title="Supprimer cette fiche de paie ?"
                 />
             )}
         </div>

@@ -28,6 +28,8 @@ import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const announcementSchema = z.object({
   receiverId: z.string().min(1, "Veuillez sélectionner un destinataire."),
@@ -41,11 +43,11 @@ interface AnnouncementDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   announcement: Message | null;
-  onSave: (data: AnnouncementFormValues) => Promise<void>;
 }
 
-export default function AnnouncementDialog({ isOpen, setIsOpen, announcement, onSave }: AnnouncementDialogProps) {
+export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: AnnouncementDialogProps) {
   const { user, roles } = useUser();
+  const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   
   const form = useForm<AnnouncementFormValues>({
@@ -75,10 +77,32 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement, on
   }
 
   const onSubmit = async (data: AnnouncementFormValues) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Erreur", description: "Utilisateur non authentifié."});
+        return;
+    }
     setSubmitting(true);
-    await onSave(data);
-    setSubmitting(false);
-    setIsOpen(false);
+    
+    try {
+        if (announcement) {
+            await setDoc(doc(db, "messages", announcement.id), { ...data }, { merge: true });
+            toast({ title: "Annonce modifiée" });
+        } else {
+            await addDoc(collection(db, "messages"), {
+                ...data,
+                senderId: user.uid,
+                type: 'announcement',
+                createdAt: new Date().toISOString(),
+            });
+            toast({ title: "Annonce publiée" });
+        }
+        setIsOpen(false);
+    } catch (error) {
+        console.error("Error saving announcement: ", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'annonce." });
+    } finally {
+        setSubmitting(false);
+    }
   };
 
   return (

@@ -97,7 +97,7 @@ export default function CashFlowPage() {
         salary: "Salaire",
         equipment: "Matériel",
         utilities: "Services",
-        diverse: "Dépenses diverses",
+        diverses: "Dépenses diverses",
         other: "Autre",
     }
 
@@ -222,7 +222,9 @@ export default function CashFlowPage() {
                     isOpen={isDeleteOpen}
                     setIsOpen={setIsDeleteOpen}
                     onConfirm={confirmDelete}
-                    user={{uid: selectedTransaction.id, firstName: "Cette transaction", lastName: ''}}
+                    item={{id: selectedTransaction.id, name: "Cette transaction"}}
+                    title="Supprimer cette transaction ?"
+                    description="Cette action est irréversible et supprimera définitivement la transaction."
                 />
             )}
         </div>

@@ -170,7 +170,7 @@ export interface CashTransaction {
     id: string;
     date: string;
     type: 'income' | 'expense';
-    category: 'tuition' | 'salary' | 'equipment' | 'utilities' | 'other' | 'diverse';
+    category: 'tuition' | 'salary' | 'equipment' | 'utilities' | 'other' | 'diverses';
     description: string;
     amount: number;
     currency: string;
