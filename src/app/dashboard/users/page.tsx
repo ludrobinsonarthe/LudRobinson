@@ -23,6 +23,10 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
+import { doc, setDoc, deleteDoc, addDoc, collection } from "firebase/firestore";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
     active: "default",
@@ -40,7 +44,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { users, loading, setUsers, roles, loading: loadingRoles } = useUser();
+    const { users, loading, roles, loading: loadingRoles } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -73,38 +77,55 @@ export default function UsersPage() {
     }
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
+        const uid = selectedUser?.uid || `admin_${Date.now()}`;
         let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
-        if (photoFile) {
-            photoUrl = URL.createObjectURL(photoFile);
-        }
+        
+        try {
+            if (photoFile) {
+                const photoRef = ref(storage, `avatars/${uid}`);
+                const snapshot = await uploadBytes(photoRef, photoFile);
+                photoUrl = await getDownloadURL(snapshot.ref);
+            }
 
-        const finalUserData = {
-            ...userData,
-            photoUrl: photoUrl,
-        };
+            const finalUserData = {
+                ...userData,
+                photoUrl: photoUrl || `https://picsum.photos/seed/${uid}/100/100`,
+            };
 
-        if (selectedUser) {
-            setUsers(prev => prev.map(u => u.uid === selectedUser.uid ? { ...u, ...finalUserData } as User : u));
-            toast({ title: "Administrateur mis à jour (Simulation)" });
-        } else {
-            const newUser: User = {
-                uid: `admin_${Date.now()}`,
-                createdAt: new Date().toISOString(),
-                status: 'active',
-                role: 'admin',
-                ...finalUserData,
-            } as User;
-            setUsers(prev => [...prev, newUser]);
-            toast({ title: "Administrateur ajouté (Simulation)" });
+            if (selectedUser) {
+                const userDocRef = doc(db, 'users', selectedUser.uid);
+                await setDoc(userDocRef, finalUserData, { merge: true });
+                toast({ title: "Administrateur mis à jour" });
+            } else {
+                const newUser: User = {
+                    uid: uid,
+                    createdAt: new Date().toISOString(),
+                    status: 'active',
+                    role: 'admin',
+                    ...finalUserData,
+                } as User;
+                 const userDocRef = doc(db, 'users', newUser.uid);
+                await setDoc(userDocRef, newUser);
+                toast({ title: "Administrateur ajouté" });
+            }
+        } catch (error) {
+             console.error("Error saving user:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'utilisateur." });
         }
     }
     
     const confirmDelete = async () => {
         if(selectedUser) {
-            setUsers(prev => prev.filter(u => u.uid !== selectedUser.uid));
-            toast({ title: "Utilisateur supprimé (Simulation)" });
-            setIsDeleteOpen(false);
-            setSelectedUser(null);
+            try {
+                await deleteDoc(doc(db, "users", selectedUser.uid));
+                toast({ title: "Utilisateur supprimé" });
+            } catch (error) {
+                console.error("Error deleting user:", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'utilisateur." });
+            } finally {
+                 setIsDeleteOpen(false);
+                 setSelectedUser(null);
+            }
         }
     }
 
