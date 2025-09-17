@@ -33,7 +33,7 @@ import { Loader2 } from "lucide-react";
 
 const transactionFormSchema = z.object({
   type: z.enum(['income', 'expense']),
-  category: z.enum(['equipment', 'utilities', 'other', 'diverses']),
+  category: z.enum(['equipment', 'utilities', 'session', 'soutenance', 'other']),
   description: z.string().min(5, "La description est requise."),
   amount: z.coerce.number().min(1, "Le montant est requis."),
   currency: z.string().default('XAF'),
@@ -49,7 +49,8 @@ interface CashTransactionFormDialogProps {
 const categories = [
     { value: 'equipment', label: "Achat de matériel"},
     { value: 'utilities', label: "Factures & Services"},
-    { value: 'diverses', label: "Dépenses diverses"},
+    { value: 'session', label: "Frais de session"},
+    { value: 'soutenance', label: "Frais de soutenance"},
     { value: 'other', label: "Autre"},
 ]
 
@@ -62,7 +63,7 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
         type: 'expense',
-        category: 'diverses',
+        category: 'other',
         description: '',
         amount: 0,
         currency: 'XAF',
@@ -73,7 +74,7 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
     if (isOpen) {
         form.reset({
             type: 'expense',
-            category: 'diverses',
+            category: 'other',
             description: '',
             amount: 0,
             currency: 'XAF',
@@ -88,7 +89,7 @@ export default function CashTransactionFormDialog({ isOpen, setIsOpen }: CashTra
     }
     setSubmitting(true);
     
-    const newTransaction: Omit<CashTransaction, 'id'> = {
+    const newTransaction: Omit<CashTransaction, 'id' | 'category'> & { category: TransactionFormValues['category']} = {
         ...data,
         date: new Date().toISOString(),
         createdBy: user.uid,

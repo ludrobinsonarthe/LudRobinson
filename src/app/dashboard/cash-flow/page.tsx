@@ -97,7 +97,8 @@ export default function CashFlowPage() {
         salary: "Salaire",
         equipment: "Matériel",
         utilities: "Services",
-        diverses: "Dépenses diverses",
+        session: "Frais de session",
+        soutenance: "Frais de soutenance",
         other: "Autre",
     }
 
