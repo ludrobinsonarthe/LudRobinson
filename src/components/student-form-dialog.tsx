@@ -49,20 +49,20 @@ const studentFormSchema = z.object({
   parentUid: z.string().optional(),
   parentFirstName: z.string().optional(),
   parentLastName: z.string().optional(),
-  parentEmail: z.string().optional(),
+  parentEmail: z.string().optional().or(z.literal('')),
   parentPhone: z.string().optional(),
   parentAddress: z.string().optional(),
 }).refine(data => {
     if (data.parentSelection === 'new') {
-        return !!data.parentFirstName && !!data.parentLastName && !!data.parentEmail;
+        return !!data.parentFirstName && !!data.parentLastName;
     }
     return true;
 }, {
-    message: "Les informations du nouveau tuteur sont requises.",
+    message: "Le prénom et le nom du nouveau tuteur sont requis.",
     path: ["parentFirstName"]
 }).refine(data => {
     if (data.parentSelection === 'new' && data.parentEmail) {
-        return z.string().email().safeParse(data.parentEmail).success;
+        return z.string().email("L'e-mail du tuteur est invalide.").safeParse(data.parentEmail).success;
     }
     return true;
 },
@@ -236,11 +236,11 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
     };
     
     let parentData : Partial<User> | undefined;
-    if (data.parentSelection === 'new' && data.parentFirstName && data.parentLastName && data.parentEmail) {
+    if (data.parentSelection === 'new' && data.parentFirstName && data.parentLastName) {
         parentData = {
             firstName: data.parentFirstName,
             lastName: data.parentLastName,
-            email: data.parentEmail,
+            email: data.parentEmail || '',
             phone: data.parentPhone,
             address: data.parentAddress,
         }
@@ -382,7 +382,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                             )}/>
                         </div>
                          <FormField control={form.control} name="parentEmail" render={({ field }) => (
-                            <FormItem><FormLabel>E-mail du tuteur</FormLabel><FormControl><Input type="email" placeholder="tuteur@email.com" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>E-mail du tuteur (Optionnel)</FormLabel><FormControl><Input type="email" placeholder="tuteur@email.com" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="parentPhone" render={({ field }) => (
                             <FormItem><FormLabel>Téléphone du tuteur</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} /></FormControl><FormMessage /></FormItem>
