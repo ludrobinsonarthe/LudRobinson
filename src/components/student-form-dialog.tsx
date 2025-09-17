@@ -46,6 +46,7 @@ const studentFormSchema = z.object({
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
   cycle: z.enum(['local', 'international', 'entrepreneur']),
+  lastDiploma: z.string().optional(),
   parentalLink: z.string().optional(),
   
   // Parent/Tutor Info
@@ -112,6 +113,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         sectorId: '',
         fieldId: '',
         cycle: 'local',
+        lastDiploma: '',
         parentSelection: 'existing',
         parentUid: '',
         parentFirstName: '',
@@ -162,6 +164,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 sectorId: studentSectorId,
                 fieldId: student.student?.fieldId,
                 cycle: student.student?.cycle,
+                lastDiploma: student.student?.lastDiploma,
                 parentUid: student.student?.parentUid,
                 parentalLink: student.student?.parentalLink,
                 parentSelection: student.student?.parentUid ? 'existing' : 'new'
@@ -182,6 +185,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             sectorId: '',
             fieldId: '',
             cycle: 'local',
+            lastDiploma: '',
             parentSelection: 'existing',
             parentUid: '',
             parentFirstName: '',
@@ -245,6 +249,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             cycle: data.cycle,
             level: data.level,
             fieldId: data.fieldId,
+            lastDiploma: data.lastDiploma,
             parentalLink: data.parentalLink,
             programId: student?.student?.programId || 'prog01', // Keep existing or default
             enrollmentDate: student?.student?.enrollmentDate || new Date().toISOString(),
@@ -254,8 +259,8 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
     
     let parentData : Partial<User> | undefined;
 
-    if (data.parentSelection === 'existing' && data.parentUid) {
-        if(studentData.student) studentData.student.parentUid = data.parentUid;
+    if (data.parentSelection === 'existing') {
+        if(studentData.student && data.parentUid) studentData.student.parentUid = data.parentUid;
     } else if (data.parentSelection === 'new' && data.parentFirstName && data.parentLastName) {
         parentData = {
             firstName: data.parentFirstName,
@@ -382,15 +387,19 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                     )}/>
                 </div>
                 
-                 <FormField control={form.control} name="cycle" render={({ field }) => (
-                    <FormItem><FormLabel>Cycle</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un cycle..." /></SelectTrigger></FormControl>
-                        <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}/>
+                 <div className="grid grid-cols-2 gap-4">
+                     <FormField control={form.control} name="cycle" render={({ field }) => (
+                        <FormItem><FormLabel>Cycle</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un cycle..." /></SelectTrigger></FormControl>
+                            <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <FormMessage /></FormItem>
+                    )}/>
+                     <FormField control={form.control} name="lastDiploma" render={({ field }) => (
+                        <FormItem><FormLabel>Dernier diplôme</FormLabel><FormControl><Input placeholder="Baccalauréat, Licence..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </div>
 
 
                 <Separator className="my-6"/>

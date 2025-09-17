@@ -59,6 +59,7 @@ export interface User {
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user
     parentalLink?: string;
+    lastDiploma?: string;
   };
   teacher?: {
     specialty: string;

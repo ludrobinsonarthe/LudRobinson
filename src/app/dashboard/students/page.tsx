@@ -64,6 +64,8 @@ export default function StudentsPage() {
     const [levelFilter, setLevelFilter] = useState("all");
     const [sectorFilter, setSectorFilter] = useState("all");
     const [fieldFilter, setFieldFilter] = useState("all");
+    const [genderFilter, setGenderFilter] = useState("all");
+    const [nationalityFilter, setNationalityFilter] = useState("all");
     
     useEffect(() => {
         setLoadingData(true);
@@ -106,6 +108,12 @@ export default function StudentsPage() {
     useEffect(() => {
         setFieldFilter("all");
     }, [sectorFilter]);
+    
+    const nationalities = useMemo(() => {
+        const allNationalities = studentsFromUsers.map(s => s.nationality).filter(Boolean);
+        return [...new Set(allNationalities)] as string[];
+    }, [studentsFromUsers]);
+
 
     const filteredStudents = useMemo(() => {
         return studentsFromUsers.filter(student => {
@@ -117,10 +125,12 @@ export default function StudentsPage() {
                 (nameFilter === "" || fullName.includes(nameFilter.toLowerCase())) &&
                 (levelFilter === "all" || student.student?.level === levelFilter) &&
                 (sectorFilter === "all" || studentSectorId === sectorFilter) &&
-                (fieldFilter === "all" || student.student?.fieldId === fieldFilter)
+                (fieldFilter === "all" || student.student?.fieldId === fieldFilter) &&
+                (genderFilter === "all" || student.gender === genderFilter) &&
+                (nationalityFilter === "all" || student.nationality === nationalityFilter)
             );
         });
-    }, [studentsFromUsers, nameFilter, levelFilter, sectorFilter, fieldFilter, fieldsById]);
+    }, [studentsFromUsers, nameFilter, levelFilter, sectorFilter, fieldFilter, genderFilter, nationalityFilter, fieldsById]);
 
     const handleAdd = () => {
         setSelectedStudent(null);
@@ -539,7 +549,7 @@ export default function StudentsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-wrap items-center gap-4 mb-6">
+                     <div className="flex flex-wrap items-center gap-4 mb-6">
                         <Input 
                             placeholder="Rechercher par nom..."
                             value={nameFilter}
@@ -553,6 +563,25 @@ export default function StudentsPage() {
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
                                 {settings?.levels.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                         <Select value={genderFilter} onValueChange={setGenderFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filtrer par sexe" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tous les sexes</SelectItem>
+                                <SelectItem value="M">Masculin</SelectItem>
+                                <SelectItem value="F">Féminin</SelectItem>
+                            </SelectContent>
+                        </Select>
+                         <Select value={nationalityFilter} onValueChange={setNationalityFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filtrer par nationalité" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Toutes les nationalités</SelectItem>
+                                {nationalities.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={sectorFilter} onValueChange={setSectorFilter}>
@@ -573,7 +602,6 @@ export default function StudentsPage() {
                                 {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-
                     </div>
                     <Table>
                         <TableHeader>
