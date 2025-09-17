@@ -36,18 +36,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setLoading(true);
     
-    // Start with mock data and then let Firestore overwrite it
-    setAllUsers(mockUsers);
+    // Set mock roles first
     setRoles(mockAdminRoles);
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        if (!snapshot.empty) {
-            const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
+        const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
+        // If firestore is empty, populate with mock user for demo purposes
+        if (usersData.length === 0) {
+            setAllUsers(mockUsers);
+        } else {
             setAllUsers(usersData);
         }
         setLoading(false);
     }, (error) => {
         console.error("Error fetching users:", error);
+        setAllUsers(mockUsers); // fallback to mock data on error
         setLoading(false);
     });
 
