@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Bot, ChromeIcon } from "lucide-react";
+import { Bot, Building, ChromeIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -98,7 +98,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <Bot className="h-7 w-7" />
+                    <Building className="h-7 w-7" />
                 </div>
                 <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
                     ISGI

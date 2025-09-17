@@ -29,7 +29,6 @@ import NewMessageDialog from "./new-message-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatLayoutProps {
-  defaultLayout: number[] | undefined;
   messages: Message[];
   users: User[];
   onNewMessage: (message: Omit<Message, 'id' | 'createdAt'>) => void;

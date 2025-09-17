@@ -24,6 +24,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 function GradeManagementContent() {
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
+    const studentIdParam = searchParams.get('studentId');
     const { users, loading: usersLoading } = useUser();
     const { toast } = useToast();
 
@@ -38,46 +39,60 @@ function GradeManagementContent() {
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!courseId) {
+        if (!courseId && !studentIdParam) {
             setLoading(false);
             return;
         }
 
         setLoading(true);
+
+        let unsubCourse: () => void = () => {};
+        let unsubGrades: () => void = () => {};
         
-        const unsubCourse = onSnapshot(doc(db, "courses", courseId), (doc) => {
-            if (doc.exists()) {
-                const courseData = { id: doc.id, ...doc.data() } as Course;
-                setCourse(courseData);
-                
-                if (courseData.fieldId && courseData.level) {
-                     const courseStudents = users.filter(user => 
-                        user.role === 'student' &&
-                        user.student?.fieldId === courseData.fieldId &&
-                        user.student?.level === courseData.level
-                    );
-                    setStudents(courseStudents);
+        if (courseId) {
+            unsubCourse = onSnapshot(doc(db, "courses", courseId), (doc) => {
+                if (doc.exists()) {
+                    const courseData = { id: doc.id, ...doc.data() } as Course;
+                    setCourse(courseData);
+                } else {
+                    setCourse(null);
                 }
-
-            } else {
-                toast({ variant: 'destructive', title: 'Erreur', description: 'Cours non trouvé.' });
-                setCourse(null);
-            }
-        });
-
-        const qGrades = query(collection(db, "grades"), where("courseId", "==", courseId));
-        const unsubGrades = onSnapshot(qGrades, (snapshot) => {
-            setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
-            setLoading(false);
-        });
-
-
+            });
+            const qGrades = query(collection(db, "grades"), where("courseId", "==", courseId));
+            unsubGrades = onSnapshot(qGrades, (snapshot) => {
+                setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
+                setLoading(false);
+            });
+        } else if (studentIdParam) {
+            const qGrades = query(collection(db, "grades"), where("studentId", "==", studentIdParam));
+             unsubGrades = onSnapshot(qGrades, (snapshot) => {
+                setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
+                setLoading(false);
+            });
+        }
+        
         return () => {
             unsubCourse();
             unsubGrades();
         };
 
-    }, [courseId, users, toast]);
+    }, [courseId, studentIdParam, users, toast]);
+
+    useEffect(() => {
+        if (course) {
+            const courseStudents = users.filter(user => 
+                user.role === 'student' &&
+                user.student?.fieldId === course.fieldId &&
+                user.student?.level === course.level
+            );
+            setStudents(courseStudents);
+        } else if (studentIdParam) {
+             const student = users.find(user => user.uid === studentIdParam);
+             setStudents(student ? [student] : []);
+        } else {
+            setStudents([]);
+        }
+    }, [course, studentIdParam, users]);
 
     const gradesByStudent = useMemo(() => {
         const map: { [studentId: string]: Grade[] } = {};
@@ -156,25 +171,34 @@ function GradeManagementContent() {
         return <div className="text-center">Chargement...</div>;
     }
 
-    if (!courseId) {
+    if (!courseId && !studentIdParam) {
         return (
             <div className="text-center text-muted-foreground">
-                Veuillez sélectionner un cours depuis la page de gestion des cours pour voir ou gérer les notes.
+                Veuillez sélectionner un cours ou un étudiant pour voir ou gérer les notes.
             </div>
         );
     }
     
-     if (!course) {
+     if (courseId && !course) {
         return <div className="text-center text-destructive">Cours non trouvé.</div>;
     }
+
+    const title = course
+        ? `Gestion des notes pour le cours: ${course.name}`
+        : `Gestion des notes pour: ${students[0]?.firstName} ${students[0]?.lastName}`;
+
+    const description = course 
+        ? `Entrez les notes pour les étudiants inscrits à ce cours.`
+        : `Gérez toutes les notes de l'étudiant, tous cours confondus.`;
+
 
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-2xl font-bold font-headline">Gestion des notes pour le cours: {course.name}</CardTitle>
+                    <CardTitle className="text-2xl font-bold font-headline">{title}</CardTitle>
                     <CardDescription>
-                        Entrez et modifiez les notes pour les étudiants de la filière {course.level} en {students.length > 0 ? students[0].student?.fieldId : ''}.
+                       {description}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -216,7 +240,7 @@ function GradeManagementContent() {
                                         {averageByStudent[student.uid].toFixed(2)}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button size="sm" onClick={() => handleAddGrade(student.uid)}>
+                                        <Button size="sm" onClick={() => handleAddGrade(student.uid)} disabled={!courseId}>
                                             <PlusCircle className="h-4 w-4 mr-2" /> Ajouter
                                         </Button>
                                     </TableCell>
@@ -224,7 +248,7 @@ function GradeManagementContent() {
                             )) : (
                                 <TableRow>
                                     <TableCell colSpan={4} className="h-24 text-center">
-                                        Aucun étudiant trouvé pour ce cours.
+                                        Aucun étudiant trouvé.
                                     </TableCell>
                                 </TableRow>
                             )}

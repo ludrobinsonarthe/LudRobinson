@@ -325,7 +325,8 @@ function TuitionManagementContent() {
                     isOpen={isDeleteOpen}
                     setIsOpen={setIsDeleteOpen}
                     onConfirm={confirmDelete}
-                    item={{uid: selectedPayment.id, firstName: `Paiement pour ${getStudentName(selectedPayment.studentId)}`, lastName: ''}}
+                    item={{id: selectedPayment.id, name: `Paiement pour ${getStudentName(selectedPayment.studentId)}`}}
+                    title="Supprimer ce paiement ?"
                 />
             )}
         </div>

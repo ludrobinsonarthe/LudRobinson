@@ -64,7 +64,6 @@ export default function MessagesPage() {
          </div>
       ) : (
         <ChatLayout
-          defaultLayout={[320, 1]}
           messages={messages}
           users={users}
           onNewMessage={handleNewMessage}

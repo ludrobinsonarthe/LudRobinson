@@ -289,7 +289,8 @@ export default function CourseManagementPage() {
                     isOpen={isDeleteOpen}
                     setIsOpen={setIsDeleteOpen}
                     onConfirm={confirmDelete}
-                    user={{uid: selectedCourse.id, firstName: selectedCourse.name, lastName: 'Cours'}}
+                    item={{id: selectedCourse.id, name: selectedCourse.name}}
+                    title="Supprimer ce cours ?"
                 />
             )}
         </div>

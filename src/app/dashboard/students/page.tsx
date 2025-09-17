@@ -168,31 +168,43 @@ export default function StudentsPage() {
                 status: selectedStudent?.status || 'active',
                 createdAt: selectedStudent?.createdAt || new Date().toISOString(),
             } as User;
+            
+            const studentRef = doc(db, 'users', studentUid);
 
-            if (parentData && parentData.email) {
+            if (parentData && parentData.email !== undefined) { // Create new parent
                 const newParentId = doc(collection(db, "users")).id;
                 const newParent: User = {
                    uid: newParentId,
                    createdAt: new Date().toISOString(),
                    status: 'active',
                    role: 'parent',
-                   ...parentData,
+                   firstName: parentData.firstName!,
+                   lastName: parentData.lastName!,
+                   email: parentData.email,
+                   phone: parentData.phone,
+                   address: parentData.address,
                    photoUrl: `https://picsum.photos/seed/${newParentId}/100/100`,
                    parent: { childrenUids: [studentUid] }
                 } as User;
                 finalStudentData.student!.parentUid = newParentId;
                 batch.set(doc(db, "users", newParentId), newParent);
-            } else if (studentData.student?.parentUid && studentData.student.parentUid !== selectedStudent?.student?.parentUid) {
+            } else if (studentData.student?.parentUid) { // Link to existing parent
                 const parentRef = doc(db, 'users', studentData.student.parentUid);
                 const parentDoc = await getDoc(parentRef);
                 if (parentDoc.exists()) {
                     const parent = parentDoc.data() as User;
                     const childrenUids = [...(parent.parent?.childrenUids || []), studentUid];
-                    batch.update(parentRef, { 'parent.childrenUids': childrenUids });
+                    const uniqueChildrenUids = [...new Set(childrenUids)];
+                    batch.update(parentRef, { 'parent.childrenUids': uniqueChildrenUids });
                 }
+            } else {
+                 if (finalStudentData.student) {
+                    delete (finalStudentData.student as any).parentUid;
+                 }
             }
 
-            batch.set(doc(db, "users", studentUid), finalStudentData);
+
+            batch.set(studentRef, finalStudentData);
             await batch.commit();
             toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté" });
             
