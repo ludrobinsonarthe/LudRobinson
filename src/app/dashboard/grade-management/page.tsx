@@ -247,7 +247,7 @@ function GradeManagementContent() {
                     isOpen={isDeleteOpen}
                     setIsOpen={setIsDeleteOpen}
                     onConfirm={confirmDeleteGrade}
-                    user={{uid: selectedGrade.id, firstName: `Note ${selectedGrade.score}/${selectedGrade.total}`, lastName: ''}}
+                    item={{id: selectedGrade.id, name: `Note ${selectedGrade.score}/${selectedGrade.total}`}}
                     title="Supprimer cette note ?"
                     description="Cette action est irréversible et supprimera définitivement la note."
                 />

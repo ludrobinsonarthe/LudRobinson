@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, AdminRole } from "@/lib/types";
+import { User, UserRole, AdminRole, TeacherSalary } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit } from "lucide-react";
 import { format } from 'date-fns';
@@ -24,9 +24,9 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, addDoc, collection } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, addDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
@@ -132,17 +132,44 @@ export default function UsersPage() {
     }
     
     const confirmDelete = async () => {
-        if(selectedUser) {
-            try {
-                await deleteDoc(doc(db, "users", selectedUser.uid));
-                toast({ title: "Utilisateur supprimé" });
-            } catch (error) {
-                console.error("Error deleting user:", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'utilisateur." });
-            } finally {
-                 setIsDeleteOpen(false);
-                 setSelectedUser(null);
+        if(!selectedUser) return;
+        
+        const batch = writeBatch(db);
+        const userId = selectedUser.uid;
+        
+        try {
+            // 1. Delete user document
+            batch.delete(doc(db, "users", userId));
+
+            // 2. Query and delete related data if they are a teacher
+            if (selectedUser.role === 'teacher') {
+                const qSalaries = query(collection(db, "teacherSalaries"), where("teacherId", "==", userId));
+                const salariesSnapshot = await getDocs(qSalaries);
+                salariesSnapshot.forEach(doc => batch.delete(doc.ref));
             }
+             // TODO: Add logic for deleting other admin-related data if necessary in future
+
+            // 3. Delete avatar from storage
+             if (selectedUser.photoUrl && selectedUser.photoUrl.includes('firebasestorage')) {
+                 try {
+                    const photoRef = ref(storage, selectedUser.photoUrl);
+                    await deleteObject(photoRef);
+                } catch (storageError: any) {
+                    if (storageError.code !== 'storage/object-not-found') {
+                         console.error("Could not delete avatar: ", storageError);
+                    }
+                }
+            }
+
+            await batch.commit();
+            toast({ title: "Utilisateur supprimé" });
+
+        } catch(error) {
+            console.error("Error deleting user:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'utilisateur et ses données associées." });
+        } finally {
+             setIsDeleteOpen(false);
+             setSelectedUser(null);
         }
     }
 
@@ -282,7 +309,7 @@ export default function UsersPage() {
                 isOpen={isDeleteOpen}
                 setIsOpen={setIsDeleteOpen}
                 onConfirm={confirmDelete}
-                user={selectedUser}
+                item={selectedUser}
             />
         </div>
     );

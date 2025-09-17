@@ -9,7 +9,7 @@ import { useUser } from "@/hooks/use-user";
 import { Grade, Course, User } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface CourseWithGrades extends Course {
@@ -18,9 +18,8 @@ interface CourseWithGrades extends Course {
 }
 
 export default function GradesPage() {
-    const { user: currentUser, users } = useUser();
+    const { user: currentUser, users, courses: allCourses } = useUser();
     const [grades, setGrades] = useState<Grade[]>([]);
-    const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
@@ -45,7 +44,6 @@ export default function GradesPage() {
         if (!studentToView || !studentToView.uid) {
             setLoading(false);
             setGrades([]);
-            setCourses([]);
             return;
         }
 
@@ -54,16 +52,6 @@ export default function GradesPage() {
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const studentGrades = snapshot.docs.map(doc => doc.data() as Grade);
             setGrades(studentGrades);
-
-             if (studentGrades.length > 0) {
-                const courseIds = [...new Set(studentGrades.map(g => g.courseId))];
-                const coursesQuery = query(collection(db, 'courses'), where('__name__', 'in', courseIds));
-                const coursesSnapshot = await getDocs(coursesQuery);
-                const studentCourses = coursesSnapshot.docs.map(doc => doc.data() as Course);
-                setCourses(studentCourses);
-            } else {
-                setCourses([]);
-            }
             setLoading(false);
         });
 
@@ -72,11 +60,11 @@ export default function GradesPage() {
     }, [studentToView]);
 
     const coursesWithGrades = useMemo((): CourseWithGrades[] => {
-        if (grades.length === 0 || courses.length === 0) return [];
+        if (grades.length === 0 || allCourses.length === 0) return [];
 
         const courseMap: { [key: string]: CourseWithGrades } = {};
 
-        courses.forEach(course => {
+        allCourses.forEach(course => {
             courseMap[course.id] = { ...course, grades: [], average: 0 };
         });
 
@@ -96,7 +84,7 @@ export default function GradesPage() {
 
         return Object.values(courseMap).filter(c => c.grades.length > 0);
 
-    }, [grades, courses]);
+    }, [grades, allCourses]);
 
     const overallAverage = useMemo((): number => {
         if (coursesWithGrades.length === 0) return 0;

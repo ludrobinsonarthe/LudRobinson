@@ -3,7 +3,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -24,6 +24,7 @@ type UserContextType = {
   setSettings: React.Dispatch<React.SetStateAction<Settings | null>>;
   sectors: Sector[];
   fields: Field[];
+  courses: Course[];
 }
 
 const UserContext = createContext<UserContextType | null>(null);
@@ -37,6 +38,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
 
   useEffect(() => {
@@ -110,6 +112,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         console.error("Error fetching fields:", error);
         setFields(mockFields);
     });
+    
+    const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
+        setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
+    });
 
     
     setLoading(false);
@@ -119,6 +125,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       unsubRoles();
       unsubSettings();
       unsubFields();
+      unsubCourses();
     };
    
   }, []);
@@ -207,7 +214,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       settings,
       setSettings,
       sectors,
-      fields
+      fields,
+      courses
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
@@ -220,4 +228,3 @@ export function useUser() {
   }
   return context;
 }
-
