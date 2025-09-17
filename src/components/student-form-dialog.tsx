@@ -36,6 +36,10 @@ const studentFormSchema = z.object({
   lastName: z.string().min(2, "Le nom est requis."),
   email: z.string().email("Adresse e-mail invalide.").optional().or(z.literal('')),
   phone: z.string().optional(),
+  dob: z.string().optional(),
+  pob: z.string().optional(),
+  gender: z.enum(['M', 'F']).optional(),
+  nationality: z.string().optional(),
   photo: z.any().optional(),
   matricule: z.string().min(1, "Le matricule est requis."),
   level: z.string().min(1, "Le niveau est requis."),
@@ -100,6 +104,9 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         lastName: '',
         email: '',
         phone: '',
+        dob: '',
+        pob: '',
+        nationality: '',
         matricule: '',
         level: '',
         sectorId: '',
@@ -146,6 +153,10 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 lastName: student.lastName,
                 email: student.email,
                 phone: student.phone,
+                dob: student.dob,
+                pob: student.pob,
+                gender: student.gender,
+                nationality: student.nationality,
                 matricule: student.student?.matricule,
                 level: student.student?.level,
                 sectorId: studentSectorId,
@@ -163,6 +174,9 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             lastName: '',
             email: '',
             phone: '',
+            dob: '',
+            pob: '',
+            nationality: '',
             matricule: generateMatricule(initialLevel),
             level: initialLevel,
             sectorId: '',
@@ -221,6 +235,10 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         lastName: data.lastName,
         email: data.email,
         phone: data.phone,
+        dob: data.dob,
+        pob: data.pob,
+        gender: data.gender,
+        nationality: data.nationality,
         student: {
             ...(student?.student || {} as any),
             matricule: data.matricule,
@@ -247,9 +265,8 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             address: data.parentAddress,
         }
     } else {
-        // Ensure parentUid is not undefined
-        if(studentData.student && 'parentUid' in studentData.student) {
-             delete studentData.student.parentUid;
+        if (studentData.student) {
+          delete (studentData.student as any).parentUid;
         }
     }
 
@@ -260,7 +277,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
   return (
     <>
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-2xl" ref={ref}>
+      <DialogContent className="sm:max-w-3xl" ref={ref}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <DialogHeader>
@@ -272,7 +289,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-6">
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-6">
                 <h3 className="text-lg font-semibold text-foreground">Informations de l'étudiant</h3>
                 <FormItem>
                     <FormLabel>Photo de profil</FormLabel>
@@ -289,15 +306,44 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                         <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="Dupont" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                     <FormField control={form.control} name="dob" render={({ field }) => (
+                        <FormItem><FormLabel>Date de Naissance</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={form.control} name="pob" render={({ field }) => (
+                        <FormItem><FormLabel>Lieu de Naissance</FormLabel><FormControl><Input placeholder="Pointe-Noire" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="gender" render={({ field }) => (
+                        <FormItem><FormLabel>Sexe</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                  <SelectItem value="M">Masculin</SelectItem>
+                                  <SelectItem value="F">Féminin</SelectItem>
+                              </SelectContent>
+                          </Select>
+                        <FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={form.control} name="nationality" render={({ field }) => (
+                        <FormItem><FormLabel>Nationalité</FormLabel><FormControl><Input placeholder="Congolaise" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </div>
+
 
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="email" render={({ field }) => (
                         <FormItem><FormLabel>Adresse e-mail (Optionnel)</FormLabel><FormControl><Input type="email" placeholder="email@isgi.com" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="phone" render={({ field }) => (
-                        <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Téléphone</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
+
+                <Separator className="my-4"/>
+                <h3 className="text-lg font-semibold text-foreground">Informations Académiques</h3>
 
 
                 <div className="grid grid-cols-2 gap-4">
@@ -352,7 +398,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 <h3 className="text-lg font-semibold text-foreground">Informations du tuteur</h3>
                 
                 <FormField control={form.control} name="parentalLink" render={({ field }) => (
-                    <FormItem><FormLabel>Lien parental</FormLabel><FormControl><Input placeholder="Père, Mère, Tuteur légal..." {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Lien parental</FormLabel><FormControl><Input placeholder="Père, Mère, Tuteur légal..." {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                 )}/>
 
                 <FormField control={form.control} name="parentSelection" render={({ field }) => (
@@ -392,10 +438,10 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                             <FormItem><FormLabel>E-mail du tuteur (Optionnel)</FormLabel><FormControl><Input type="email" placeholder="tuteur@email.com" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="parentPhone" render={({ field }) => (
-                            <FormItem><FormLabel>Téléphone du tuteur</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Téléphone du tuteur</FormLabel><FormControl><Input placeholder="+242 XX XXX XX XX" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="parentAddress" render={({ field }) => (
-                            <FormItem><FormLabel>Adresse du tuteur</FormLabel><FormControl><Input placeholder="Adresse complète" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Adresse du tuteur</FormLabel><FormControl><Input placeholder="Adresse complète" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                         )}/>
                     </div>
                 )}

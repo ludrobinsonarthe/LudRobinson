@@ -37,7 +37,9 @@ export interface User {
   email: string;
   phone?: string;
   gender?: 'M' | 'F';
-  dob?: string;
+  dob?: string; // Date of Birth
+  pob?: string; // Place of Birth
+  nationality?: string;
   address?: string;
   photoUrl: string;
   createdAt: string;
