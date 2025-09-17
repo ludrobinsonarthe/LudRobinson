@@ -12,6 +12,7 @@ import {
   Mic,
   Paperclip,
   Phone,
+  Smile,
   Video,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +28,10 @@ import { fr } from "date-fns/locale";
 import MessageSummarizer from "./message-summarizer";
 import NewMessageDialog from "./new-message-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
+import { useTheme } from "next-themes";
+
 
 interface ChatLayoutProps {
   messages: Message[];
@@ -41,6 +46,7 @@ export default function ChatLayout({
 }: ChatLayoutProps) {
   const { user: currentUser } = useUser();
   const { toast } = useToast();
+  const { theme } = useTheme();
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
@@ -300,7 +306,7 @@ export default function ChatLayout({
                 <div className="relative">
                   <Textarea
                     placeholder="Écrire un message..."
-                    className="pr-32 resize-none"
+                    className="pr-40 resize-none"
                     rows={1}
                     value={messageContent}
                     onChange={(e) => setMessageContent(e.target.value)}
@@ -316,6 +322,19 @@ export default function ChatLayout({
                     <Button type="button" size="icon" variant="ghost" disabled={isSending}>
                       <Paperclip className="h-5 w-5" />
                     </Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button type="button" size="icon" variant="ghost" disabled={isSending}>
+                                <Smile className="h-5 w-5" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 border-0">
+                            <EmojiPicker 
+                                theme={theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                                onEmojiClick={(emojiObject) => setMessageContent(prev => prev + emojiObject.emoji)} 
+                            />
+                        </PopoverContent>
+                    </Popover>
                      <Button type="button" size="icon" variant="ghost" disabled={isSending}>
                       <Mic className="h-5 w-5" />
                     </Button>
