@@ -21,6 +21,196 @@ export const mockUsers: User[] = [
             position: "Super-Administrateur"
         }
     },
+    {
+        "uid": "nadine_mvemba",
+        "role": "student",
+        "firstName": "Nadine",
+        "lastName": "Mvemba",
+        "email": "nadine.mvemba@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/nadine/100/100",
+        "createdAt": "2024-09-01T09:00:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-001",
+            "programId": "prog01",
+            "level": "Licence 3",
+            "cycle": "local",
+            "fieldId": "grhae",
+            "enrollmentDate": "2024-09-01T09:00:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "cynthia_ngoma",
+        "role": "student",
+        "firstName": "Cynthia",
+        "lastName": "Ngoma",
+        "email": "cynthia.ngoma@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/cynthia_n/100/100",
+        "createdAt": "2024-09-01T09:01:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-002",
+            "programId": "prog01",
+            "level": "Licence 3",
+            "cycle": "local",
+            "fieldId": "eli",
+            "enrollmentDate": "2024-09-01T09:01:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "esther_okoko",
+        "role": "student",
+        "firstName": "Esther",
+        "lastName": "Okoko",
+        "email": "esther.okoko@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/esther/100/100",
+        "createdAt": "2024-09-01T09:02:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-003",
+            "programId": "prog01",
+            "level": "Licence 1",
+            "cycle": "local",
+            "fieldId": "mce",
+            "enrollmentDate": "2024-09-01T09:02:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "sarah_mayala",
+        "role": "student",
+        "firstName": "Sarah",
+        "lastName": "Mayala",
+        "email": "sarah.mayala@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/sarah_m/100/100",
+        "createdAt": "2024-09-01T09:03:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-004",
+            "programId": "prog01",
+            "level": "Licence 2",
+            "cycle": "local",
+            "fieldId": "eli",
+            "enrollmentDate": "2024-09-01T09:03:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "samuel_matondo",
+        "role": "student",
+        "firstName": "Samuel",
+        "lastName": "Matondo",
+        "email": "samuel.matondo@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/samuel_m/100/100",
+        "createdAt": "2024-09-01T09:04:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-005",
+            "programId": "prog01",
+            "level": "Licence 3",
+            "cycle": "local",
+            "fieldId": "lt",
+            "enrollmentDate": "2024-09-01T09:04:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "cynthia_mayala",
+        "role": "student",
+        "firstName": "Cynthia",
+        "lastName": "Mayala",
+        "email": "cynthia.mayala@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/cynthia_m/100/100",
+        "createdAt": "2024-09-01T09:05:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-006",
+            "programId": "prog01",
+            "level": "Licence 2",
+            "cycle": "local",
+            "fieldId": "gf",
+            "enrollmentDate": "2024-09-01T09:05:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "sarah_ebina",
+        "role": "student",
+        "firstName": "Sarah",
+        "lastName": "Ebina",
+        "email": "sarah.ebina@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/sarah_e/100/100",
+        "createdAt": "2024-09-01T09:06:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-007",
+            "programId": "prog01",
+            "level": "Licence 3",
+            "cycle": "local",
+            "fieldId": "lt",
+            "enrollmentDate": "2024-09-01T09:06:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "patrick_bissila",
+        "role": "student",
+        "firstName": "Patrick",
+        "lastName": "Bissila",
+        "email": "patrick.bissila@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/patrick/100/100",
+        "createdAt": "2024-09-01T09:07:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-008",
+            "programId": "prog01",
+            "level": "Master 2",
+            "cycle": "local",
+            "fieldId": "lt",
+            "enrollmentDate": "2024-09-01T09:07:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "kevin_ondongo",
+        "role": "student",
+        "firstName": "Kevin",
+        "lastName": "Ondongo",
+        "email": "kevin.ondongo@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/kevin/100/100",
+        "createdAt": "2024-09-01T09:08:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-009",
+            "programId": "prog01",
+            "level": "Master 2",
+            "cycle": "local",
+            "fieldId": "gf",
+            "enrollmentDate": "2024-09-01T09:08:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    },
+    {
+        "uid": "samuel_kanza",
+        "role": "student",
+        "firstName": "Samuel",
+        "lastName": "Kanza",
+        "email": "samuel.kanza@isgi.com",
+        "photoUrl": "https://picsum.photos/seed/samuel_k/100/100",
+        "createdAt": "2024-09-01T09:09:00Z",
+        "status": "active",
+        "student": {
+            "matricule": "ISGI2025-010",
+            "programId": "prog01",
+            "level": "Master 1",
+            "cycle": "local",
+            "fieldId": "lt",
+            "enrollmentDate": "2024-09-01T09:09:00Z",
+            "endDate": "2025-07-01T09:00:00Z"
+        }
+    }
 ];
 
 export const mockAdminRoles: AdminRole[] = [
@@ -99,3 +289,5 @@ export const mockCashTransactions: CashTransaction[] = [];
 export const mockAttendances: Attendance[] = [];
 export const mockDocuments: OfficialDocument[] = [];
 export const mockFeeStructures: FeeStructure[] = [];
+
+    
