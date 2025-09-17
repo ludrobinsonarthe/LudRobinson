@@ -371,29 +371,31 @@ function SalaryManagementContent() {
                                         <Badge variant={statusVariant[salary.status]}>{statusTranslation[salary.status]}</Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                       <DropdownMenu>
-                                           <DropdownMenuTrigger asChild>
-                                               <Button variant="ghost" size="icon">
-                                                   <MoreHorizontal className="h-4 w-4" />
-                                               </Button>
-                                           </DropdownMenuTrigger>
-                                           <DropdownMenuContent align="end">
-                                               {salary.status === 'pending' && salary.userRole === 'teacher' && (
-                                                    <DropdownMenuItem onClick={() => handleUpdateStatus(salary, 'paid')}>
-                                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                                        Marquer comme Payé
+                                        <div className="flex items-center justify-end gap-2">
+                                            {salary.status === 'pending' && salary.userRole === 'teacher' && (
+                                                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(salary, 'paid')}>
+                                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                                    Marquer Payé
+                                                </Button>
+                                            )}
+                                            <DropdownMenu>
+                                               <DropdownMenuTrigger asChild>
+                                                   <Button variant="ghost" size="icon">
+                                                       <MoreHorizontal className="h-4 w-4" />
+                                                   </Button>
+                                               </DropdownMenuTrigger>
+                                               <DropdownMenuContent align="end">
+                                                   <DropdownMenuItem onClick={() => handleGeneratePayslip(salary)}>
+                                                        <Download className="mr-2 h-4 w-4" />
+                                                        Télécharger le bulletin
                                                     </DropdownMenuItem>
-                                               )}
-                                               <DropdownMenuItem onClick={() => handleGeneratePayslip(salary)}>
-                                                    <Download className="mr-2 h-4 w-4" />
-                                                    Télécharger le bulletin
-                                                </DropdownMenuItem>
-                                               <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive" disabled={salary.status === 'paid'}>
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    Supprimer
-                                               </DropdownMenuItem>
-                                           </DropdownMenuContent>
-                                       </DropdownMenu>
+                                                   <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive" disabled={salary.status === 'paid'}>
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Supprimer
+                                                   </DropdownMenuItem>
+                                               </DropdownMenuContent>
+                                           </DropdownMenu>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )) : (

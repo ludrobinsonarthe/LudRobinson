@@ -273,19 +273,20 @@ function TuitionManagementContent() {
                                         <Badge variant={statusVariant[payment.status]}>{statusTranslation[payment.status]}</Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                       <DropdownMenu>
+                                       {payment.status === 'pending' ? (
+                                           <div className="flex gap-2 justify-end">
+                                               <Button size="icon" variant="ghost" className="text-green-600 hover:text-green-700" onClick={() => handleUpdateStatus(payment, 'validated')}><Check className="h-4 w-4"/></Button>
+                                               <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive/80" onClick={() => handleUpdateStatus(payment, 'rejected')}><X className="h-4 w-4"/></Button>
+                                                <Button size="icon" variant="ghost" onClick={() => handleDelete(payment)}><Trash2 className="h-4 w-4"/></Button>
+                                           </div>
+                                       ) : (
+                                        <DropdownMenu>
                                            <DropdownMenuTrigger asChild>
                                                <Button variant="ghost" size="icon">
                                                    <MoreHorizontal className="h-4 w-4" />
                                                </Button>
                                            </DropdownMenuTrigger>
                                            <DropdownMenuContent align="end">
-                                               {payment.status === 'pending' && (
-                                                <>
-                                                    <DropdownMenuItem onClick={() => handleUpdateStatus(payment, 'validated')}><Check className="mr-2 h-4 w-4"/>Valider</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleUpdateStatus(payment, 'rejected')} className="text-amber-600"><X className="mr-2 h-4 w-4"/>Rejeter</DropdownMenuItem>
-                                                </>
-                                               )}
                                                <DropdownMenuItem onClick={() => handleGenerateReceipt(payment)} disabled={payment.status !== 'validated'}>
                                                     <Download className="mr-2 h-4 w-4" />
                                                     Générer le reçu
@@ -296,6 +297,7 @@ function TuitionManagementContent() {
                                                </DropdownMenuItem>
                                            </DropdownMenuContent>
                                        </DropdownMenu>
+                                       )}
                                     </TableCell>
                                 </TableRow>
                             )) : (
@@ -323,7 +325,7 @@ function TuitionManagementContent() {
                     isOpen={isDeleteOpen}
                     setIsOpen={setIsDeleteOpen}
                     onConfirm={confirmDelete}
-                    user={{uid: selectedPayment.id, firstName: `Paiement pour ${getStudentName(selectedPayment.studentId)}`, lastName: ''}}
+                    item={{uid: selectedPayment.id, firstName: `Paiement pour ${getStudentName(selectedPayment.studentId)}`, lastName: ''}}
                 />
             )}
         </div>
@@ -338,4 +340,3 @@ export default function TuitionManagementPage() {
     )
 }
     
-
