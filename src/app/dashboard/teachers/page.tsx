@@ -25,7 +25,7 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, updateDoc, collection } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, addDoc, collection } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -35,7 +35,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function TeachersPage() {
-    const { users, loading, setUsers } = useUser();
+    const { users, loading } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
@@ -59,35 +59,55 @@ export default function TeachersPage() {
     }
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
+        const uid = selectedTeacher?.uid || `teacher_${Date.now()}`;
         let photoUrl = userData.photoUrl || selectedTeacher?.photoUrl;
-        if (photoFile) {
-            photoUrl = URL.createObjectURL(photoFile);
-        }
         
-        const finalUserData = { ...userData, photoUrl };
+        try {
+            if (photoFile) {
+                const photoRef = ref(storage, `avatars/${uid}`);
+                const snapshot = await uploadBytes(photoRef, photoFile);
+                photoUrl = await getDownloadURL(snapshot.ref);
+            }
 
-        if (selectedTeacher) {
-            setUsers(prev => prev.map(u => u.uid === selectedTeacher.uid ? { ...u, ...finalUserData } as User : u));
-            toast({ title: "Professeur mis à jour (Simulation)" });
-        } else {
-            const newTeacher: User = {
-                uid: `teacher_${Date.now()}`,
-                createdAt: new Date().toISOString(),
-                status: 'active',
+            const finalUserData = {
+                ...userData,
+                photoUrl: photoUrl || `https://picsum.photos/seed/${uid}/100/100`,
                 role: 'teacher',
-                ...finalUserData,
-            } as User;
-            setUsers(prev => [...prev, newTeacher]);
-            toast({ title: "Professeur ajouté (Simulation)"});
+            };
+
+            const userDocRef = doc(db, 'users', uid);
+
+            if (selectedTeacher) {
+                await setDoc(userDocRef, finalUserData, { merge: true });
+                toast({ title: "Professeur mis à jour" });
+            } else {
+                 const newUser: User = {
+                    uid: uid,
+                    createdAt: new Date().toISOString(),
+                    status: 'active',
+                    ...finalUserData,
+                } as User;
+                await setDoc(userDocRef, newUser);
+                toast({ title: "Professeur ajouté" });
+            }
+        } catch (error) {
+             console.error("Error saving teacher:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le professeur." });
         }
     }
     
     const confirmDelete = async () => {
         if(selectedTeacher) {
-            setUsers(prev => prev.filter(u => u.uid !== selectedTeacher.uid));
-            toast({ title: "Professeur supprimé (Simulation)" });
-            setIsDeleteOpen(false);
-            setSelectedTeacher(null);
+             try {
+                await deleteDoc(doc(db, "users", selectedTeacher.uid));
+                toast({ title: "Professeur supprimé" });
+            } catch (error) {
+                console.error("Error deleting teacher:", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le professeur." });
+            } finally {
+                 setIsDeleteOpen(false);
+                 setSelectedTeacher(null);
+            }
         }
     }
 
