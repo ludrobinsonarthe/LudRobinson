@@ -10,12 +10,16 @@ import { collection, getDocs, query, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, FileDown } from 'lucide-react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useToast } from '@/hooks/use-toast';
+
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const timeSlots = Array.from({ length: 6 }, (_, i) => `${(8 + i * 2).toString().padStart(2, '0')}:00`); // 08:00, 10:00, ..., 18:00
@@ -24,6 +28,7 @@ function ScheduleContent() {
     const { user: currentUser, users, loading: userLoading, settings, fields } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
+    const { toast } = useToast();
     
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
@@ -84,6 +89,58 @@ function ScheduleContent() {
         const teacher = teachers.find(t => t.uid === teacherId);
         return teacher ? `${teacher.firstName[0]}. ${teacher.lastName}` : 'N/A';
     }
+    
+    const handleExportPDF = () => {
+        const doc = new jsPDF({ orientation: "landscape" });
+        const selectedFieldName = selectedFieldId === 'all' ? 'Toutes les filières' : fieldsById[selectedFieldId]?.name || '';
+        const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
+        const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
+
+        doc.setFontSize(18);
+        doc.text(`Emploi du Temps - ${selectedFieldName}`, 14, 22);
+        doc.setFontSize(12);
+        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 14, 30);
+        
+        const head = [['Heure', ...daysOfWeek.map((day, index) => `${day}\n${format(addDays(currentWeek, index), 'dd/MM')}`)]];
+        const body = timeSlots.map(slot => {
+            const row: string[] = [slot];
+            daysOfWeek.forEach(day => {
+                const coursesInSlot = scheduleGrid[day]?.[slot] || [];
+                const cellContent = coursesInSlot.map(course => {
+                    const scheduleInfo = course.schedule?.find(s => s.day === day && s.start.startsWith(slot.slice(0, 2)));
+                    return [
+                        `Cours: ${course.name}`,
+                        `Prof: ${getTeacherName(course.teacherId)}`,
+                        `Salle: ${scheduleInfo?.room || 'N/A'}`,
+                        `(${scheduleInfo?.start} - ${scheduleInfo?.end})`
+                    ].join('\n');
+                }).join('\n\n');
+                row.push(cellContent);
+            });
+            return row;
+        });
+
+        autoTable(doc, {
+            head: head,
+            body: body,
+            startY: 40,
+            theme: 'grid',
+            styles: {
+                fontSize: 8,
+                cellPadding: 2,
+                valign: 'middle',
+                halign: 'center'
+            },
+            headStyles: {
+                fillColor: [25, 95, 53], // Primary color
+                textColor: 255,
+                fontStyle: 'bold',
+            },
+        });
+        
+        doc.save(`emploi_du_temps_${selectedFieldName.replace(/\s/g, '_')}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
+        toast({ title: 'Exportation PDF', description: 'Le fichier PDF de l\'emploi du temps a été généré.' });
+    };
 
 
     const isStudentView = currentUser?.role === 'student';
@@ -118,6 +175,10 @@ function ScheduleContent() {
                                     </SelectContent>
                                 </Select>
                             )}
+                             <Button variant="outline" onClick={handleExportPDF}>
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Exporter en PDF
+                            </Button>
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
                                     <ArrowLeft className="h-4 w-4" />
