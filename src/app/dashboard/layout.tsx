@@ -100,8 +100,7 @@ function MainSidebar() {
         { href: "/dashboard/users", label: "Professeurs", icon: BookUser, permission: 'manage_teachers' },
         { href: "/dashboard/course-management", label: "Gestion Cours", icon: BookMarked, permission: 'manage_course' },
         { href: "/dashboard/grade-management", label: "Gestion Notes", icon: ClipboardList, permission: 'manage_grades' },
-        { href: "/dashboard/attendance", label: "Suivi Professeurs", icon: UserCheck, permission: 'manage_attendance' },
-        { href: "/dashboard/student-attendance", label: "Suivi Étudiants", icon: ClipboardCheck, permission: 'manage_attendance' },
+        { href: "/dashboard/attendance", label: "Suivi Présences", icon: UserCheck, permission: 'manage_attendance' },
       ],
     },
     {
