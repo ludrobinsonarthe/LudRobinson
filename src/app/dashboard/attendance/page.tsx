@@ -151,8 +151,8 @@ function AttendanceContent() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">Suivi des Présences</h1>
-                    <p className="text-muted-foreground">Enregistrez la présence des professeurs et des étudiants pour chaque cours planifié.</p>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">Suivi des Présences des Professeurs</h1>
+                    <p className="text-muted-foreground">Enregistrez la présence des professeurs pour chaque cours planifié.</p>
                 </div>
             </div>
 
