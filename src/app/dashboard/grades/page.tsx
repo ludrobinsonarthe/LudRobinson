@@ -76,9 +76,9 @@ export default function GradesPage() {
         
         Object.values(courseMap).forEach(course => {
             if(course.grades.length > 0) {
-                const totalScore = course.grades.reduce((acc, g) => acc + (g.score * g.coefficient), 0);
-                const totalCoeff = course.grades.reduce((acc, g) => acc + g.coefficient, 0);
-                course.average = totalCoeff > 0 ? totalScore / totalCoeff : 0;
+                const totalScore = course.grades.reduce((acc, g) => acc + (g.score * g.credit), 0);
+                const totalCredit = course.grades.reduce((acc, g) => acc + g.credit, 0);
+                course.average = totalCredit > 0 ? totalScore / totalCredit : 0;
             }
         });
 
@@ -168,15 +168,15 @@ export default function GradesPage() {
                                                 <TableRow>
                                                     <TableHead>Type</TableHead>
                                                     <TableHead>Note</TableHead>
-                                                    <TableHead className="text-right">Coefficient</TableHead>
+                                                    <TableHead className="text-right">Crédit</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {course.grades.map(grade => (
                                                     <TableRow key={grade.id}>
-                                                        <TableCell><Badge variant="outline">{grade.type === 'devoir' ? 'Devoir' : 'Examen'}</Badge></TableCell>
+                                                        <TableCell><Badge variant="outline" className="capitalize">{grade.type}</Badge></TableCell>
                                                         <TableCell className='font-medium'>{grade.score}/{grade.total}</TableCell>
-                                                        <TableCell className="text-right">{grade.coefficient}</TableCell>
+                                                        <TableCell className="text-right">{grade.credit}</TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>

@@ -1,6 +1,5 @@
 
 
-
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -130,9 +129,9 @@ export interface Grade {
   id: string;
   studentId: string;
   courseId: string;
-  type: 'devoir' | 'examen';
+  type: 'devoir' | 'examen' | 'devoir de classe';
   score: number;
-  coefficient: number;
+  credit: number;
   total: number;
   academicYear: string;
   createdAt: string;

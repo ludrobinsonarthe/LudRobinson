@@ -47,9 +47,9 @@ function GradeManagementContent() {
     
     // States for the new evaluation dialog
     const [isEvalDialogOpen, setIsEvalDialogOpen] = useState(false);
-    const [newEvalType, setNewEvalType] = useState<'devoir' | 'examen'>('devoir');
+    const [newEvalType, setNewEvalType] = useState<'devoir' | 'examen' | 'devoir de classe'>('devoir');
     const [newEvalTotal, setNewEvalTotal] = useState<number>(20);
-    const [newEvalCoeff, setNewEvalCoeff] = useState<number>(1);
+    const [newEvalCredit, setNewEvalCredit] = useState<number>(1);
     
     // For inline editing
     const [editingGrade, setEditingGrade] = useState<{gradeId: string, score: number} | null>(null);
@@ -86,15 +86,15 @@ function GradeManagementContent() {
     }, [course, users]);
     
     const evaluationColumns = useMemo(() => {
-        const evalMap = new Map<string, {type: 'devoir' | 'examen', total: number, coeff: number, grades: Grade[]}>();
+        const evalMap = new Map<string, {type: Grade['type'], total: number, credit: number, grades: Grade[]}>();
         grades.forEach(grade => {
             // Create a unique key for each evaluation based on type, total, and creation time proximity (e.g., all grades for one exam)
             // This is a simplification. A real implementation might have an "evaluation" entity.
-            // Here, we group by type, total, and coefficient to represent a unique evaluation column.
+            // Here, we group by type, total, and credit to represent a unique evaluation column.
             // For multiple 'devoir' with same properties, we need a better key. Let's use the first grade's creation time as a batch identifier.
-            const uniqueKey = `${grade.type}-${grade.total}-${grade.coefficient}`;
+            const uniqueKey = `${grade.type}-${grade.total}-${grade.credit}`;
             if (!evalMap.has(uniqueKey)) {
-                evalMap.set(uniqueKey, {type: grade.type, total: grade.total, coeff: grade.coefficient, grades: []});
+                evalMap.set(uniqueKey, {type: grade.type, total: grade.total, credit: grade.credit, grades: []});
             }
             evalMap.get(uniqueKey)!.grades.push(grade);
         });
@@ -102,7 +102,7 @@ function GradeManagementContent() {
         // Let's refine the key to be more unique if needed, for now this is a workable simplification
         return Array.from(evalMap.entries()).map(([key, data], index) => ({
             id: key,
-            name: `${data.type === 'examen' ? 'Examen' : 'Devoir'} ${index + 1} (/${data.total})`,
+            name: `${data.type.charAt(0).toUpperCase() + data.type.slice(1)} ${index + 1} (/${data.total})`,
             ...data
         }));
 
@@ -126,9 +126,9 @@ function GradeManagementContent() {
         students.forEach(student => {
             const studentGrades = grades.filter(g => g.studentId === student.uid);
             if (studentGrades.length > 0) {
-                const totalScore = studentGrades.reduce((acc, g) => acc + (g.score * g.coefficient), 0);
-                const totalCoeff = studentGrades.reduce((acc, g) => acc + g.coefficient, 0);
-                averages[student.uid] = totalCoeff > 0 ? totalScore / totalCoeff : 0;
+                const totalScore = studentGrades.reduce((acc, g) => acc + (g.score * g.credit), 0);
+                const totalCredit = studentGrades.reduce((acc, g) => acc + g.credit, 0);
+                averages[student.uid] = totalCredit > 0 ? totalScore / totalCredit : 0;
             } else {
                 averages[student.uid] = 0;
             }
@@ -147,7 +147,7 @@ function GradeManagementContent() {
                 type: newEvalType,
                 score: 0, // Default score
                 total: newEvalTotal,
-                coefficient: newEvalCoeff,
+                credit: newEvalCredit,
                 academicYear: settings?.academicYear || "2024-2025",
                 createdAt: new Date().toISOString(),
             };
@@ -226,6 +226,7 @@ function GradeManagementContent() {
                                             <SelectContent>
                                                 <SelectItem value="devoir">Devoir / Contrôle</SelectItem>
                                                 <SelectItem value="examen">Examen</SelectItem>
+                                                <SelectItem value="devoir de classe">Devoir de Classe</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -235,8 +236,8 @@ function GradeManagementContent() {
                                             <Input type="number" value={newEvalTotal} onChange={e => setNewEvalTotal(Number(e.target.value))} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Coefficient</Label>
-                                            <Input type="number" value={newEvalCoeff} onChange={e => setNewEvalCoeff(Number(e.target.value))} />
+                                            <Label>Crédit</Label>
+                                            <Input type="number" value={newEvalCredit} onChange={e => setNewEvalCredit(Number(e.target.value))} />
                                         </div>
                                     </div>
                                 </div>
