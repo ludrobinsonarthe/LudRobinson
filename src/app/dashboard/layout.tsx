@@ -15,6 +15,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarInput,
 } from "@/components/ui/sidebar";
 import {
   Home,
@@ -134,6 +135,7 @@ function MainSidebar() {
       <SidebarContent>
         {isMounted && (
         <SidebarMenu>
+          <SidebarInput placeholder="Rechercher..." />
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>

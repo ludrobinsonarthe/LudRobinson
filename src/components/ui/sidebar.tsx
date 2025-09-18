@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -347,7 +348,8 @@ const SidebarInput = React.forwardRef<
       ref={ref}
       data-sidebar="input"
       className={cn(
-        "h-8 w-full bg-background shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+        "h-8 w-full bg-sidebar-accent shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring border-sidebar-border",
+        "group-data-[collapsible=icon]:hidden",
         className
       )}
       {...props}
@@ -498,7 +500,7 @@ const SidebarMenu = React.forwardRef<
   <ul
     ref={ref}
     data-sidebar="menu"
-    className={cn("flex w-full min-w-0 flex-col gap-1", className)}
+    className={cn("flex w-full min-w-0 flex-col gap-1 p-2", className)}
     {...props}
   />
 ))
