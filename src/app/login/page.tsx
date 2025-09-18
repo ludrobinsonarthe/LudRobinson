@@ -36,7 +36,7 @@ import { Loader2 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthErrorCodes } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, setDoc } from "firebase/firestore";
 import QRCode from "qrcode.react";
 
 const loginSchema = z.object({
@@ -77,7 +77,7 @@ export default function LoginPage() {
                  toast({
                     variant: "destructive",
                     title: "Erreur de connexion",
-                    description: "Les identifiants validés sont incorrects.",
+                    description: "Les identifiants validés via le QR code sont incorrects.",
                 });
             } finally {
                 setLoading(false);
@@ -131,8 +131,9 @@ export default function LoginPage() {
     }
   }
 
-  const handleQrCodeClick = () => {
+  const handleQrCodeClick = async () => {
     const sessionId = doc(collection(db, 'qr_sessions')).id;
+    await setDoc(doc(db, 'qr_sessions', sessionId), { status: 'pending', createdAt: new Date() });
     setQrSessionId(sessionId);
     setIsQrDialogOpen(true);
   }
