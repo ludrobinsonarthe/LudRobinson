@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Bot, Building, ChromeIcon } from "lucide-react";
+import { Bot, Building, ChromeIcon, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { auth } from "@/lib/firebase";
@@ -160,10 +160,16 @@ export default function LoginPage() {
                     </span>
                 </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChromeIcon className="mr-2 h-4 w-4" />}
-                Google
-            </Button>
+             <div className="grid grid-cols-2 gap-4 w-full">
+                <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChromeIcon className="mr-2 h-4 w-4" />}
+                    Google
+                </Button>
+                 <Button variant="outline" className="w-full" onClick={() => toast({ title: "Bientôt disponible!", description: "La connexion par code QR est en cours de développement."})} disabled={loading}>
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+                    Code QR
+                </Button>
+            </div>
         </CardFooter>
       </Card>
     </div>
