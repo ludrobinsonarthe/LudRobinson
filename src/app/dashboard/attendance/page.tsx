@@ -4,11 +4,11 @@
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -132,27 +133,17 @@ function AttendanceContent() {
     
     const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
 
+    const getStudentsForCourse = (course: Course) => {
+        if(!course) return [];
+        return students.filter(s => s.student?.fieldId === course.fieldId && s.student.level === course.level);
+    }
+
     const studentsForSelectedCourse = useMemo(() => {
         if(!selectedCourse) return [];
-        return students.filter(s => s.student?.fieldId === selectedCourse.fieldId && s.student.level === selectedCourse.level);
+        return getStudentsForCourse(selectedCourse);
     }, [selectedCourse, students]);
 
     const loading = usersLoading || loadingData;
-
-    const uniqueCourses = useMemo(() => {
-        return Object.values(scheduleByDay)
-            .flat()
-            .sort((a, b) => {
-                const timeA = a.scheduleInfo.start;
-                const timeB = b.scheduleInfo.start;
-                if (timeA < timeB) return -1;
-                if (timeA > timeB) return 1;
-                return a.name.localeCompare(b.name);
-            })
-            .filter((course, index, self) => 
-                index === self.findIndex(c => c.id === course.id && c.scheduleInfo.start === course.scheduleInfo.start)
-            );
-    }, [scheduleByDay]);
 
     return (
         <div className="space-y-6">
@@ -163,7 +154,7 @@ function AttendanceContent() {
                 </div>
             </div>
 
-            <Card>
+             <Card>
                 <CardHeader>
                    <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
@@ -190,91 +181,73 @@ function AttendanceContent() {
                         </div>
                    </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="border rounded-lg">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[180px]">Cours</TableHead>
-                                    <TableHead className="w-[180px]">Professeur</TableHead>
-                                    <TableHead className="w-[180px]">Filière</TableHead>
-                                    <TableHead className="w-[120px]">Heure</TableHead>
-                                    {weekDays.map(day => (
-                                        <TableHead key={day.toString()} className="text-center">
-                                            {format(day, 'EEE d', { locale: fr })}
-                                        </TableHead>
-                                    ))}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    Array.from({length: 3}).map((_, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                                            {Array.from({length: 6}).map((_, j) => <TableCell key={j}><Skeleton className="h-16 w-full" /></TableCell>)}
-                                        </TableRow>
-                                    ))
-                                ) : uniqueCourses.length === 0 ? (
-                                    <TableRow><TableCell colSpan={10} className="h-48 text-center">Aucun cours planifié pour cette semaine/ce filtre.</TableCell></TableRow>
-                                ) : (
-                                    uniqueCourses.map(course => (
-                                        <TableRow key={`${course.id}-${course.scheduleInfo.start}`}>
-                                            <TableCell className="font-semibold">{course.name}</TableCell>
-                                            <TableCell>{course.teacher?.firstName} {course.teacher?.lastName}</TableCell>
-                                            <TableCell>{fieldsById[course.fieldId]?.name || 'N/A'}</TableCell>
-                                            <TableCell>{course.scheduleInfo.start} - {course.scheduleInfo.end}</TableCell>
-                                            {weekDays.map(day => {
-                                                const dateStr = format(day, 'yyyy-MM-dd');
-                                                const dayName = format(day, 'EEEE', { locale: fr });
-                                                const courseOnThisDay = scheduleByDay[dateStr]?.find(c => 
-                                                    c.id === course.id && 
-                                                    c.scheduleInfo.start === course.scheduleInfo.start &&
-                                                    c.scheduleInfo.day === dayName
-                                                );
-                                                
-                                                if (!courseOnThisDay) return <TableCell key={dateStr} className="p-2" />;
-                                                
-                                                const attendanceRecord = getAttendanceForCourse(course.id, dateStr);
-                                                const teacherStatus = attendanceRecord?.teacherStatus;
-                                                const studentAttendances = studentsForSelectedCourse;
-                                                const presentStudents = attendanceRecord?.studentAttendances.filter(sa => sa.status === 'present').length || 0;
-                                                const totalStudents = studentAttendances.length;
-
-                                                return (
-                                                    <TableCell key={dateStr} className="text-center p-2">
-                                                        <div className="flex flex-col items-center justify-center gap-2">
-                                                            <Button 
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleManageAttendance(course, dateStr)}
-                                                                className="w-full"
-                                                            >
-                                                                <UserCheck className="mr-2 h-4 w-4" />
-                                                                Gérer la présence
-                                                            </Button>
-                                                            {attendanceRecord && <div className="flex justify-between w-full text-xs mt-1 gap-1">
-                                                                <Badge variant={teacherStatus === 'present' ? 'default' : teacherStatus === 'absent' ? 'destructive' : 'secondary'} className="py-1 flex-1 justify-center">
-                                                                    Prof: {teacherStatus === 'present' ? 'P' : 'A'}
-                                                                </Badge>
-                                                                <Badge variant="outline" className="py-1 flex-1 justify-center">
-                                                                    Étu: {presentStudents}/{totalStudents}
-                                                                </Badge>
-                                                            </div>}
-                                                        </div>
-                                                    </TableCell>
-                                                );
-                                            })}
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
             </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {loading ? (
+                    Array.from({length: 3}).map((_, i) => (
+                        <Card key={i}>
+                            <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+                            <CardContent className="space-y-4">
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : weekDays.map(day => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    const coursesOnDay = scheduleByDay[dateStr] || [];
+
+                    return (
+                        <Card key={dateStr}>
+                            <CardHeader>
+                                <CardTitle className="capitalize">{format(day, 'EEEE d MMMM', { locale: fr })}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {coursesOnDay.length > 0 ? coursesOnDay.map((course: any) => {
+                                    const attendanceRecord = getAttendanceForCourse(course.id, dateStr);
+                                    const teacherStatus = attendanceRecord?.teacherStatus;
+                                    const studentAttendances = getStudentsForCourse(course);
+                                    const presentStudents = attendanceRecord?.studentAttendances.filter(sa => sa.status === 'present').length || 0;
+                                    const totalStudents = studentAttendances.length;
+
+                                    return (
+                                        <div key={course.id} className="p-3 border rounded-lg space-y-3">
+                                            <div>
+                                                <p className="font-semibold">{course.name}</p>
+                                                <p className="text-sm text-muted-foreground">{course.teacher?.firstName} {course.teacher?.lastName}</p>
+                                                <p className="text-sm text-muted-foreground">Heure: {course.scheduleInfo.start} - {course.scheduleInfo.end}</p>
+                                            </div>
+                                            <Button 
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleManageAttendance(course, dateStr)}
+                                                className="w-full"
+                                            >
+                                                <UserCheck className="mr-2 h-4 w-4" />
+                                                Gérer la présence
+                                            </Button>
+                                             {attendanceRecord && <div className="flex justify-between w-full text-xs mt-1 gap-1">
+                                                <Badge variant={teacherStatus === 'present' ? 'default' : teacherStatus === 'absent' ? 'destructive' : 'secondary'} className="py-1 flex-1 justify-center">
+                                                    Prof: {teacherStatus === 'present' ? 'P' : 'A'}
+                                                </Badge>
+                                                <Badge variant="outline" className="py-1 flex-1 justify-center">
+                                                    Étu: {presentStudents}/{totalStudents}
+                                                </Badge>
+                                            </div>}
+                                        </div>
+                                    );
+                                }) : (
+                                    <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-24">
+                                        <CalendarOff className="h-8 w-8 mb-2" />
+                                        <p className="text-sm">Aucun cours planifié</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )
+                })}
+            </div>
 
             <AttendanceDialog
                 isOpen={isDialogOpen}
@@ -296,3 +269,6 @@ export default function AttendancePage() {
         </Suspense>
     );
 }
+
+
+    
