@@ -15,12 +15,13 @@ import { format, startOfWeek, addDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-const timeSlots = Array.from({ length: 6 }, (_, i) => `${8 + i * 2}:00`); // 8:00, 10:00, ..., 18:00
+const timeSlots = Array.from({ length: 6 }, (_, i) => `${(8 + i * 2).toString().padStart(2, '0')}:00`); // 08:00, 10:00, ..., 18:00
 
 function ScheduleContent() {
-    const { user: currentUser, users, settings, fields } = useUser();
+    const { user: currentUser, users, loading: userLoading, settings, fields } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
     
@@ -65,9 +66,12 @@ function ScheduleContent() {
 
         filteredCourses.forEach(course => {
             course.schedule?.forEach(slot => {
-                const startTime = slot.start.split(':')[0] + ':00';
-                if (grid[slot.day] && grid[slot.day][startTime]) {
-                    grid[slot.day][startTime].push(course);
+                const startTimeHour = parseInt(slot.start.split(':')[0]);
+                // Find the closest time slot (e.g., 8:30 falls into 08:00 slot)
+                const timeSlotKey = `${(Math.floor(startTimeHour / 2) * 2).toString().padStart(2, '0')}:00`;
+
+                if (grid[slot.day] && grid[slot.day][timeSlotKey]) {
+                    grid[slot.day][timeSlotKey].push(course);
                 }
             });
         });
@@ -83,13 +87,14 @@ function ScheduleContent() {
 
 
     const isStudentView = currentUser?.role === 'student';
+    const pageLoading = loading || userLoading;
 
     return (
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold font-headline tracking-tight">Emploi du Temps</h1>
                 <p className="text-muted-foreground">
-                    Consultez l'emploi du temps de la semaine.
+                    Consultez l'emploi du temps de la semaine. Les cours sont automatiquement intégrés dès leur planification.
                 </p>
             </div>
             <Card>
@@ -129,6 +134,14 @@ function ScheduleContent() {
                 </CardHeader>
                 <CardContent>
                     <div className="border rounded-lg overflow-hidden">
+                       {pageLoading ? (
+                           <div className="space-y-2 p-4">
+                               <Skeleton className="h-12 w-full" />
+                               <Skeleton className="h-28 w-full" />
+                               <Skeleton className="h-28 w-full" />
+                               <Skeleton className="h-28 w-full" />
+                           </div>
+                       ) : (
                         <Table className="min-w-full border-collapse">
                             <TableHeader>
                                 <TableRow>
@@ -151,27 +164,27 @@ function ScheduleContent() {
                                         <TableCell className="font-medium align-top pt-3 border-r">{slot}</TableCell>
                                         {daysOfWeek.map(day => (
                                             <TableCell key={day} className="p-1 align-top border-r">
-                                                {scheduleGrid[day][slot].map(course => (
+                                                {scheduleGrid[day][slot].map(course => {
+                                                    const scheduleInfo = course.schedule?.find(s => s.day === day && s.start.startsWith(slot.slice(0,2)));
+                                                    return (
                                                      <div key={course.id} className="bg-primary/10 border border-primary/20 p-2 rounded-lg text-xs mb-1 hover:bg-primary/20 transition-colors">
                                                         <Link href={`/dashboard/course-management?courseId=${course.id}`}>
                                                             <p className="font-bold text-primary truncate">{course.name}</p>
                                                             <p className="text-muted-foreground">{getTeacherName(course.teacherId)}</p>
-                                                            <p className="text-muted-foreground">Salle: {course.schedule?.find(s => s.day === day)?.room}</p>
+                                                             {scheduleInfo && <p className="text-muted-foreground">{scheduleInfo.start} - {scheduleInfo.end}</p>}
+                                                            <p className="text-muted-foreground">Salle: {scheduleInfo?.room}</p>
                                                         </Link>
                                                      </div>
-                                                ))}
+                                                    )
+                                                })}
                                             </TableCell>
                                         ))}
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
+                       )}
                     </div>
-                     {loading && (
-                        <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
-                           <p>Chargement de l'emploi du temps...</p>
-                        </div>
-                    )}
                 </CardContent>
             </Card>
         </div>
