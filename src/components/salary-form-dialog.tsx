@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -25,6 +26,8 @@ import type { User, TeacherSalary } from "@/lib/types";
 import { useEffect, useCallback } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { getMonth } from "date-fns";
+import { CalendarSearch } from "lucide-react";
+import Link from "next/link";
 
 const salaryFormSchema = z.object({
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
@@ -156,10 +159,22 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
                     )}/>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 items-end">
                     <FormField control={form.control} name="hoursWorked" render={({ field }) => (
-                        <FormItem><FormLabel>Heures Travaillées</FormLabel><FormControl><Input type="number" step="0.01" placeholder="80" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem>
+                            <FormLabel>Heures Travaillées</FormLabel>
+                            <FormControl><Input type="number" step="0.01" placeholder="80" {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
                     )}/>
+                     <Button asChild variant="outline" type="button" disabled={!teacherId}>
+                        <Link href={`/dashboard/attendance?teacherId=${teacherId}`} target="_blank">
+                            <CalendarSearch className="mr-2 h-4 w-4"/>
+                            Voir détail présences
+                        </Link>
+                    </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="hourlyRate" render={({ field }) => (
                         <FormItem><FormLabel>Taux Horaire</FormLabel><FormControl><Input type="number" step="0.01" placeholder="5000" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
@@ -183,3 +198,5 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
     </Dialog>
   );
 }
+
+    

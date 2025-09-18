@@ -3,11 +3,11 @@
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Banknote } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const teacherIdFilter = searchParams.get('teacherId');
 
     const { users, loading: usersLoading, settings, fields } = useUser();
@@ -139,6 +140,12 @@ function AttendanceContent() {
     }, [selectedCourse, students]);
 
     const loading = usersLoading || loadingData;
+    
+    const navigateToSalaries = () => {
+        if(selectedTeacher && selectedTeacher !== 'all') {
+            router.push(`/dashboard/salary-management?userId=${selectedTeacher}`);
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -162,6 +169,12 @@ function AttendanceContent() {
                                     {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.firstName} {t.lastName}</SelectItem>)}
                                 </SelectContent>
                             </Select>
+                            {selectedTeacher !== 'all' && (
+                                <Button variant="outline" onClick={navigateToSalaries}>
+                                    <Banknote className="mr-2 h-4 w-4" />
+                                    Gérer les salaires
+                                </Button>
+                            )}
                         </div>
                         <div className="flex items-center gap-2">
                             <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
@@ -264,3 +277,5 @@ export default function AttendancePage() {
         </Suspense>
     );
 }
+
+    
