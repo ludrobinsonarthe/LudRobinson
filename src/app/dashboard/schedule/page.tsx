@@ -36,11 +36,13 @@ function ScheduleContent() {
 
     // Filters state
     const [selectedFieldId, setSelectedFieldId] = useState('all');
+    const [selectedLevel, setSelectedLevel] = useState('all');
     
     useEffect(() => {
         let studentFieldId: string | null = null;
         if(currentUser?.role === 'student' && currentUser.student?.fieldId) {
             studentFieldId = currentUser.student.fieldId;
+            setSelectedLevel(currentUser.student.level || 'all');
         }
         setSelectedFieldId(fieldIdFromParams || studentFieldId || 'all');
     }, [fieldIdFromParams, currentUser]);
@@ -55,9 +57,11 @@ function ScheduleContent() {
     }, []);
 
     const filteredCourses = useMemo(() => {
-        if (selectedFieldId === 'all') return courses;
-        return courses.filter(course => course.fieldId === selectedFieldId);
-    }, [courses, selectedFieldId]);
+        return courses.filter(course => 
+            (selectedFieldId === 'all' || course.fieldId === selectedFieldId) &&
+            (selectedLevel === 'all' || course.level === selectedLevel)
+        );
+    }, [courses, selectedFieldId, selectedLevel]);
 
 
     const scheduleGrid = useMemo(() => {
@@ -93,11 +97,12 @@ function ScheduleContent() {
     const handleExportPDF = () => {
         const doc = new jsPDF({ orientation: "landscape" });
         const selectedFieldName = selectedFieldId === 'all' ? 'Toutes les filières' : fieldsById[selectedFieldId]?.name || '';
+        const levelName = selectedLevel === 'all' ? '' : ` - ${selectedLevel}`;
         const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
         const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
 
         doc.setFontSize(18);
-        doc.text(`Emploi du Temps - ${selectedFieldName}`, 14, 22);
+        doc.text(`Emploi du Temps - ${selectedFieldName}${levelName}`, 14, 22);
         doc.setFontSize(12);
         doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 14, 30);
         
@@ -156,15 +161,25 @@ function ScheduleContent() {
             </div>
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center flex-wrap gap-4">
                          <div>
                             <CardTitle>Grille de la semaine</CardTitle>
                             <CardDescription>
-                               {isStudentView ? `Emploi du temps pour la filière ${fieldsById[selectedFieldId]?.name || ''}` : "Vue hebdomadaire des cours planifiés."}
+                               {isStudentView ? `Emploi du temps pour ${fieldsById[selectedFieldId]?.name || ''} - ${selectedLevel}` : "Vue hebdomadaire des cours planifiés."}
                             </CardDescription>
                          </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 flex-wrap">
                             {!isStudentView && (
+                                <>
+                                 <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                                    <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Filtrer par niveau" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tous les niveaux</SelectItem>
+                                        {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                                 <Select value={selectedFieldId} onValueChange={setSelectedFieldId}>
                                     <SelectTrigger className="w-[240px]">
                                         <SelectValue placeholder="Filtrer par filière" />
@@ -174,6 +189,7 @@ function ScheduleContent() {
                                         {(fields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                                </>
                             )}
                              <Button variant="outline" onClick={handleExportPDF}>
                                 <FileDown className="mr-2 h-4 w-4" />
@@ -260,3 +276,5 @@ export default function SchedulePage() {
         </Suspense>
     )
 }
+
+    
