@@ -52,6 +52,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
   const [qrSessionId, setQrSessionId] = useState<string | null>(null);
+  const [qrLoginError, setQrLoginError] = useState<string | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -74,10 +75,11 @@ export default function LoginPage() {
                 router.push("/dashboard");
                 setIsQrDialogOpen(false);
             } catch (error) {
+                 setQrLoginError("Les identifiants validés sont incorrects. Veuillez réessayer.");
                  toast({
                     variant: "destructive",
-                    title: "Erreur de connexion",
-                    description: "Les identifiants validés via le QR code sont incorrects.",
+                    title: "Erreur de connexion QR",
+                    description: "Les identifiants fournis via le QR code sont incorrects.",
                 });
             } finally {
                 setLoading(false);
@@ -138,6 +140,7 @@ export default function LoginPage() {
     const sessionId = doc(collection(db, 'qr_sessions')).id;
     await setDoc(doc(db, 'qr_sessions', sessionId), { status: 'pending', createdAt: new Date() });
     setQrSessionId(sessionId);
+    setQrLoginError(null);
     setIsQrDialogOpen(true);
   }
 
@@ -232,16 +235,22 @@ export default function LoginPage() {
             </DialogHeader>
             <div className="flex items-center justify-center p-4">
                 {qrSessionId ? (
-                    <QRCode value={`${window.location.origin}/validate-login/${qrSessionId}`} size={256} />
+                    <QRCode value={`${window.location.origin}/validate-login?sessionId=${qrSessionId}`} size={256} />
                 ) : (
                     <Loader2 className="h-16 w-16 animate-spin text-primary" />
                 )}
             </div>
-             <p className="text-center text-sm text-muted-foreground">
-                En attente de validation...
-            </p>
+            {qrLoginError ? (
+                <p className="text-center text-sm text-destructive">{qrLoginError}</p>
+            ) : (
+                <p className="text-center text-sm text-muted-foreground">
+                    En attente de validation...
+                </p>
+            )}
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+    
