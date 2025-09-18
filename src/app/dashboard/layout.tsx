@@ -44,6 +44,7 @@ import {
   Loader2,
   BookUser,
   UserCheck,
+  Share2,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect } from "react";
@@ -197,6 +198,12 @@ function MainSidebar() {
                   <span>Profil</span>
                 </Link>
             </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+             <SidebarMenuButton tooltip={"Partager"}>
+                <Share2 />
+                <span>Partager</span>
+             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <ThemeToggle />
