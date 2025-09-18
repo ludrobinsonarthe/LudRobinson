@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Course, Field, Sector, Cycle } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc } from "firebase/firestore";
@@ -154,10 +154,18 @@ export default function CourseManagementPage() {
                         Créez, modifiez et gérez les cours de l'institut et leurs emplois du temps.
                     </p>
                 </div>
-                <Button onClick={handleAdd}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter un cours
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" asChild>
+                        <Link href="/dashboard/schedule">
+                            <CalendarDays className="mr-2 h-4 w-4" />
+                            Voir l'emploi du temps
+                        </Link>
+                    </Button>
+                    <Button onClick={handleAdd}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Ajouter un cours
+                    </Button>
+                </div>
             </div>
             <Card>
                 <CardHeader>
