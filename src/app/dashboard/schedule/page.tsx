@@ -153,7 +153,7 @@ function ScheduleContent() {
                                             <TableCell key={day} className="p-1 align-top border-r">
                                                 {scheduleGrid[day][slot].map(course => (
                                                      <div key={course.id} className="bg-primary/10 border border-primary/20 p-2 rounded-lg text-xs mb-1 hover:bg-primary/20 transition-colors">
-                                                        <Link href={`/dashboard/courses`}>
+                                                        <Link href={`/dashboard/course-management?courseId=${course.id}`}>
                                                             <p className="font-bold text-primary truncate">{course.name}</p>
                                                             <p className="text-muted-foreground">{getTeacherName(course.teacherId)}</p>
                                                             <p className="text-muted-foreground">Salle: {course.schedule?.find(s => s.day === day)?.room}</p>
