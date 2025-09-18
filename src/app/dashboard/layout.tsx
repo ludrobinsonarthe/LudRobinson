@@ -68,6 +68,7 @@ function MainSidebar() {
   const pathname = usePathname();
   const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -123,6 +124,14 @@ function MainSidebar() {
     }
   ];
 
+  const filteredMenuItems = menuItems.filter(item => item.label.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredStudentMenuItems = studentMenuItems.filter(item => item.label.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredAdminMenuGroups = adminMenuGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => item.label.toLowerCase().includes(searchTerm.toLowerCase()))
+  })).filter(group => group.items.length > 0);
+
+
   const showStudentMenu = user?.role === 'student' || user?.role === 'parent';
   const showAdminMenu = user?.role === 'admin';
 
@@ -135,8 +144,12 @@ function MainSidebar() {
       <SidebarContent>
         {isMounted && (
         <SidebarMenu>
-          <SidebarInput placeholder="Rechercher..." />
-          {menuItems.map((item) => (
+          <SidebarInput 
+            placeholder="Rechercher..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {filteredMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
                 <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
@@ -144,7 +157,7 @@ function MainSidebar() {
             </SidebarMenuItem>
           ))}
           
-          {showStudentMenu && studentMenuItems.map((item) => (
+          {showStudentMenu && filteredStudentMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
                 <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
@@ -152,7 +165,7 @@ function MainSidebar() {
             </SidebarMenuItem>
           ))}
 
-          {showAdminMenu && adminMenuGroups.map(group => (
+          {showAdminMenu && filteredAdminMenuGroups.map(group => (
             <SidebarGroup key={group.group}>
               <SidebarGroupLabel>{group.group}</SidebarGroupLabel>
               <SidebarGroupContent>
