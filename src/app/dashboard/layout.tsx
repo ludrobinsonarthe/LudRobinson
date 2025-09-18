@@ -47,10 +47,11 @@ import {
   Share2,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import ShareDialog from "@/components/share-dialog";
 
 function AppLogo() {
   return (
@@ -70,6 +71,7 @@ function MainSidebar() {
   const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -138,79 +140,82 @@ function MainSidebar() {
 
 
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <AppLogo />
-      </SidebarHeader>
-      <SidebarContent>
-        {isMounted && (
-        <SidebarMenu>
-          <SidebarInput 
-            placeholder="Rechercher..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          {filteredMenuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
-                <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-          
-          {showStudentMenu && filteredStudentMenuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
-                <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+    <>
+      <Sidebar>
+        <SidebarHeader>
+          <AppLogo />
+        </SidebarHeader>
+        <SidebarContent>
+          {isMounted && (
+          <SidebarMenu>
+            <SidebarInput 
+              placeholder="Rechercher..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {filteredMenuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                  <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+            
+            {showStudentMenu && filteredStudentMenuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+                  <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
 
-          {showAdminMenu && filteredAdminMenuGroups.map(group => (
-            <SidebarGroup key={group.group}>
-              <SidebarGroupLabel>{group.group}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                {group.items.map(item =>
-                    hasPermission(item.permission) && (
-                    <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
-                        <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    )
-                )}
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))}
-        </SidebarMenu>
-        )}
-      </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-           <SidebarMenuItem>
-            <SidebarMenuButton
-                asChild
-                isActive={pathname === "/dashboard/profile"}
-                tooltip={"Profil"}
-              >
-                <Link href={"/dashboard/profile"}>
-                  <UserIcon />
-                  <span>Profil</span>
-                </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
-             <SidebarMenuButton tooltip={"Partager"}>
-                <Share2 />
-                <span>Partager</span>
-             </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <ThemeToggle />
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
+            {showAdminMenu && filteredAdminMenuGroups.map(group => (
+              <SidebarGroup key={group.group}>
+                <SidebarGroupLabel>{group.group}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  {group.items.map(item =>
+                      hasPermission(item.permission) && (
+                      <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+                          <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+                          </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      )
+                  )}
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
+          </SidebarMenu>
+          )}
+        </SidebarContent>
+        <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/dashboard/profile"}
+                  tooltip={"Profil"}
+                >
+                  <Link href={"/dashboard/profile"}>
+                    <UserIcon />
+                    <span>Profil</span>
+                  </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip={"Partager"} onClick={() => setIsShareDialogOpen(true)}>
+                  <Share2 />
+                  <span>Partager</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <ThemeToggle />
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
+      <ShareDialog isOpen={isShareDialogOpen} setIsOpen={setIsShareDialogOpen} />
+    </>
   );
 }
 
