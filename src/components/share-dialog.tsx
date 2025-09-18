@@ -65,13 +65,13 @@ export default function ShareDialog({ isOpen, setIsOpen }: ShareDialogProps) {
 
         <Tabs defaultValue="link" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="link">Par E-mail</TabsTrigger>
+            <TabsTrigger value="link">Par Lien</TabsTrigger>
             <TabsTrigger value="qr">Code QR</TabsTrigger>
           </TabsList>
           <TabsContent value="link" className="pt-4 space-y-4">
              <div>
                 <Label htmlFor="email" className="mb-2 block">
-                    Adresse e-mail de l'invité
+                    Inviter par e-mail
                 </Label>
                 <div className="flex space-x-2">
                     <Input
@@ -88,7 +88,7 @@ export default function ShareDialog({ isOpen, setIsOpen }: ShareDialogProps) {
                 </div>
             </div>
              <div className="space-y-2">
-                <Label htmlFor="link" className="mb-2 block">Ou copiez le lien direct</Label>
+                <Label htmlFor="link" className="mb-2 block">Ou copier le lien direct</Label>
                 <div className="flex space-x-2">
                 <Input id="link" value={appUrl} readOnly />
                 <Button type="button" size="icon" onClick={handleCopy}>

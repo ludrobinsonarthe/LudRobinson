@@ -62,7 +62,7 @@ export default function LoginPage() {
   });
   
   useEffect(() => {
-    let unsubscribe: () => void;
+    let unsubscribe: (() => void) | undefined;
     if (isQrDialogOpen && qrSessionId) {
       const sessionRef = doc(db, 'qr_sessions', qrSessionId);
       unsubscribe = onSnapshot(sessionRef, async (doc) => {
@@ -85,8 +85,11 @@ export default function LoginPage() {
         }
       });
     }
+    // Cleanup function to unsubscribe when the dialog is closed or component unmounts
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, [isQrDialogOpen, qrSessionId, router, toast]);
 
