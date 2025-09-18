@@ -22,8 +22,8 @@ export default function CoursesPage() {
         return users.filter(u => currentUser.parent?.childrenUids.includes(u.uid));
     }, [currentUser, users]);
 
-    const studentToView = useMemo(() => {
-        if (currentUser?.role === 'student') return currentUser;
+    const userToView = useMemo(() => {
+        if (currentUser?.role === 'student' || currentUser?.role === 'teacher') return currentUser;
         if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedChildId);
         return null;
     }, [currentUser, users, selectedChildId]);
@@ -43,14 +43,24 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
-        if (!studentToView || !studentToView.student?.fieldId) {
+        if (!userToView) {
             setLoading(false);
             setCourses([]);
             return;
         }
 
         setLoading(true);
-        const q = query(collection(db, "courses"), where("fieldId", "==", studentToView.student.fieldId));
+        let q;
+        if (userToView.role === 'student' && userToView.student?.fieldId) {
+            q = query(collection(db, "courses"), where("fieldId", "==", userToView.student.fieldId));
+        } else if (userToView.role === 'teacher') {
+            q = query(collection(db, "courses"), where("teacherId", "==", userToView.uid));
+        } else {
+             setLoading(false);
+             setCourses([]);
+             return;
+        }
+
         const unsubscribe = onSnapshot(q, snapshot => {
             setCourses(snapshot.docs.map(doc => doc.data() as Course));
             setLoading(false);
@@ -58,18 +68,38 @@ export default function CoursesPage() {
 
         return () => unsubscribe();
         
-    }, [studentToView]);
+    }, [userToView]);
 
     const handleChildChange = (studentId: string) => {
         setSelectedChildId(studentId);
     }
     
+    const pageTitle = currentUser?.role === 'teacher' ? "Mes Cours Assignés" : "Mes Cours";
+    const pageDescription = currentUser?.role === 'teacher' 
+        ? "Consultez la liste des cours que vous enseignez."
+        : "Consultez la liste des cours inscrits pour l'année académique en cours.";
+    
+    const emptyStateTitle = currentUser?.role === 'teacher' ? "Aucun cours assigné" : "Aucun cours trouvé";
+    const emptyStateDescription = () => {
+        switch(currentUser?.role) {
+            case 'teacher':
+                return "Aucun cours ne vous a été assigné pour le moment.";
+            case 'parent':
+                 return "Veuillez d'abord sélectionner un enfant.";
+            case 'student':
+                 return "Aucun cours ne correspond à votre filière pour le moment.";
+            default:
+                return "Pas de cours à afficher.";
+        }
+    }
+
+
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold font-headline tracking-tight">Mes Cours</h1>
+                <h1 className="text-3xl font-bold font-headline tracking-tight">{pageTitle}</h1>
                 <p className="text-muted-foreground">
-                    Consultez la liste des cours inscrits pour l'année académique en cours.
+                    {pageDescription}
                 </p>
             </div>
 
@@ -124,7 +154,7 @@ export default function CoursesPage() {
                                         <BookOpenCheck className="h-6 w-6 text-primary" />
                                     </div>
                                     <CardDescription>
-                                        Prof: {getTeacherName(course.teacherId)}
+                                        {currentUser?.role !== 'teacher' && `Prof: ${getTeacherName(course.teacherId)}`}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-grow">
@@ -147,9 +177,9 @@ export default function CoursesPage() {
                     </div>
                    ) : (
                      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
-                        <h3 className="text-xl font-bold tracking-tight">Aucun cours trouvé</h3>
+                        <h3 className="text-xl font-bold tracking-tight">{emptyStateTitle}</h3>
                         <p className="text-sm text-muted-foreground">
-                           {currentUser?.role === 'parent' ? "Veuillez d'abord sélectionner un enfant." : "Aucun cours ne correspond à votre filière pour le moment ou vous n'êtes pas un étudiant."}
+                           {emptyStateDescription()}
                         </p>
                     </div>
                    )}
