@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -15,6 +15,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -26,9 +33,11 @@ import { Input } from "@/components/ui/input";
 import { Bot, Building, ChromeIcon, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthErrorCodes } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { doc, onSnapshot } from "firebase/firestore";
+import QRCode from "qrcode.react";
 
 const loginSchema = z.object({
   email: z.string().email("Veuillez saisir une adresse e-mail valide."),
@@ -41,6 +50,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+  const [qrSessionId, setQrSessionId] = useState<string | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -49,6 +60,35 @@ export default function LoginPage() {
       password: "password",
     },
   });
+  
+  useEffect(() => {
+    let unsubscribe: () => void;
+    if (isQrDialogOpen && qrSessionId) {
+      const sessionRef = doc(db, 'qr_sessions', qrSessionId);
+      unsubscribe = onSnapshot(sessionRef, async (doc) => {
+        if (doc.exists() && doc.data().status === 'validated' && doc.data().email && doc.data().password) {
+            try {
+                setLoading(true);
+                await signInWithEmailAndPassword(auth, doc.data().email, doc.data().password);
+                toast({ title: "Connexion par QR Code réussie" });
+                router.push("/dashboard");
+                setIsQrDialogOpen(false);
+            } catch (error) {
+                 toast({
+                    variant: "destructive",
+                    title: "Erreur de connexion",
+                    description: "Les identifiants validés sont incorrects.",
+                });
+            } finally {
+                setLoading(false);
+            }
+        }
+      });
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isQrDialogOpen, qrSessionId, router, toast]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setLoading(true);
@@ -59,7 +99,6 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Login error:", error);
       let description = "Une erreur inattendue est survenue. Veuillez réessayer.";
-      // Catch specific Firebase auth errors for a better user experience
       if (error.code === AuthErrorCodes.INVALID_LOGIN_CREDENTIALS || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         description = "L'adresse e-mail ou le mot de passe est incorrect.";
       }
@@ -90,6 +129,12 @@ export default function LoginPage() {
     } finally {
         setLoading(false);
     }
+  }
+
+  const handleQrCodeClick = () => {
+    const sessionId = doc(collection(db, 'qr_sessions')).id;
+    setQrSessionId(sessionId);
+    setIsQrDialogOpen(true);
   }
 
   return (
@@ -165,13 +210,34 @@ export default function LoginPage() {
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChromeIcon className="mr-2 h-4 w-4" />}
                     Google
                 </Button>
-                 <Button variant="outline" className="w-full" onClick={() => toast({ title: "Bientôt disponible!", description: "La connexion par code QR est en cours de développement."})} disabled={loading}>
+                 <Button variant="outline" className="w-full" onClick={handleQrCodeClick} disabled={loading}>
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
                     Code QR
                 </Button>
             </div>
         </CardFooter>
       </Card>
+      
+      <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Connexion par Code QR</DialogTitle>
+                <DialogDescription>
+                    Scannez ce code avec l'appareil photo de votre téléphone pour vous connecter.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+                {qrSessionId ? (
+                    <QRCode value={`${window.location.origin}/validate-login/${qrSessionId}`} size={256} />
+                ) : (
+                    <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                )}
+            </div>
+             <p className="text-center text-sm text-muted-foreground">
+                En attente de validation...
+            </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
