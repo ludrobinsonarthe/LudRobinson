@@ -99,7 +99,8 @@ export default function GradesPage() {
                     nc = drScore20;
                 }
 
-                course.average = (nc * 0.4) + (examScore20 * 0.6);
+                const finalScoreOutOf20 = (nc * 0.4) + (examScore20 * 0.6);
+                course.average = finalScoreOutOf20 * (course.credit || 1);
             }
         });
 
@@ -110,9 +111,9 @@ export default function GradesPage() {
     const overallAverage = useMemo((): number => {
         if (coursesWithGrades.length === 0) return 0;
         
-        const totalAverage = coursesWithGrades.reduce((acc, course) => acc + course.average, 0);
+        const totalSum = coursesWithGrades.reduce((acc, course) => acc + course.average, 0);
         
-        return totalAverage / coursesWithGrades.length;
+        return totalSum;
 
     }, [coursesWithGrades]);
 
@@ -178,8 +179,8 @@ export default function GradesPage() {
                                         <div className='flex justify-between items-center w-full pr-4'>
                                             <span className='font-semibold text-lg'>{course.name}</span>
                                             <div className='text-right'>
-                                                <p className='text-sm text-muted-foreground'>Moyenne</p>
-                                                <p className='font-bold text-xl'>{course.average.toFixed(2)}/20</p>
+                                                <p className='text-sm text-muted-foreground'>Moyenne Finale</p>
+                                                <p className='font-bold text-xl'>{course.average.toFixed(2)}</p>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -218,8 +219,8 @@ export default function GradesPage() {
                 {coursesWithGrades.length > 0 && (
                      <CardFooter className="flex justify-end">
                         <div className='text-right'>
-                            <p className='text-lg text-muted-foreground'>Moyenne générale</p>
-                            <p className='font-bold text-3xl text-primary'>{overallAverage.toFixed(2)}/20</p>
+                            <p className='text-lg text-muted-foreground'>Total Général</p>
+                            <p className='font-bold text-3xl text-primary'>{overallAverage.toFixed(2)}</p>
                         </div>
                     </CardFooter>
                 )}

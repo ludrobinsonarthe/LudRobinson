@@ -132,7 +132,6 @@ function GradeManagementContent() {
                 const dr = studentGrades.find(g => g.type === 'devoir de recherche');
                 const exam = studentGrades.find(g => g.type === 'examen');
                 
-                // Normalize scores to be out of 20
                 const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
                 
                 const dcScore20 = getScoreOutOf20(dc);
@@ -148,7 +147,8 @@ function GradeManagementContent() {
                     nc = drScore20;
                 }
 
-                const finalScore = (nc * 0.4) + (examScore20 * 0.6);
+                const finalScoreOutOf20 = (nc * 0.4) + (examScore20 * 0.6);
+                const finalScore = finalScoreOutOf20 * (course.credit || 1);
 
                 averages[student.uid] = finalScore;
             } else {
@@ -371,7 +371,7 @@ function GradeManagementContent() {
                                     {evaluationColumns.map(col => (
                                         <TableHead key={col.id} className="text-center">{col.name}</TableHead>
                                     ))}
-                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Moyenne /20</TableHead>
+                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Moyenne Finale</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -424,3 +424,4 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
