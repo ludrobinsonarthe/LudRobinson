@@ -16,7 +16,9 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import Image from "next/image";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
@@ -28,14 +30,16 @@ const settingsFormSchema = z.object({
     id: z.string().min(1, "L'ID est requis."),
     name: z.string().min(1, "Le nom est requis.") 
   })),
+  logoFile: z.any().optional(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings } = useUser();
+    const { settings, loading: loadingSettings, setSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
@@ -61,13 +65,48 @@ export default function AdminManagementPage() {
     useEffect(() => {
         if(settings) {
             form.reset(settings);
+            setLogoPreview(settings.logoUrl);
         }
     }, [settings, form]);
+    
+    const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            form.setValue('logoFile', file);
+            const reader = new FileReader();
+            reader.onload = (e) => setLogoPreview(e.target?.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+
 
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
         try {
-            await setDoc(doc(db, "settings", "system"), data);
+            let logoUrl = data.logoUrl;
+            const logoFile = data.logoFile;
+
+            if (logoFile instanceof File) {
+                const storageRef = ref(storage, `system/logo`);
+                const snapshot = await uploadBytes(storageRef, logoFile);
+                logoUrl = await getDownloadURL(snapshot.ref);
+            }
+            
+            const settingsToSave: Settings = {
+                id: 'system',
+                schoolName: data.schoolName,
+                logoUrl: logoUrl,
+                academicYear: data.academicYear,
+                currency: data.currency,
+                levels: data.levels,
+                sectors: data.sectors,
+            };
+
+            await setDoc(doc(db, "settings", "system"), settingsToSave);
+            
+            // Update context
+            setSettings(settingsToSave);
+
             toast({
                 title: "Paramètres enregistrés",
                 description: "Les paramètres globaux ont été mis à jour.",
@@ -129,13 +168,20 @@ export default function AdminManagementPage() {
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
-                                 <FormField control={form.control} name="logoUrl" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>URL du logo</FormLabel>
-                                        <FormControl><Input placeholder="https://example.com/logo.png" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
+                                
+                                <FormItem>
+                                    <FormLabel>Logo de l'établissement</FormLabel>
+                                     {logoPreview && (
+                                        <div className="mt-2">
+                                            <Image src={logoPreview} alt="Aperçu du logo" width={100} height={100} className="rounded-md border bg-muted" />
+                                        </div>
+                                    )}
+                                    <FormControl>
+                                        <Input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoChange} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+
                                 <div className="grid grid-cols-2 gap-8">
                                     <FormField control={form.control} name="academicYear" render={({ field }) => (
                                         <FormItem>
