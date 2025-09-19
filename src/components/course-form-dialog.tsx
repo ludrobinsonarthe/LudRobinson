@@ -44,6 +44,7 @@ const courseFormSchema = z.object({
   cycle: z.enum(['local', 'international', 'entrepreneur']),
   sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
+  credit: z.coerce.number().min(0, "Le crédit est requis."),
   documentFile: z.any().optional(),
   schedule: z.array(scheduleSchema).optional(),
 });
@@ -81,6 +82,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         cycle: 'local',
         sectorId: '',
         fieldId: '',
+        credit: 0,
         schedule: []
     }
   });
@@ -109,6 +111,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             cycle: course.cycle,
             sectorId: courseSectorId,
             fieldId: course.fieldId,
+            credit: course.credit,
             schedule: course.schedule || [],
           });
         } else {
@@ -120,6 +123,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             cycle: 'local',
             sectorId: '',
             fieldId: '',
+            credit: 0,
             schedule: [],
           });
         }
@@ -225,6 +229,15 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                             <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage /></FormItem>
+                    )}/>
+                </div>
+                
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="credit" render={({ field }) => (
+                        <FormItem><FormLabel>Crédit de la matière</FormLabel>
+                        <FormControl><Input type="number" placeholder="Ex: 5" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
                     )}/>
                 </div>
 

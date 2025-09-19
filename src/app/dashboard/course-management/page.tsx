@@ -225,7 +225,7 @@ export default function CourseManagementPage() {
                                 <TableHead>Nom du cours</TableHead>
                                 <TableHead>Professeur</TableHead>
                                 <TableHead>Filière</TableHead>
-                                <TableHead>Secteur</TableHead>
+                                <TableHead>Crédit</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -243,7 +243,7 @@ export default function CourseManagementPage() {
                                     <TableCell className="font-medium">{course.name}</TableCell>
                                     <TableCell>{getTeacherName(course.teacherId)}</TableCell>
                                     <TableCell>{fieldName}</TableCell>
-                                    <TableCell>{sectorName}</TableCell>
+                                    <TableCell>{course.credit}</TableCell>
                                     <TableCell className="text-right">
                                        <DropdownMenu>
                                            <DropdownMenuTrigger asChild>

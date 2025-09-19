@@ -116,6 +116,7 @@ export interface Course {
   fieldId: string;
   level: string;
   cycle: Cycle;
+  credit: number;
   documents?: string[];
   schedule?: {
     day: 'Lundi' | 'Mardi' | 'Mercredi' | 'Jeudi' | 'Vendredi' | 'Samedi';
@@ -129,9 +130,8 @@ export interface Grade {
   id: string;
   studentId: string;
   courseId: string;
-  type: 'devoir' | 'examen' | 'devoir de classe';
+  type: 'devoir de classe' | 'devoir de recherche' | 'examen';
   score: number;
-  credit: number;
   total: number;
   academicYear: string;
   createdAt: string;
