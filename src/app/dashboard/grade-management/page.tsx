@@ -138,7 +138,7 @@ function GradeManagementContent() {
     }, [students, evaluationColumns, course]);
 
     const averageByStudent = useMemo(() => {
-        const averages: { [studentId: string]: number } = {};
+        const averages: { [studentId: string]: { finalAverage: number } } = {};
         students.forEach(student => {
             const studentGrades = grades.filter(g => g.studentId === student.uid && g.courseId === course?.id);
             if (studentGrades.length > 0 && course) {
@@ -162,11 +162,11 @@ function GradeManagementContent() {
 
                 const examScore20 = getScoreOutOf20(exam);
 
-                const finalScore = (nc * 0.4) + (examScore20 * 0.6);
+                const finalAverage = (nc * 0.4) + (examScore20 * 0.6);
                 
-                averages[student.uid] = finalScore;
+                averages[student.uid] = { finalAverage };
             } else {
-                averages[student.uid] = 0;
+                averages[student.uid] = { finalAverage: 0 };
             }
         });
         return averages;
@@ -444,7 +444,7 @@ function GradeManagementContent() {
                                             )
                                         })}
                                         <TableCell className="text-center font-bold text-lg sticky right-0 bg-card z-10">
-                                            {averageByStudent[student.uid].toFixed(2)}
+                                            {averageByStudent[student.uid]?.finalAverage.toFixed(2)}
                                         </TableCell>
                                     </TableRow>
                                 )) : (
@@ -479,4 +479,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-

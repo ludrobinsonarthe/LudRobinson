@@ -86,21 +86,22 @@ export default function GradesPage() {
                 
                 const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
                 
-                const dcScore20 = getScoreOutOf20(dc);
-                const drScore20 = getScoreOutOf20(dr);
-                const examScore20 = getScoreOutOf20(exam);
-
                 let nc = 0; // Note de classe out of 20
-                if (dc && dr) {
+                const dcScore20 = dc ? getScoreOutOf20(dc) : null;
+                const drScore20 = dr ? getScoreOutOf20(dr) : null;
+
+                if (dcScore20 !== null && drScore20 !== null) {
                     nc = (dcScore20 + drScore20) / 2;
-                } else if (dc) {
+                } else if (dcScore20 !== null) {
                     nc = dcScore20;
-                } else if (dr) {
+                } else if (drScore20 !== null) {
                     nc = drScore20;
                 }
 
+                const examScore20 = getScoreOutOf20(exam);
+
                 const finalScoreOutOf20 = (nc * 0.4) + (examScore20 * 0.6);
-                course.average = finalScoreOutOf20 * (course.credit || 1);
+                course.average = finalScoreOutOf20;
             }
         });
 
@@ -112,8 +113,9 @@ export default function GradesPage() {
         if (coursesWithGrades.length === 0) return 0;
         
         const totalSum = coursesWithGrades.reduce((acc, course) => acc + course.average, 0);
+        const totalCourses = coursesWithGrades.length;
         
-        return totalSum;
+        return totalCourses > 0 ? totalSum / totalCourses : 0;
 
     }, [coursesWithGrades]);
 
@@ -179,7 +181,7 @@ export default function GradesPage() {
                                         <div className='flex justify-between items-center w-full pr-4'>
                                             <span className='font-semibold text-lg'>{course.name}</span>
                                             <div className='text-right'>
-                                                <p className='text-sm text-muted-foreground'>Moyenne Finale</p>
+                                                <p className='text-sm text-muted-foreground'>Moyenne /20</p>
                                                 <p className='font-bold text-xl'>{course.average.toFixed(2)}</p>
                                             </div>
                                         </div>
@@ -219,7 +221,7 @@ export default function GradesPage() {
                 {coursesWithGrades.length > 0 && (
                      <CardFooter className="flex justify-end">
                         <div className='text-right'>
-                            <p className='text-lg text-muted-foreground'>Total Général</p>
+                            <p className='text-lg text-muted-foreground'>Moyenne Générale /20</p>
                             <p className='font-bold text-3xl text-primary'>{overallAverage.toFixed(2)}</p>
                         </div>
                     </CardFooter>
