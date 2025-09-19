@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -105,7 +106,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         if (course) {
           form.reset({
             name: course.name,
-            description: course.description,
+            description: course.description || '',
             teacherId: course.teacherId,
             level: course.level,
             cycle: course.cycle,
