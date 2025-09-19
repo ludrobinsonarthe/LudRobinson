@@ -55,7 +55,7 @@ export default function GradesPage() {
         setLoading(true);
         const q = query(collection(db, "grades"), where("studentId", "==", studentToView.uid));
         const unsubscribe = onSnapshot(q, async (snapshot) => {
-            const studentGrades = snapshot.docs.map(doc => doc.data() as Grade);
+            const studentGrades = snapshot.docs.map(doc => ({id: doc.id, ...doc.data() } as Grade));
             setGrades(studentGrades);
             setLoading(false);
         });
@@ -216,7 +216,7 @@ export default function GradesPage() {
                                             </TableHeader>
                                             <TableBody>
                                                 {course.grades.map(grade => (
-                                                    <TableRow key={grade.id}>
+                                                    <TableRow key={grade.id + '-' + grade.type}>
                                                         <TableCell><Badge variant="outline" className="capitalize">{grade.type}</Badge></TableCell>
                                                         <TableCell className='font-medium text-right'>{grade.score}/{grade.total}</TableCell>
                                                     </TableRow>
