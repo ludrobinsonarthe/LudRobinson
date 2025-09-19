@@ -167,7 +167,7 @@ export default function GradesPage() {
         doc.text(`Filière: ${studentToView.student?.fieldId && fieldsById[studentToView.student.fieldId] ? fieldsById[studentToView.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
         
         // Grades Table
-        const tableColumn = ["Matière", "Devoir de Classe", "Devoir de Recherche", "Examen", "Moyenne /20"];
+        const tableColumn = ["Matière", "Crédit", "Devoir de Classe", "Devoir de Recherche", "Examen", "Moyenne /20"];
         const tableRows: (string | number)[][] = [];
 
         coursesWithGrades.forEach(course => {
@@ -177,6 +177,7 @@ export default function GradesPage() {
 
             tableRows.push([
                 course.name,
+                course.credit,
                 dc ? `${dc.score}/${dc.total}` : 'N/A',
                 dr ? `${dr.score}/${dr.total}` : 'N/A',
                 exam ? `${exam.score}/${exam.total}` : 'N/A',
@@ -290,6 +291,7 @@ export default function GradesPage() {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Type d'évaluation</TableHead>
+                                                    <TableHead>Crédit</TableHead>
                                                     <TableHead className="text-right">Note</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -297,6 +299,7 @@ export default function GradesPage() {
                                                 {course.grades.map(grade => (
                                                     <TableRow key={grade.id + '-' + grade.type}>
                                                         <TableCell><Badge variant="outline" className="capitalize">{grade.type}</Badge></TableCell>
+                                                        <TableCell>{grade.credit}</TableCell>
                                                         <TableCell className='font-medium text-right'>{grade.score}/{grade.total}</TableCell>
                                                     </TableRow>
                                                 ))}
@@ -323,5 +326,7 @@ export default function GradesPage() {
     );
 }
 
+
+    
 
     
