@@ -73,8 +73,8 @@ export default function StudentsPage() {
         setLoadingData(true);
         const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
         const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as OfficialDocument)));
-        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course)));
+        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Grade))));
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Course))));
         const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
         const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), snapshot => setFeeStructures(snapshot.docs.map(doc => doc.data() as FeeStructure)));
 
@@ -375,7 +375,7 @@ export default function StudentsPage() {
             startY: 20,
             theme: 'striped',
             styles: { fontSize: 8 },
-            headStyles: { fillColor: [41, 128, 185] },
+            headStyles: { fillColor: [25, 95, 53] },
         });
         
         doc.save("liste_etudiants.pdf");
@@ -513,7 +513,7 @@ export default function StudentsPage() {
                 studentId: student.uid,
                 type: type,
                 fileUrl: fileUrl,
-                issuedBy: 'admin01', // Should be current admin user
+                issuedBy: adminUser?.uid || 'system-admin',
                 issuedAt: new Date().toISOString(),
             };
             await addDoc(collection(db, "officialDocuments"), newDoc);
@@ -597,7 +597,7 @@ export default function StudentsPage() {
             const studentGrades = grades.filter(g => g.studentId === student.uid);
             const coursesById = courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
             
-            const tableColumn = ["Matière", "Devoirs", "Examen", "Moyenne /20"];
+            const tableColumn = ["Matière", "Crédit", "Devoirs", "Examen", "Moyenne /20"];
             const tableRows: (string | number)[][] = [];
 
             const gradesByCourse: Record<string, Grade[]> = {};
@@ -607,32 +607,54 @@ export default function StudentsPage() {
             });
 
             let totalWeightedAverage = 0;
-            let totalCourses = 0;
+            let totalCredits = 0;
 
             Object.keys(gradesByCourse).forEach(courseId => {
-                const courseName = coursesById[courseId]?.name || 'Inconnu';
+                const course = coursesById[courseId];
+                if (!course) return;
+
                 const courseGrades = gradesByCourse[courseId];
                 
-                const devoirs = courseGrades.filter(g => g.type === 'devoir').map(g => `${g.score}/${g.total}`).join(', ') || 'N/A';
-                const examen = courseGrades.find(g => g.type === 'examen');
+                const dc = courseGrades.find(g => g.type === 'devoir de classe');
+                const dr = courseGrades.find(g => g.type === 'devoir de recherche');
+                const exam = courseGrades.find(g => g.type === 'examen');
                 
-                const totalScore = courseGrades.reduce((acc, g) => acc + (g.score * g.coefficient), 0);
-                const totalCoeff = courseGrades.reduce((acc, g) => acc + g.coefficient, 0);
-                const courseAverage = totalCoeff > 0 ? (totalScore / totalCoeff) : 0;
+                const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
                 
-                if (totalCoeff > 0) {
-                    totalWeightedAverage += courseAverage;
-                    totalCourses += 1;
+                let nc = 0; // Note de classe out of 20
+                const dcScore20 = dc ? getScoreOutOf20(dc) : null;
+                const drScore20 = dr ? getScoreOutOf20(dr) : null;
+
+                if (dcScore20 !== null && drScore20 !== null) {
+                    nc = (dcScore20 + drScore20) / 2;
+                } else if (dcScore20 !== null) {
+                    nc = dcScore20;
+                } else if (drScore20 !== null) {
+                    nc = drScore20;
                 }
 
-                tableRows.push([courseName, devoirs, examen ? `${examen.score}/${examen.total}` : 'N/A', courseAverage.toFixed(2)]);
+                const examScore20 = getScoreOutOf20(exam);
+                const finalScoreOutOf20 = (nc * 0.4) + (examScore20 * 0.6);
+                
+                totalWeightedAverage += finalScoreOutOf20 * course.credit;
+                totalCredits += course.credit;
+
+                const devoirsFormatted = [dc, dr].filter(Boolean).map(g => `${g!.score}/${g!.total}`).join(', ') || 'N/A';
+
+                tableRows.push([
+                    course.name, 
+                    course.credit, 
+                    devoirsFormatted, 
+                    exam ? `${exam.score}/${exam.total}` : 'N/A', 
+                    finalScoreOutOf20.toFixed(2)
+                ]);
             });
 
             autoTable(doc, { head: [tableColumn], body: tableRows, startY: 60, theme: 'grid' });
 
             // Footer
             const finalY = (doc as any).lastAutoTable.finalY || 100;
-            const generalAverage = totalCourses > 0 ? totalWeightedAverage / totalCourses : 0;
+            const generalAverage = totalCredits > 0 ? totalWeightedAverage / totalCredits : 0;
             doc.setFontSize(14);
             doc.setFont("helvetica", "bold");
             doc.text(`Moyenne Générale: ${generalAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
@@ -813,7 +835,7 @@ export default function StudentsPage() {
                                                     </Link>
                                                 </DropdownMenuItem>
                                                  <DropdownMenuItem asChild>
-                                                    <Link href={`/dashboard/grade-management?studentId=${student.uid}`}>
+                                                    <Link href={`/dashboard/grade-management?courseId=${student.student?.programId}`}>
                                                         <ClipboardList className="mr-2 h-4 w-4" />
                                                         Gérer les notes
                                                     </Link>
@@ -870,3 +892,4 @@ export default function StudentsPage() {
         </div>
     );
 }
+

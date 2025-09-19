@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
@@ -479,5 +480,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-
-    
