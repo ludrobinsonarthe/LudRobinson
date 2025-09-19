@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { Grade, Course, User } from '@/lib/types';
+import { Grade, Course, User } from "@/lib/types";
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -431,7 +432,7 @@ function GradeManagementContent() {
                                                     {grade ? (
                                                         <Input
                                                             type="number"
-                                                            value={grade.score}
+                                                            defaultValue={grade.score}
                                                             onChange={(e) => handleScoreChange(grade.id, e.target.value)}
                                                             className="w-20 mx-auto text-center"
                                                             max={grade.total}

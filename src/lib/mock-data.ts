@@ -1,6 +1,5 @@
 
 
-
 import type { User, AdminRole, Sector, Field, Program, Class, Course, Message, Payment, Grade, TeacherSalary, CashTransaction, Attendance, OfficialDocument, FeeStructure } from './types';
 import { adminPermissions } from './types';
 
