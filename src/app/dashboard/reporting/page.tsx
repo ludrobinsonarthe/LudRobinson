@@ -10,6 +10,7 @@ import { Course, CashTransaction, Payment, Field } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
 import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
 import PendingPaymentsCard from '@/components/pending-payments-card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ReportingPage() {
     const { users, loading: usersLoading, settings, fields } = useUser();
@@ -24,13 +25,14 @@ export default function ReportingPage() {
         const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction)));
         const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
 
-        const timeoutId = setTimeout(() => setLoadingData(false), 500); // Simulate loading
+        // Ensures a minimum loading time for better UX with skeletons
+        const timer = setTimeout(() => setLoadingData(false), 300);
         
         return () => {
             unsubCourses();
             unsubTransactions();
             unsubPayments();
-            clearTimeout(timeoutId);
+            clearTimeout(timer);
         }
     }, []);
 
@@ -59,10 +61,6 @@ export default function ReportingPage() {
 
     const loading = usersLoading || loadingData;
 
-    if (loading) {
-        return <div className="text-center">Chargement des statistiques...</div>;
-    }
-
     return (
         <div className="space-y-6">
             <div>
@@ -73,49 +71,68 @@ export default function ReportingPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Étudiants Inscrits</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.studentCount}</div>
-                        <p className="text-xs text-muted-foreground">Total des étudiants actifs</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Professeurs</CardTitle>
-                        <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.teacherCount}</div>
-                        <p className="text-xs text-muted-foreground">Total des enseignants</p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Personnel Admin</CardTitle>
-                        <UserCog className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.adminCount}</div>
-                        <p className="text-xs text-muted-foreground">Total des administrateurs</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Cours Disponibles</CardTitle>
-                        <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.courseCount}</div>
-                        <p className="text-xs text-muted-foreground">Total des cours créés</p>
-                    </CardContent>
-                </Card>
+               {loading ? (
+                    <>
+                        <Card><CardHeader><Skeleton className="h-4 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-20" /></CardContent></Card>
+                        <Card><CardHeader><Skeleton className="h-4 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-20" /></CardContent></Card>
+                        <Card><CardHeader><Skeleton className="h-4 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-20" /></CardContent></Card>
+                        <Card><CardHeader><Skeleton className="h-4 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-20" /></CardContent></Card>
+                    </>
+               ) : (
+                <>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Étudiants Inscrits</CardTitle>
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.studentCount}</div>
+                            <p className="text-xs text-muted-foreground">Total des étudiants actifs</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Professeurs</CardTitle>
+                            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.teacherCount}</div>
+                            <p className="text-xs text-muted-foreground">Total des enseignants</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Personnel Admin</CardTitle>
+                            <UserCog className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.adminCount}</div>
+                            <p className="text-xs text-muted-foreground">Total des administrateurs</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Cours Disponibles</CardTitle>
+                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.courseCount}</div>
+                            <p className="text-xs text-muted-foreground">Total des cours créés</p>
+                        </CardContent>
+                    </Card>
+                </>
+               )}
             </div>
 
              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                 {loading ? (
+                    <>
+                        <Card><CardHeader><Skeleton className="h-4 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-32" /></CardContent></Card>
+                        <Card><CardHeader><Skeleton className="h-4 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-32" /></CardContent></Card>
+                        <Card><CardHeader><Skeleton className="h-4 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-32" /></CardContent></Card>
+                    </>
+                 ) : (
+                <>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Solde de Caisse</CardTitle>
@@ -146,13 +163,22 @@ export default function ReportingPage() {
                         <p className="text-xs text-muted-foreground">Total des dépenses effectuées</p>
                     </CardContent>
                 </Card>
+                </>
+                 )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-5">
-                 <Card className="lg:col-span-2">
-                    <PendingPaymentsCard payments={payments} users={users} />
+                <Card className="lg:col-span-2">
+                    {loading ? (
+                        <CardHeader>
+                            <Skeleton className="h-6 w-48 mb-2" />
+                            <Skeleton className="h-4 w-full" />
+                        </CardHeader>
+                    ) : (
+                        <PendingPaymentsCard payments={payments} users={users} />
+                    )}
                 </Card>
-                 <Card className="lg:col-span-3">
+                <Card className="lg:col-span-3">
                     <CardHeader>
                         <CardTitle>Aperçu Financier Mensuel</CardTitle>
                         <CardDescription>
@@ -160,10 +186,12 @@ export default function ReportingPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="pl-2">
-                        <FinancialMonthlyOverviewChart transactions={transactions} />
+                        {loading ? <Skeleton className="h-[250px] w-full" /> : <FinancialMonthlyOverviewChart transactions={transactions} />}
                     </CardContent>
                 </Card>
             </div>
         </div>
     );
 }
+
+    

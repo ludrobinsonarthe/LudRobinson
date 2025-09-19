@@ -24,6 +24,7 @@ import UserDeleteDialog from "@/components/user-delete-dialog";
 import CourseFormDialog from "@/components/course-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
@@ -231,11 +232,15 @@ export default function CourseManagementPage() {
                         </TableHeader>
                         <TableBody>
                             {pageIsLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
-                                        Chargement...
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({length: 5}).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
                             ) : filteredCourses.length > 0 ? filteredCourses.map(course => {
                                 const { fieldName, sectorName } = getFieldInfo(course.fieldId);
                                 return (
@@ -304,3 +309,5 @@ export default function CourseManagementPage() {
         </div>
     );
 }
+
+    
