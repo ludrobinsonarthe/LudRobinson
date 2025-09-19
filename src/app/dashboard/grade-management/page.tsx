@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
 import { Grade, Course, User } from "@/lib/types";
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -30,6 +29,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
@@ -271,6 +273,54 @@ function GradeManagementContent() {
             setEvalToDelete(null);
         }
     };
+    
+    const getExportData = () => {
+        const headers = ["Étudiant", ...evaluationColumns.map(col => col.name), "Moyenne /20"];
+        const data = students.map(student => {
+            const row: (string | number)[] = [`${student.firstName} ${student.lastName}`];
+            evaluationColumns.forEach(col => {
+                const grade = gradesByStudentAndEval[student.uid]?.[col.id];
+                row.push(grade ? grade.score : "-");
+            });
+            row.push(averageByStudent[student.uid]?.average.toFixed(2) || "0.00");
+            return row;
+        });
+        return { headers, data };
+    }
+
+    const handleExportPDF = () => {
+        if (!course) return;
+
+        const doc = new jsPDF({ orientation: "landscape" });
+        doc.text(`Relevé de notes - ${course.name}`, 14, 16);
+        doc.text(`Niveau: ${course.level} - Année: ${settings?.academicYear}`, 14, 24);
+        
+        const { headers, data } = getExportData();
+
+        autoTable(doc, {
+            head: [headers],
+            body: data,
+            startY: 30,
+            theme: 'striped',
+            styles: { fontSize: 8 },
+        });
+
+        doc.save(`notes_${course.name.replace(/\s/g, '_')}.pdf`);
+        toast({ title: "Exportation PDF réussie" });
+    };
+
+    const handleExportXLSX = () => {
+        if (!course) return;
+        
+        const { headers, data } = getExportData();
+        const exportData = [headers, ...data];
+        
+        const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Notes");
+        XLSX.writeFile(workbook, `notes_${course.name.replace(/\s/g, '_')}.xlsx`);
+        toast({ title: "Exportation Excel réussie" });
+    };
 
 
     if (loading || usersLoading) {
@@ -355,51 +405,62 @@ function GradeManagementContent() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start flex-wrap gap-4">
                         <div>
                             <CardTitle className="text-2xl font-bold font-headline">{title}</CardTitle>
                             <CardDescription>{description}</CardDescription>
                         </div>
-                        <AlertDialog open={isEvalDialogOpen} onOpenChange={setIsEvalDialogOpen}>
-                            <AlertDialogTrigger asChild>
-                                <Button><PlusCircle className="mr-2 h-4 w-4" /> Ajouter une évaluation</Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Ajouter une nouvelle évaluation</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Ceci créera une nouvelle colonne de notes pour tous les étudiants de ce cours.
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <div className="space-y-4 py-4">
-                                     <div className="space-y-2">
-                                        <Label>Type d'évaluation</Label>
-                                        <Select value={newEvalType} onValueChange={(v: any) => setNewEvalType(v)}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="devoir de classe">Devoir de Classe</SelectItem>
-                                                <SelectItem value="devoir de recherche">Devoir de Recherche</SelectItem>
-                                                <SelectItem value="examen">Examen</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                        <div className='flex items-center gap-2'>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline"><FileDown className="mr-2 h-4 w-4"/> Exporter les notes</Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={handleExportPDF}>Exporter en PDF</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleExportXLSX}>Exporter en Excel</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <AlertDialog open={isEvalDialogOpen} onOpenChange={setIsEvalDialogOpen}>
+                                <AlertDialogTrigger asChild>
+                                    <Button><PlusCircle className="mr-2 h-4 w-4" /> Ajouter une évaluation</Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Ajouter une nouvelle évaluation</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Ceci créera une nouvelle colonne de notes pour tous les étudiants de ce cours.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <div className="space-y-4 py-4">
                                         <div className="space-y-2">
-                                            <Label>Note sur</Label>
-                                            <Input type="number" value={newEvalTotal} onChange={e => setNewEvalTotal(Number(e.target.value))} />
+                                            <Label>Type d'évaluation</Label>
+                                            <Select value={newEvalType} onValueChange={(v: any) => setNewEvalType(v)}>
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="devoir de classe">Devoir de Classe</SelectItem>
+                                                    <SelectItem value="devoir de recherche">Devoir de Recherche</SelectItem>
+                                                    <SelectItem value="examen">Examen</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Crédit (pour le calcul)</Label>
-                                            <Input type="number" value={newEvalCredit} onChange={e => setNewEvalCredit(Number(e.target.value))} />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Note sur</Label>
+                                                <Input type="number" value={newEvalTotal} onChange={e => setNewEvalTotal(Number(e.target.value))} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Crédit (pour le calcul)</Label>
+                                                <Input type="number" value={newEvalCredit} onChange={e => setNewEvalCredit(Number(e.target.value))} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleAddNewEvaluation}>Ajouter</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleAddNewEvaluation}>Ajouter</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -480,5 +541,7 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+    
 
     
