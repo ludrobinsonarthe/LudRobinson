@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { TeacherSalary, Attendance, Course, UnifiedSalary, User } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download, ArrowLeft } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 function SalaryManagementContent() {
     const { users, loading: usersLoading, settings } = useUser();
+    const router = useRouter();
     const searchParams = useSearchParams();
     const userIdFilter = searchParams.get('userId');
 
@@ -313,11 +314,16 @@ function SalaryManagementContent() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
-                <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Salaires</h1>
-                    <p className="text-muted-foreground">
-                        Générez, suivez et gérez la paie des professeurs et du personnel.
-                    </p>
+                 <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => router.back()}>
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Salaires</h1>
+                        <p className="text-muted-foreground">
+                            Générez, suivez et gérez la paie des professeurs et du personnel.
+                        </p>
+                    </div>
                 </div>
                 <Button onClick={handleAdd}>
                     <PlusCircle className="mr-2 h-4 w-4" />

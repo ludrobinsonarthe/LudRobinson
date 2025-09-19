@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
 import { Grade, Course, User } from "@/lib/types";
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, FileDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, FileDown, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -406,9 +407,14 @@ function GradeManagementContent() {
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-start flex-wrap gap-4">
-                        <div>
-                            <CardTitle className="text-2xl font-bold font-headline">{title}</CardTitle>
-                            <CardDescription>{description}</CardDescription>
+                        <div className="flex items-center gap-4">
+                            <Button variant="outline" size="icon" onClick={() => router.back()}>
+                                <ArrowLeft className="h-4 w-4" />
+                            </Button>
+                            <div>
+                                <CardTitle className="text-2xl font-bold font-headline">{title}</CardTitle>
+                                <CardDescription>{description}</CardDescription>
+                            </div>
                         </div>
                         <div className='flex items-center gap-2'>
                             <DropdownMenu>
