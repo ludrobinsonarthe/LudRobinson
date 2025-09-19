@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +19,11 @@ interface CourseWithGrades extends Course {
 
 export default function GradesPage() {
     const { user: currentUser, users, courses: allCourses } = useUser();
+    const searchParams = useSearchParams();
+    const studentIdFromParams = searchParams.get('studentId');
     const [grades, setGrades] = useState<Grade[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+    const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
      const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];
@@ -29,15 +32,18 @@ export default function GradesPage() {
 
     const studentToView = useMemo(() => {
         if (currentUser?.role === 'student') return currentUser;
-        if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedChildId);
+        if (currentUser?.role === 'admin' && studentIdFromParams) return users.find(u => u.uid === studentIdFromParams);
+        if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedStudentId);
         return null;
-    }, [currentUser, users, selectedChildId]);
+    }, [currentUser, users, selectedStudentId, studentIdFromParams]);
     
     useEffect(() => {
-        if (currentUser?.role === 'parent' && children.length > 0 && !selectedChildId) {
-            setSelectedChildId(children[0].uid);
+        if(studentIdFromParams) {
+            setSelectedStudentId(studentIdFromParams);
+        } else if (currentUser?.role === 'parent' && children.length > 0 && !selectedStudentId) {
+            setSelectedStudentId(children[0].uid);
         }
-    }, [currentUser, children, selectedChildId]);
+    }, [currentUser, children, selectedStudentId, studentIdFromParams]);
 
     useEffect(() => {
         if (!studentToView || !studentToView.uid) {
@@ -120,15 +126,19 @@ export default function GradesPage() {
 
 
     const handleChildChange = (studentId: string) => {
-        setSelectedChildId(studentId);
+        setSelectedStudentId(studentId);
     }
+    
+    const pageTitle = studentToView ? `Relevé de notes de ${studentToView.firstName} ${studentToView.lastName}` : "Mes Notes";
+    const pageDescription = studentToView ? "Voici le résumé de ses performances académiques." : "Consultez vos notes et résultats pour chaque matière.";
+
 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold font-headline tracking-tight">Mes Notes</h1>
+                <h1 className="text-3xl font-bold font-headline tracking-tight">{pageTitle}</h1>
                 <p className="text-muted-foreground">
-                    Consultez vos notes et résultats pour chaque matière.
+                    {pageDescription}
                 </p>
             </div>
              {currentUser?.role === 'parent' && (
@@ -141,7 +151,7 @@ export default function GradesPage() {
                     </CardHeader>
                     <CardContent>
                        {children.length > 0 ? (
-                            <Select onValueChange={handleChildChange} value={selectedChildId || ""}>
+                            <Select onValueChange={handleChildChange} value={selectedStudentId || ""}>
                                 <SelectTrigger className="w-[280px]">
                                     <SelectValue placeholder="Sélectionner un enfant..." />
                                 </SelectTrigger>
@@ -165,7 +175,7 @@ export default function GradesPage() {
                     <div>
                         <CardTitle>Relevé de notes</CardTitle>
                         <CardDescription>
-                            Voici le résumé de vos performances académiques.
+                            Résumé des performances académiques.
                         </CardDescription>
                     </div>
                      {coursesWithGrades.length > 0 && (
@@ -221,7 +231,7 @@ export default function GradesPage() {
                     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[300px]">
                         <h3 className="text-xl font-bold tracking-tight">Aucune note disponible</h3>
                         <p className="text-sm text-muted-foreground">
-                           {currentUser?.role === 'parent' ? "Veuillez d'abord sélectionner un enfant." : "Vos notes n'ont pas encore été publiées."}
+                           {!studentToView ? "Veuillez d'abord sélectionner un étudiant." : "Les notes de cet étudiant n'ont pas encore été publiées."}
                         </p>
                     </div>
                    )}

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance, FeeStructure } from "@/lib/types";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText, ClipboardList } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -75,7 +75,7 @@ export default function StudentsPage() {
         const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as OfficialDocument)));
         const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Grade))));
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Course))));
-        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
+        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Attendance))));
         const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), snapshot => setFeeStructures(snapshot.docs.map(doc => doc.data() as FeeStructure)));
 
         
@@ -333,6 +333,11 @@ export default function StudentsPage() {
         const parent = parents.find(p => p.uid === parentUid);
         return parent ? `${parent.firstName} ${parent.lastName}` : 'Inconnu';
     };
+
+    const getCoursesForStudent = (student: User) => {
+        if (!student.student) return [];
+        return courses.filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
+    }
 
     const getExportData = () => {
         return filteredStudents.map(student => {
@@ -791,6 +796,7 @@ export default function StudentsPage() {
                                 </TableRow>
                             ) : filteredStudents.length > 0 ? filteredStudents.map(student => {
                                 const balance = studentBalances[student.uid] || 0;
+                                const studentCourses = getCoursesForStudent(student);
                                 return (
                                 <TableRow key={student.uid}>
                                     <TableCell className="font-medium">
@@ -834,10 +840,28 @@ export default function StudentsPage() {
                                                         Voir les paiements
                                                     </Link>
                                                 </DropdownMenuItem>
-                                                 <DropdownMenuItem asChild>
-                                                    <Link href={`/dashboard/grade-management?courseId=${student.student?.programId}`}>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuSub>
+                                                    <DropdownMenuSubTrigger>
                                                         <ClipboardList className="mr-2 h-4 w-4" />
                                                         Gérer les notes
+                                                    </DropdownMenuSubTrigger>
+                                                    <DropdownMenuPortal>
+                                                        <DropdownMenuSubContent>
+                                                            {studentCourses.map(course => (
+                                                                <DropdownMenuItem key={course.id} asChild>
+                                                                    <Link href={`/dashboard/grade-management?courseId=${course.id}`}>
+                                                                        {course.name}
+                                                                    </Link>
+                                                                </DropdownMenuItem>
+                                                            ))}
+                                                        </DropdownMenuSubContent>
+                                                    </DropdownMenuPortal>
+                                               </DropdownMenuSub>
+                                                <DropdownMenuItem asChild>
+                                                     <Link href={`/dashboard/grades?studentId=${student.uid}`}>
+                                                        <FileText className="mr-2 h-4 w-4" />
+                                                        Voir le relevé de notes
                                                     </Link>
                                                 </DropdownMenuItem>
                                                <DropdownMenuSub>
@@ -852,6 +876,7 @@ export default function StudentsPage() {
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuPortal>
                                                </DropdownMenuSub>
+                                                <DropdownMenuSeparator />
                                                <DropdownMenuItem onClick={() => handleDelete(student)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
