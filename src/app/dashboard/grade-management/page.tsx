@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -48,13 +48,12 @@ function GradeManagementContent() {
     
     // States for the new evaluation dialog
     const [isEvalDialogOpen, setIsEvalDialogOpen] = useState(false);
-    const [newEvalType, setNewEvalType] = useState<Grade['type']>('devoir');
+    const [newEvalType, setNewEvalType] = useState<Grade['type']>('devoir de classe');
     const [newEvalTotal, setNewEvalTotal] = useState<number>(20);
     const [newEvalCredit, setNewEvalCredit] = useState<number>(1);
     const [newEvalCourseId, setNewEvalCourseId] = useState<string>(courseId || '');
     
-    // For inline editing
-    const [editingGrade, setEditingGrade] = useState<{gradeId: string, score: number} | null>(null);
+    const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
 
     useEffect(() => {
@@ -93,16 +92,18 @@ function GradeManagementContent() {
         const evalMap = new Map<string, {type: Grade['type'], total: number, credit: number, grades: Grade[]}>();
 
         courseGrades.forEach(grade => {
-            const uniqueKey = `${grade.type}-${grade.total}-${grade.credit}`; // Simplification
+            // Unique key to group identical evaluation types
+            const uniqueKey = `${grade.type}-${grade.total}-${grade.credit}`; 
             if (!evalMap.has(uniqueKey)) {
                 evalMap.set(uniqueKey, {type: grade.type, total: grade.total, credit: grade.credit, grades: []});
             }
             evalMap.get(uniqueKey)!.grades.push(grade);
         });
         
-        return Array.from(evalMap.entries()).map(([key, data], index) => ({
+        // Sort evaluations to have a consistent order
+        return Array.from(evalMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([key, data], index) => ({
             id: key,
-            name: `${data.type.charAt(0).toUpperCase() + data.type.slice(1)} ${index + 1} (/${data.total})`,
+            name: `${data.type.charAt(0).toUpperCase() + data.type.slice(1)} (/${data.total})`,
             ...data
         }));
 
@@ -203,18 +204,27 @@ function GradeManagementContent() {
         }
     };
     
-    const handleScoreChange = async (gradeId: string, newScore: string) => {
+    const handleScoreChange = (gradeId: string, newScore: string) => {
         const scoreValue = parseFloat(newScore);
-        if (isNaN(scoreValue)) return; // Or show error
+        if (isNaN(scoreValue)) return;
 
-        const gradeRef = doc(db, 'grades', gradeId);
-        try {
-            await updateDoc(gradeRef, { score: scoreValue });
-            // No toast for inline edit to avoid spam
-        } catch (error) {
-            console.error(error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de modifier la note." });
+        // Update local state immediately for instant UI feedback
+        setGrades(currentGrades => currentGrades.map(g => g.id === gradeId ? { ...g, score: scoreValue } : g));
+        
+        // Debounce Firestore update
+        if (debounceTimeout.current) {
+            clearTimeout(debounceTimeout.current);
         }
+
+        debounceTimeout.current = setTimeout(async () => {
+            const gradeRef = doc(db, 'grades', gradeId);
+            try {
+                await updateDoc(gradeRef, { score: scoreValue });
+            } catch (error) {
+                console.error(error);
+                toast({ variant: "destructive", title: "Erreur de sauvegarde", description: "Impossible de mettre à jour la note." });
+            }
+        }, 500); // Wait 500ms after user stops typing
     }
 
 
@@ -370,8 +380,8 @@ function GradeManagementContent() {
                                                     {grade ? (
                                                         <Input
                                                             type="number"
-                                                            defaultValue={grade.score}
-                                                            onBlur={(e) => handleScoreChange(grade.id, e.target.value)}
+                                                            value={grade.score}
+                                                            onChange={(e) => handleScoreChange(grade.id, e.target.value)}
                                                             className="w-20 mx-auto text-center"
                                                             max={grade.total}
                                                             min={0}
