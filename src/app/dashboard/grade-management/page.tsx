@@ -34,6 +34,16 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
 };
 
+type EvaluationColumn = {
+    id: string;
+    name: string;
+    type: Grade['type'];
+    total: number;
+    credit: number;
+    grades: Grade[];
+}
+
+
 function GradeManagementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -52,6 +62,10 @@ function GradeManagementContent() {
     const [newEvalTotal, setNewEvalTotal] = useState<number>(20);
     const [newEvalCredit, setNewEvalCredit] = useState<number>(1);
     const [newEvalCourseId, setNewEvalCourseId] = useState<string>(courseId || '');
+
+    // State for deleting an evaluation
+    const [evalToDelete, setEvalToDelete] = useState<EvaluationColumn | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     
     const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -86,7 +100,7 @@ function GradeManagementContent() {
         }
     }, [course, users]);
     
-    const evaluationColumns = useMemo(() => {
+    const evaluationColumns: EvaluationColumn[] = useMemo(() => {
         if (!course) return [];
         const courseGrades = grades.filter(g => g.courseId === course.id);
         const evalMap = new Map<string, {type: Grade['type'], total: number, credit: number, grades: Grade[]}>();
@@ -134,22 +148,22 @@ function GradeManagementContent() {
                 
                 const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
                 
-                const dcScore20 = getScoreOutOf20(dc);
-                const drScore20 = getScoreOutOf20(dr);
-                const examScore20 = getScoreOutOf20(exam);
-
                 let nc = 0; // Note de classe out of 20
-                if (dc && dr) {
+                const dcScore20 = dc ? getScoreOutOf20(dc) : null;
+                const drScore20 = dr ? getScoreOutOf20(dr) : null;
+
+                if (dcScore20 !== null && drScore20 !== null) {
                     nc = (dcScore20 + drScore20) / 2;
-                } else if (dc) {
+                } else if (dcScore20 !== null) {
                     nc = dcScore20;
-                } else if (dr) {
+                } else if (drScore20 !== null) {
                     nc = drScore20;
                 }
 
-                const finalScoreOutOf20 = (nc * 0.4) + (examScore20 * 0.6);
-                const finalScore = finalScoreOutOf20 * (course.credit || 1);
+                const examScore20 = getScoreOutOf20(exam);
 
+                const finalScore = (nc * 0.4) + (examScore20 * 0.6);
+                
                 averages[student.uid] = finalScore;
             } else {
                 averages[student.uid] = 0;
@@ -231,6 +245,31 @@ function GradeManagementContent() {
             }
         }, 500); // Wait 500ms after user stops typing
     }
+    
+    const handleDeleteEvaluation = (evaluation: EvaluationColumn) => {
+        setEvalToDelete(evaluation);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDeleteEvaluation = async () => {
+        if (!evalToDelete) return;
+
+        const batch = writeBatch(db);
+        evalToDelete.grades.forEach(grade => {
+            batch.delete(doc(db, "grades", grade.id));
+        });
+
+        try {
+            await batch.commit();
+            toast({ title: "Évaluation supprimée", description: `L'évaluation "${evalToDelete.name}" et toutes ses notes ont été supprimées.` });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'évaluation." });
+        } finally {
+            setIsDeleteDialogOpen(false);
+            setEvalToDelete(null);
+        }
+    };
 
 
     if (loading || usersLoading) {
@@ -369,9 +408,16 @@ function GradeManagementContent() {
                                 <TableRow>
                                     <TableHead className='w-[250px] sticky left-0 bg-card z-10'>Étudiant</TableHead>
                                     {evaluationColumns.map(col => (
-                                        <TableHead key={col.id} className="text-center">{col.name}</TableHead>
+                                        <TableHead key={col.id} className="text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <span>{col.name}</span>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteEvaluation(col)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive/70 hover:text-destructive" />
+                                                </Button>
+                                            </div>
+                                        </TableHead>
                                     ))}
-                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Moyenne Finale</TableHead>
+                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Moyenne /20</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -413,6 +459,15 @@ function GradeManagementContent() {
                     </div>
                 </CardContent>
             </Card>
+
+             <UserDeleteDialog
+                isOpen={isDeleteDialogOpen}
+                setIsOpen={setIsDeleteDialogOpen}
+                onConfirm={confirmDeleteEvaluation}
+                item={{id: evalToDelete?.id || '', name: evalToDelete?.name || ''}}
+                title="Supprimer cette évaluation ?"
+                description={`Toutes les notes saisies pour "${evalToDelete?.name}" seront définitivement supprimées. Cette action est irréversible.`}
+            />
         </div>
     )
 }
