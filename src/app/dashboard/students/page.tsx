@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -90,7 +89,16 @@ export default function StudentsPage() {
         };
     }, []);
 
-    const studentsFromUsers = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const studentsFromUsers = useMemo(() => {
+        return users
+            .filter(u => u.role === 'student')
+            .sort((a, b) => {
+                const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
+                const nameB = `${b.lastName} ${b.firstName}`.toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+    }, [users]);
+
     const parents = useMemo(() => users.filter(u => u.role === 'parent'), [users]);
     const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
     const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
@@ -918,3 +926,6 @@ export default function StudentsPage() {
     );
 }
 
+
+
+    
