@@ -132,20 +132,25 @@ function GradeManagementContent() {
                 const dr = studentGrades.find(g => g.type === 'devoir de recherche');
                 const exam = studentGrades.find(g => g.type === 'examen');
                 
-                let nc = 0;
+                // Normalize scores to be out of 20
+                const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
+                
+                const dcScore20 = getScoreOutOf20(dc);
+                const drScore20 = getScoreOutOf20(dr);
+                const examScore20 = getScoreOutOf20(exam);
+
+                let nc = 0; // Note de classe out of 20
                 if (dc && dr) {
-                    nc = (dc.score + dr.score) / 2;
+                    nc = (dcScore20 + drScore20) / 2;
                 } else if (dc) {
-                    nc = dc.score;
+                    nc = dcScore20;
                 } else if (dr) {
-                    nc = dr.score;
+                    nc = drScore20;
                 }
 
-                const examScore = exam ? exam.score : 0;
-                const finalScore = (nc * 0.4) + (examScore * 0.6);
-                const total = finalScore * course.credit;
+                const finalScore = (nc * 0.4) + (examScore20 * 0.6);
 
-                averages[student.uid] = total;
+                averages[student.uid] = finalScore;
             } else {
                 averages[student.uid] = 0;
             }
@@ -366,7 +371,7 @@ function GradeManagementContent() {
                                     {evaluationColumns.map(col => (
                                         <TableHead key={col.id} className="text-center">{col.name}</TableHead>
                                     ))}
-                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Total Pondéré</TableHead>
+                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Moyenne /20</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

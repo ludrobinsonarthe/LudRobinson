@@ -64,21 +64,42 @@ export default function GradesPage() {
 
         const courseMap: { [key: string]: CourseWithGrades } = {};
 
-        allCourses.forEach(course => {
-            courseMap[course.id] = { ...course, grades: [], average: 0 };
-        });
-
+        // Group grades by course
         grades.forEach(grade => {
+            if (!courseMap[grade.courseId]) {
+                 const courseInfo = allCourses.find(c => c.id === grade.courseId);
+                 if (courseInfo) {
+                    courseMap[grade.courseId] = { ...courseInfo, grades: [], average: 0 };
+                 }
+            }
             if (courseMap[grade.courseId]) {
                 courseMap[grade.courseId].grades.push(grade);
             }
         });
         
+        // Calculate average for each course
         Object.values(courseMap).forEach(course => {
             if(course.grades.length > 0) {
-                const totalScore = course.grades.reduce((acc, g) => acc + (g.score * g.credit), 0);
-                const totalCredit = course.grades.reduce((acc, g) => acc + g.credit, 0);
-                course.average = totalCredit > 0 ? totalScore / totalCredit : 0;
+                const dc = course.grades.find(g => g.type === 'devoir de classe');
+                const dr = course.grades.find(g => g.type === 'devoir de recherche');
+                const exam = course.grades.find(g => g.type === 'examen');
+                
+                const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
+                
+                const dcScore20 = getScoreOutOf20(dc);
+                const drScore20 = getScoreOutOf20(dr);
+                const examScore20 = getScoreOutOf20(exam);
+
+                let nc = 0; // Note de classe out of 20
+                if (dc && dr) {
+                    nc = (dcScore20 + drScore20) / 2;
+                } else if (dc) {
+                    nc = dcScore20;
+                } else if (dr) {
+                    nc = drScore20;
+                }
+
+                course.average = (nc * 0.4) + (examScore20 * 0.6);
             }
         });
 
@@ -89,9 +110,9 @@ export default function GradesPage() {
     const overallAverage = useMemo((): number => {
         if (coursesWithGrades.length === 0) return 0;
         
-        const totalWeightedScore = coursesWithGrades.reduce((acc, course) => acc + course.average, 0);
+        const totalAverage = coursesWithGrades.reduce((acc, course) => acc + course.average, 0);
         
-        return totalWeightedScore / coursesWithGrades.length;
+        return totalAverage / coursesWithGrades.length;
 
     }, [coursesWithGrades]);
 
@@ -166,9 +187,9 @@ export default function GradesPage() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>Type</TableHead>
+                                                    <TableHead>Type d'évaluation</TableHead>
                                                     <TableHead>Note</TableHead>
-                                                    <TableHead className="text-right">Crédit</TableHead>
+                                                    <TableHead className="text-right">Crédit Matière</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -176,7 +197,7 @@ export default function GradesPage() {
                                                     <TableRow key={grade.id}>
                                                         <TableCell><Badge variant="outline" className="capitalize">{grade.type}</Badge></TableCell>
                                                         <TableCell className='font-medium'>{grade.score}/{grade.total}</TableCell>
-                                                        <TableCell className="text-right">{grade.credit}</TableCell>
+                                                        <TableCell className="text-right">{course.credit}</TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>

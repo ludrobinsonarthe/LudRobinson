@@ -130,7 +130,7 @@ export interface Grade {
   id: string;
   studentId: string;
   courseId: string;
-  type: 'devoir' | 'examen' | 'devoir de classe' | 'devoir de recherche';
+  type: 'devoir de classe' | 'devoir de recherche' | 'examen';
   score: number;
   total: number;
   credit: number;
