@@ -6,8 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { Grade, Course, User } from '@/lib/types';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Grade, Course, User } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -162,11 +161,19 @@ export default function GradesPage() {
             )}
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Relevé de notes</CardTitle>
-                    <CardDescription>
-                        Voici le résumé des performances académiques.
-                    </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Relevé de notes</CardTitle>
+                        <CardDescription>
+                            Voici le résumé de vos performances académiques.
+                        </CardDescription>
+                    </div>
+                     {coursesWithGrades.length > 0 && (
+                        <div className='text-right'>
+                            <p className='text-lg text-muted-foreground'>Moyenne Générale</p>
+                            <p className='font-bold text-3xl text-primary'>{overallAverage.toFixed(2)} / 20</p>
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent>
                    {loading ? (
@@ -174,61 +181,52 @@ export default function GradesPage() {
                             <p>Chargement des notes...</p>
                         </div>
                    ) : coursesWithGrades.length > 0 ? (
-                        <Accordion type="single" collapsible className="w-full" defaultValue={coursesWithGrades[0]?.id}>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {coursesWithGrades.map(course => (
-                                <AccordionItem value={course.id} key={course.id}>
-                                    <AccordionTrigger>
-                                        <div className='flex justify-between items-center w-full pr-4'>
-                                            <span className='font-semibold text-lg'>{course.name}</span>
+                                <Card key={course.id} className="flex flex-col">
+                                    <CardHeader>
+                                        <div className='flex justify-between items-start'>
+                                            <CardTitle className='font-semibold text-xl'>{course.name}</CardTitle>
                                             <div className='text-right'>
                                                 <p className='text-sm text-muted-foreground'>Moyenne /20</p>
-                                                <p className='font-bold text-xl'>{course.average.toFixed(2)}</p>
+                                                <p className='font-bold text-2xl text-primary'>{course.average.toFixed(2)}</p>
                                             </div>
                                         </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
+                                    </CardHeader>
+                                    <CardContent className="flex-grow">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Type d'évaluation</TableHead>
-                                                    <TableHead>Note</TableHead>
-                                                    <TableHead className="text-right">Crédit Matière</TableHead>
+                                                    <TableHead className="text-right">Note</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {course.grades.map(grade => (
                                                     <TableRow key={grade.id}>
                                                         <TableCell><Badge variant="outline" className="capitalize">{grade.type}</Badge></TableCell>
-                                                        <TableCell className='font-medium'>{grade.score}/{grade.total}</TableCell>
-                                                        <TableCell className="text-right">{course.credit}</TableCell>
+                                                        <TableCell className='font-medium text-right'>{grade.score}/{grade.total}</TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
-                                    </AccordionContent>
-                                </AccordionItem>
+                                    </CardContent>
+                                    <CardFooter>
+                                         <p className="text-xs text-muted-foreground">Crédit de la matière: {course.credit}</p>
+                                    </CardFooter>
+                                </Card>
                             ))}
-                        </Accordion>
+                        </div>
                    ) : (
-                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[300px]">
                         <h3 className="text-xl font-bold tracking-tight">Aucune note disponible</h3>
                         <p className="text-sm text-muted-foreground">
-                           {currentUser?.role === 'parent' ? "Veuillez d'abord sélectionner un enfant." : "Vos notes n'ont pas encore été publiées, ou vous n'êtes pas un étudiant."}
+                           {currentUser?.role === 'parent' ? "Veuillez d'abord sélectionner un enfant." : "Vos notes n'ont pas encore été publiées."}
                         </p>
                     </div>
                    )}
                 </CardContent>
-                {coursesWithGrades.length > 0 && (
-                     <CardFooter className="flex justify-end">
-                        <div className='text-right'>
-                            <p className='text-lg text-muted-foreground'>Moyenne Générale /20</p>
-                            <p className='font-bold text-3xl text-primary'>{overallAverage.toFixed(2)}</p>
-                        </div>
-                    </CardFooter>
-                )}
             </Card>
         </div>
     );
 }
-
-    
