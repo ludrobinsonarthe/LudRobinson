@@ -117,10 +117,13 @@ export default function GradesPage() {
     const overallAverage = useMemo((): number => {
         if (coursesWithGrades.length === 0) return 0;
         
-        const totalSum = coursesWithGrades.reduce((acc, course) => acc + course.average, 0);
-        const totalCourses = coursesWithGrades.length;
+        const totalSum = coursesWithGrades.reduce((acc, course) => {
+            const credit = course.credit || 1;
+            return acc + (course.average * credit);
+        }, 0);
+        const totalCredits = coursesWithGrades.reduce((acc, course) => acc + (course.credit || 1), 0);
         
-        return totalCourses > 0 ? totalSum / totalCourses : 0;
+        return totalCredits > 0 ? totalSum / totalCredits : 0;
 
     }, [coursesWithGrades]);
 
