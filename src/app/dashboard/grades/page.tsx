@@ -11,6 +11,13 @@ import { Grade, Course, User } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Button } from '@/components/ui/button';
+import { FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 interface CourseWithGrades extends Course {
     grades: Grade[];
@@ -18,12 +25,16 @@ interface CourseWithGrades extends Course {
 }
 
 export default function GradesPage() {
-    const { user: currentUser, users, courses: allCourses } = useUser();
+    const { user: currentUser, users, courses: allCourses, settings, fields } = useUser();
     const searchParams = useSearchParams();
     const studentIdFromParams = searchParams.get('studentId');
     const [grades, setGrades] = useState<Grade[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+    const { toast } = useToast();
+    
+    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, any>), [fields]);
+
 
      const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];
@@ -132,6 +143,64 @@ export default function GradesPage() {
         setSelectedStudentId(studentId);
     }
     
+    const handleExportPDF = () => {
+        if (!studentToView) return;
+
+        const doc = new jsPDF();
+        const schoolName = settings?.schoolName || "Institut Supérieur";
+        const academicYear = settings?.academicYear || "2024-2025";
+        const studentName = `${studentToView.firstName} ${studentToView.lastName}`;
+
+        // Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        doc.setFontSize(14);
+        doc.text(`Bulletin de Notes - ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+
+        // Student Info
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Étudiant(e): ${studentName}`, 14, 45);
+        doc.text(`Matricule: ${studentToView.student?.matricule || 'N/A'}`, 14, 52);
+        doc.text(`Niveau: ${studentToView.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
+        doc.text(`Filière: ${studentToView.student?.fieldId && fieldsById[studentToView.student.fieldId] ? fieldsById[studentToView.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
+        
+        // Grades Table
+        const tableColumn = ["Matière", "Devoir de Classe", "Devoir de Recherche", "Examen", "Moyenne /20"];
+        const tableRows: (string | number)[][] = [];
+
+        coursesWithGrades.forEach(course => {
+            const dc = course.grades.find(g => g.type === 'devoir de classe');
+            const dr = course.grades.find(g => g.type === 'devoir de recherche');
+            const exam = course.grades.find(g => g.type === 'examen');
+
+            tableRows.push([
+                course.name,
+                dc ? `${dc.score}/${dc.total}` : 'N/A',
+                dr ? `${dr.score}/${dr.total}` : 'N/A',
+                exam ? `${exam.score}/${exam.total}` : 'N/A',
+                course.average.toFixed(2),
+            ]);
+        });
+
+        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 60, theme: 'grid' });
+
+        // Footer
+        const finalY = (doc as any).lastAutoTable.finalY || 100;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Moyenne Générale: ${overallAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
+        doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
+        
+        doc.save(`bulletin_${studentToView.lastName}_${studentToView.firstName}.pdf`);
+        toast({ title: 'Bulletin de notes généré', description: `Le bulletin pour ${studentName} a été téléchargé.` });
+    };
+
     const pageTitle = studentToView ? `Relevé de notes de ${studentToView.firstName} ${studentToView.lastName}` : "Mes Notes";
     const pageDescription = studentToView ? "Voici le résumé de ses performances académiques." : "Consultez vos notes et résultats pour chaque matière.";
 
@@ -174,19 +243,29 @@ export default function GradesPage() {
             )}
 
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Relevé de notes</CardTitle>
-                        <CardDescription>
-                            Résumé des performances académiques.
-                        </CardDescription>
-                    </div>
-                     {coursesWithGrades.length > 0 && (
-                        <div className='text-right'>
-                            <p className='text-lg text-muted-foreground'>Moyenne Générale</p>
-                            <p className='font-bold text-3xl text-primary'>{overallAverage.toFixed(2)} / 20</p>
+                <CardHeader>
+                    <div className="flex flex-row items-center justify-between">
+                         <div>
+                            <CardTitle>Relevé de notes</CardTitle>
+                            <CardDescription>
+                                Résumé des performances académiques.
+                            </CardDescription>
                         </div>
-                    )}
+                        <div className='flex items-center gap-4'>
+                            {coursesWithGrades.length > 0 && studentToView && (
+                                <Button variant="outline" onClick={handleExportPDF}>
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                    Exporter en PDF
+                                </Button>
+                            )}
+                            {coursesWithGrades.length > 0 && (
+                                <div className='text-right'>
+                                    <p className='text-lg text-muted-foreground'>Moyenne Générale</p>
+                                    <p className='font-bold text-3xl text-primary'>{overallAverage.toFixed(2)} / 20</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                    {loading ? (
@@ -243,3 +322,6 @@ export default function GradesPage() {
         </div>
     );
 }
+
+
+    
