@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -35,9 +35,10 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 function GradeManagementContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
-    const { users, loading: usersLoading, settings } = useUser();
+    const { users, loading: usersLoading, settings, courses: allCourses } = useUser();
     const { toast } = useToast();
 
     const [course, setCourse] = useState<Course | null>(null);
@@ -47,30 +48,31 @@ function GradeManagementContent() {
     
     // States for the new evaluation dialog
     const [isEvalDialogOpen, setIsEvalDialogOpen] = useState(false);
-    const [newEvalType, setNewEvalType] = useState<'devoir' | 'examen' | 'devoir de classe'>('devoir');
+    const [newEvalType, setNewEvalType] = useState<Grade['type']>('devoir');
     const [newEvalTotal, setNewEvalTotal] = useState<number>(20);
     const [newEvalCredit, setNewEvalCredit] = useState<number>(1);
+    const [newEvalCourseId, setNewEvalCourseId] = useState<string>(courseId || '');
     
     // For inline editing
     const [editingGrade, setEditingGrade] = useState<{gradeId: string, score: number} | null>(null);
 
 
     useEffect(() => {
-        if (!courseId) {
-            setLoading(false);
-            return;
-        }
         setLoading(true);
-        const unsubCourse = onSnapshot(doc(db, "courses", courseId), (doc) => {
-            setCourse(doc.exists() ? { id: doc.id, ...doc.data() } as Course : null);
-        });
-        const qGrades = query(collection(db, "grades"), where("courseId", "==", courseId));
+        const qGrades = query(collection(db, "grades"));
         const unsubGrades = onSnapshot(qGrades, (snapshot) => {
             setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
             setLoading(false);
         });
-        return () => { unsubCourse(); unsubGrades(); };
-    }, [courseId]);
+        
+        if (courseId) {
+            const courseData = allCourses.find(c => c.id === courseId);
+            setCourse(courseData || null);
+        } else {
+            setCourse(null);
+        }
+        return () => { unsubGrades(); };
+    }, [courseId, allCourses]);
 
     useEffect(() => {
         if (course) {
@@ -86,29 +88,28 @@ function GradeManagementContent() {
     }, [course, users]);
     
     const evaluationColumns = useMemo(() => {
+        if (!course) return [];
+        const courseGrades = grades.filter(g => g.courseId === course.id);
         const evalMap = new Map<string, {type: Grade['type'], total: number, credit: number, grades: Grade[]}>();
-        grades.forEach(grade => {
-            // Create a unique key for each evaluation based on type, total, and creation time proximity (e.g., all grades for one exam)
-            // This is a simplification. A real implementation might have an "evaluation" entity.
-            // Here, we group by type, total, and credit to represent a unique evaluation column.
-            // For multiple 'devoir' with same properties, we need a better key. Let's use the first grade's creation time as a batch identifier.
-            const uniqueKey = `${grade.type}-${grade.total}-${grade.credit}`;
+
+        courseGrades.forEach(grade => {
+            const uniqueKey = `${grade.type}-${grade.total}-${grade.credit}`; // Simplification
             if (!evalMap.has(uniqueKey)) {
                 evalMap.set(uniqueKey, {type: grade.type, total: grade.total, credit: grade.credit, grades: []});
             }
             evalMap.get(uniqueKey)!.grades.push(grade);
         });
         
-        // Let's refine the key to be more unique if needed, for now this is a workable simplification
         return Array.from(evalMap.entries()).map(([key, data], index) => ({
             id: key,
             name: `${data.type.charAt(0).toUpperCase() + data.type.slice(1)} ${index + 1} (/${data.total})`,
             ...data
         }));
 
-    }, [grades]);
+    }, [grades, course]);
     
     const gradesByStudentAndEval = useMemo(() => {
+        if (!course) return {};
         const grid: {[studentId: string]: {[evalId: string]: Grade | undefined}} = {};
         students.forEach(s => grid[s.uid] = {});
         evaluationColumns.forEach(col => {
@@ -119,31 +120,68 @@ function GradeManagementContent() {
             })
         });
         return grid;
-    }, [students, evaluationColumns]);
+    }, [students, evaluationColumns, course]);
 
     const averageByStudent = useMemo(() => {
         const averages: { [studentId: string]: number } = {};
         students.forEach(student => {
-            const studentGrades = grades.filter(g => g.studentId === student.uid);
-            if (studentGrades.length > 0) {
-                const totalScore = studentGrades.reduce((acc, g) => acc + (g.score * g.credit), 0);
-                const totalCredit = studentGrades.reduce((acc, g) => acc + g.credit, 0);
-                averages[student.uid] = totalCredit > 0 ? totalScore / totalCredit : 0;
+            const studentGrades = grades.filter(g => g.studentId === student.uid && g.courseId === course?.id);
+            if (studentGrades.length > 0 && course) {
+                const dc = studentGrades.find(g => g.type === 'devoir de classe');
+                const dr = studentGrades.find(g => g.type === 'devoir de recherche');
+                const exam = studentGrades.find(g => g.type === 'examen');
+                
+                let nc = 0;
+                if (dc && dr) {
+                    nc = (dc.score + dr.score) / 2;
+                } else if (dc) {
+                    nc = dc.score;
+                } else if (dr) {
+                    nc = dr.score;
+                }
+
+                const examScore = exam ? exam.score : 0;
+                const finalScore = (nc * 0.4) + (examScore * 0.6);
+                const total = finalScore * course.credit;
+
+                averages[student.uid] = total;
             } else {
                 averages[student.uid] = 0;
             }
         });
         return averages;
-    }, [students, grades]);
+    }, [students, grades, course]);
 
     const handleAddNewEvaluation = async () => {
-        if (!courseId) return;
+        const targetCourseId = courseId || newEvalCourseId;
+        if (!targetCourseId) {
+            toast({ variant: "destructive", title: "Erreur", description: "Veuillez sélectionner un cours." });
+            return;
+        }
+
+        const targetCourse = allCourses.find(c => c.id === targetCourseId);
+        if (!targetCourse) {
+            toast({ variant: "destructive", title: "Erreur", description: "Cours introuvable." });
+            return;
+        }
+
+        const targetStudents = users.filter(user => 
+            user.role === 'student' &&
+            user.student?.fieldId === targetCourse.fieldId &&
+            user.student?.level === targetCourse.level
+        );
+
+        if (targetStudents.length === 0) {
+            toast({ variant: "destructive", title: "Aucun étudiant", description: "Aucun étudiant n'est inscrit dans ce cours." });
+            return;
+        }
+
         const batch = writeBatch(db);
-        students.forEach(student => {
+        targetStudents.forEach(student => {
             const newGradeRef = doc(collection(db, "grades"));
             const gradeData: Omit<Grade, 'id'> = {
                 studentId: student.uid,
-                courseId: courseId,
+                courseId: targetCourseId,
                 type: newEvalType,
                 score: 0, // Default score
                 total: newEvalTotal,
@@ -156,6 +194,7 @@ function GradeManagementContent() {
         try {
             await batch.commit();
             toast({ title: "Nouvelle évaluation ajoutée", description: "Vous pouvez maintenant saisir les notes." });
+            if(!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
         } catch (error) {
             console.error(error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter l'évaluation." });
@@ -185,9 +224,68 @@ function GradeManagementContent() {
 
     if (!courseId) {
         return (
-            <div className="text-center text-muted-foreground">
-                Veuillez sélectionner un cours pour voir ou gérer les notes.
-            </div>
+            <Card>
+                 <CardHeader>
+                    <div className="flex justify-between items-start">
+                         <div>
+                            <CardTitle className="text-2xl font-bold font-headline">Évaluations et Notes</CardTitle>
+                            <CardDescription>Sélectionnez un cours pour voir ou gérer les notes, ou ajoutez une nouvelle évaluation.</CardDescription>
+                        </div>
+                         <AlertDialog open={isEvalDialogOpen} onOpenChange={setIsEvalDialogOpen}>
+                            <AlertDialogTrigger asChild>
+                                <Button><PlusCircle className="mr-2 h-4 w-4" /> Ajouter une évaluation</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Ajouter une nouvelle évaluation</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Ceci créera une nouvelle colonne de notes pour tous les étudiants du cours sélectionné.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <div className="space-y-4 py-4">
+                                     <div className="space-y-2">
+                                        <Label>Cours</Label>
+                                         <Select value={newEvalCourseId} onValueChange={setNewEvalCourseId}>
+                                            <SelectTrigger><SelectValue placeholder="Sélectionner un cours..."/></SelectTrigger>
+                                            <SelectContent>
+                                                {allCourses.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.level})</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                     <div className="space-y-2">
+                                        <Label>Type d'évaluation</Label>
+                                        <Select value={newEvalType} onValueChange={(v: any) => setNewEvalType(v)}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="devoir de classe">Devoir de Classe</SelectItem>
+                                                <SelectItem value="devoir de recherche">Devoir de Recherche</SelectItem>
+                                                <SelectItem value="examen">Examen</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Note sur</Label>
+                                            <Input type="number" value={newEvalTotal} onChange={e => setNewEvalTotal(Number(e.target.value))} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Crédit (pour le calcul)</Label>
+                                            <Input type="number" value={newEvalCredit} onChange={e => setNewEvalCredit(Number(e.target.value))} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleAddNewEvaluation}>Ajouter</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                   <p className="text-center text-muted-foreground py-10">Veuillez sélectionner un cours pour voir les notes.</p>
+                </CardContent>
+            </Card>
         );
     }
     
@@ -196,7 +294,7 @@ function GradeManagementContent() {
     }
 
     const title = `Gestion des notes pour le cours: ${course.name}`;
-    const description = `Entrez et modifiez les notes directement dans le tableau.`;
+    const description = `Entrez et modifiez les notes directement dans le tableau. Crédit de la matière: ${course.credit}`;
 
     return (
         <div className="space-y-6">
@@ -224,9 +322,9 @@ function GradeManagementContent() {
                                         <Select value={newEvalType} onValueChange={(v: any) => setNewEvalType(v)}>
                                             <SelectTrigger><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="devoir">Devoir / Contrôle</SelectItem>
-                                                <SelectItem value="examen">Examen</SelectItem>
                                                 <SelectItem value="devoir de classe">Devoir de Classe</SelectItem>
+                                                <SelectItem value="devoir de recherche">Devoir de Recherche</SelectItem>
+                                                <SelectItem value="examen">Examen</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -236,7 +334,7 @@ function GradeManagementContent() {
                                             <Input type="number" value={newEvalTotal} onChange={e => setNewEvalTotal(Number(e.target.value))} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Crédit</Label>
+                                            <Label>Crédit (pour le calcul)</Label>
                                             <Input type="number" value={newEvalCredit} onChange={e => setNewEvalCredit(Number(e.target.value))} />
                                         </div>
                                     </div>
@@ -258,7 +356,7 @@ function GradeManagementContent() {
                                     {evaluationColumns.map(col => (
                                         <TableHead key={col.id} className="text-center">{col.name}</TableHead>
                                     ))}
-                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Moyenne</TableHead>
+                                    <TableHead className="w-[150px] text-center sticky right-0 bg-card z-10">Total Pondéré</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
