@@ -8,12 +8,16 @@ export function cn(...inputs: ClassValue[]) {
 export async function imageToDataUrl(url: string, defaultLogo: string = '/logo.png'): Promise<string> {
     if (!url) return defaultLogo;
 
-    // Use a proxy for CORS issues in development or if needed
-    // const proxyUrl = '/api/image-proxy?url=';
-    // const fetchUrl = url.startsWith('http') ? `${proxyUrl}${encodeURIComponent(url)}` : url;
+    let fetchUrl = url;
 
+    // Handle relative URLs on the server by creating an absolute URL
+    if (url.startsWith('/') && typeof window === 'undefined') {
+        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
+        fetchUrl = new URL(url, baseUrl).toString();
+    }
+    
     try {
-        const response = await fetch(url);
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
             throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
         }
@@ -25,7 +29,7 @@ export async function imageToDataUrl(url: string, defaultLogo: string = '/logo.p
             reader.readAsDataURL(blob);
         });
     } catch (error) {
-        console.error("Failed to convert image to data URL:", error);
+        console.error(`Failed to convert image to data URL from ${fetchUrl}:`, error);
         // Fallback to a default local logo if fetching fails
         return defaultLogo;
     }
