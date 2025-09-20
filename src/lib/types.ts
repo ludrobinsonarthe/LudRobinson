@@ -225,6 +225,7 @@ export interface Attendance {
 export interface Settings {
   id: 'system';
   schoolName: string;
+  logoUrl: string;
   academicYear: string;
   currency: string;
   levels: { value: string }[];

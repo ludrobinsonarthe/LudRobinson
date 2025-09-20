@@ -39,6 +39,7 @@ import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthEr
 import { useRouter } from "next/navigation";
 import { doc, onSnapshot, collection, setDoc, getDoc } from "firebase/firestore";
 import QRCode from "qrcode.react";
+import { Settings } from "@/lib/types";
 
 const loginSchema = z.object({
   email: z.string().email("Veuillez saisir une adresse e-mail valide."),
@@ -49,7 +50,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [schoolName, setSchoolName] = useState("ISGI");
+  const [settings, setSettings] = useState<Settings | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
@@ -68,8 +69,7 @@ export default function LoginPage() {
     // Fetch settings to display school name
     const unsub = onSnapshot(doc(db, "settings", "system"), (settingsDoc) => {
         if (settingsDoc.exists()) {
-            const settingsData = settingsDoc.data();
-            setSchoolName(settingsData.schoolName || "ISGI");
+            setSettings(settingsDoc.data() as Settings);
         }
     }, (error) => {
         console.error("Could not fetch school settings for login page", error);
@@ -165,11 +165,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
-                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <Image src="/logo.png" alt="ISGI Logo" width={48} height={48} />
+                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-card text-card-foreground">
+                    <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={48} height={48} className="object-contain"/>
                 </div>
                 <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
-                    {schoolName}
+                    {settings?.schoolName || "ISGI"}
                 </h1>
             </div>
           <CardTitle className="text-2xl font-bold">Connexion</CardTitle>
@@ -268,5 +268,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

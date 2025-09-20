@@ -21,7 +21,7 @@ type UserContextType = {
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
   settings: Settings | null;
-  setSettings: React.Dispatch<React.SetStateAction<Settings | null>> | null;
+  setSettings: React.Dispatch<React.SetStateAction<Settings | null>>;
   sectors: Sector[];
   fields: Field[];
   courses: Course[];
@@ -39,7 +39,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-
 
   useEffect(() => {
     let isMounted = true;
@@ -89,6 +88,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
              const defaultSettings: Settings = {
                 id: 'system',
                 schoolName: 'ISGI',
+                logoUrl: '/logo.png',
                 academicYear: '2024-2025',
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
@@ -116,13 +116,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
     });
 
-    Promise.all([
-        getDocs(collection(db, 'users')),
-        getDocs(collection(db, 'adminRoles')),
-        getDoc(doc(db, 'settings', 'system')),
-    ]).finally(() => {
-        if(isMounted) setLoading(false);
-    })
+    // We can rely on the onSnapshot listeners to eventually set loading to false
+    // but using a Promise.all for initial load can be more predictable.
+    const initialLoad = async () => {
+      try {
+        await Promise.all([
+          getDocs(collection(db, 'users')),
+          getDocs(collection(db, 'adminRoles')),
+          getDoc(doc(db, 'settings', 'system')),
+        ]);
+      } catch (error) {
+        console.error("Error during initial data load:", error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    initialLoad();
+
 
     return () => {
       isMounted = false;
@@ -208,7 +221,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setAllUsers(prevUsers => prevUsers.map(u => u.uid === user.uid ? user : u));
   };
   
-  const value = { 
+  const value: UserContextType = { 
       user: currentUser, 
       setUser, 
       users: allUsers, 
@@ -219,7 +232,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       userPermissions,
       hasPermission,
       settings,
-      setSettings,
+      setSettings: setSettings as React.Dispatch<React.SetStateAction<Settings | null>>,
       sectors,
       fields,
       courses

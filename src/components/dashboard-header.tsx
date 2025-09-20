@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { LogOut, User, LifeBuoy, Settings } from "lucide-react";
+import { LogOut, User, LifeBuoy, Settings, Loader2 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
@@ -28,17 +28,17 @@ const roleTranslation: { [key: string]: string } = {
 };
 
 export default function DashboardHeader() {
-  const { user } = useUser();
+  const { user, loading } = useUser();
   const { signOut } = useAuth();
   const router = useRouter();
 
 
-  if (!user) {
+  if (!user || loading) {
     return (
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur-xl sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
         <SidebarTrigger className="sm:hidden" />
         <div className="ml-auto flex items-center gap-2">
-            Chargement...
+            <Loader2 className="h-5 w-5 animate-spin"/>
         </div>
       </header>
     );
