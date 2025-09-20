@@ -1,18 +1,16 @@
 
 
-import type { User, AdminRole, Sector, Field, Program, Class, Course, Message, Payment, Grade, TeacherSalary, CashTransaction, Attendance, OfficialDocument, FeeStructure } from './types';
-import { adminPermissions } from './types';
+import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
 
-// This file is now primarily for bootstrapping the Super Admin role and user if the database is empty.
-// Most other mock data is no longer needed as the app is connected to Firestore.
+// Mock data is now being used as the primary source until Firestore rules are configured.
 
 export const mockUsers: User[] = [
     {
         uid: "admin01",
         role: "admin",
-        firstName: "ISGI Admin",
-        lastName: "User",
-        email: "admin@isgi.com",
+        firstName: "sem franslin",
+        lastName: "Bourangon",
+        email: "sem.bourangon@isgi.com",
         photoUrl: "https://picsum.photos/seed/admin/100/100",
         createdAt: "2024-01-01T10:00:00Z",
         status: "active",
@@ -22,207 +20,85 @@ export const mockUsers: User[] = [
         }
     },
     {
-        "uid": "nadine_mvemba",
-        "role": "student",
-        "firstName": "Nadine",
-        "lastName": "Mvemba",
-        "email": "nadine.mvemba@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/nadine/100/100",
-        "createdAt": "2024-09-01T09:00:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-001",
-            "programId": "prog01",
-            "level": "Licence 3",
-            "cycle": "local",
-            "fieldId": "grhae",
-            "enrollmentDate": "2024-09-01T09:00:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
+        uid: "teacher01",
+        role: "teacher",
+        firstName: "Albert",
+        lastName: "Einstein",
+        email: "albert.einstein@isgi.com",
+        photoUrl: "https://picsum.photos/seed/teacher1/100/100",
+        createdAt: "2024-01-05T11:00:00Z",
+        status: "active",
+        teacher: {
+            specialty: "Physique Théorique",
+            assignedCourses: ["phys01"]
         }
     },
     {
-        "uid": "cynthia_ngoma",
-        "role": "student",
-        "firstName": "Cynthia",
-        "lastName": "Ngoma",
-        "email": "cynthia.ngoma@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/cynthia_n/100/100",
-        "createdAt": "2024-09-01T09:01:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-002",
-            "programId": "prog01",
-            "level": "Licence 3",
-            "cycle": "local",
-            "fieldId": "eli",
-            "enrollmentDate": "2024-09-01T09:01:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
+        uid: "teacher02",
+        role: "teacher",
+        firstName: "Isaac",
+        lastName: "Newton",
+        email: "isaac.newton@isgi.com",
+        photoUrl: "https://picsum.photos/seed/teacher2/100/100",
+        createdAt: "2024-01-05T12:00:00Z",
+        status: "active",
+        teacher: {
+            specialty: "Mathématiques",
+            assignedCourses: ["math01"]
         }
     },
     {
-        "uid": "esther_okoko",
-        "role": "student",
-        "firstName": "Esther",
-        "lastName": "Okoko",
-        "email": "esther.okoko@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/esther/100/100",
-        "createdAt": "2024-09-01T09:02:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-003",
-            "programId": "prog01",
-            "level": "Licence 1",
-            "cycle": "local",
-            "fieldId": "mce",
-            "enrollmentDate": "2024-09-01T09:02:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
+        uid: "student01",
+        role: "student",
+        firstName: "Alice",
+        lastName: "Wonderland",
+        email: "alice.wonderland@isgi.com",
+        photoUrl: "https://picsum.photos/seed/student1/100/100",
+        createdAt: "2024-09-01T09:00:00Z",
+        status: "active",
+        student: {
+            matricule: "ISGI-2024-001",
+            programId: "prog01",
+            level: "Licence 1",
+            cycle: "local",
+            fieldId: "gl",
+            enrollmentDate: "2024-09-01T09:00:00Z",
+            endDate: "2025-07-01T09:00:00Z",
+            parentUid: "parent01"
+        }
+    },
+     {
+        uid: "student02",
+        role: "student",
+        firstName: "Bob",
+        lastName: "Builder",
+        email: "bob.builder@isgi.com",
+        photoUrl: "https://picsum.photos/seed/student2/100/100",
+        createdAt: "2024-09-01T09:05:00Z",
+        status: "active",
+        student: {
+            matricule: "ISGI-2024-002",
+            programId: "prog01",
+            level: "Licence 1",
+            cycle: "international",
+            fieldId: "cs",
+            enrollmentDate: "2024-09-01T09:05:00Z",
+            endDate: "2025-07-01T09:00:00Z",
+            parentUid: "parent01"
         }
     },
     {
-        "uid": "sarah_mayala",
-        "role": "student",
-        "firstName": "Sarah",
-        "lastName": "Mayala",
-        "email": "sarah.mayala@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/sarah_m/100/100",
-        "createdAt": "2024-09-01T09:03:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-004",
-            "programId": "prog01",
-            "level": "Licence 2",
-            "cycle": "local",
-            "fieldId": "eli",
-            "enrollmentDate": "2024-09-01T09:03:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
+        uid: "parent01",
+        role: "parent",
+        firstName: "Carol",
+        lastName: "Danvers",
+        email: "carol.danvers@email.com",
+        photoUrl: "https://picsum.photos/seed/parent1/100/100",
+        createdAt: "2024-09-01T08:00:00Z",
+        status: "active",
+        parent: {
+            childrenUids: ["student01", "student02"]
         }
-    },
-    {
-        "uid": "samuel_matondo",
-        "role": "student",
-        "firstName": "Samuel",
-        "lastName": "Matondo",
-        "email": "samuel.matondo@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/samuel_m/100/100",
-        "createdAt": "2024-09-01T09:04:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-005",
-            "programId": "prog01",
-            "level": "Licence 3",
-            "cycle": "local",
-            "fieldId": "lt",
-            "enrollmentDate": "2024-09-01T09:04:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
-        }
-    },
-    {
-        "uid": "cynthia_mayala",
-        "role": "student",
-        "firstName": "Cynthia",
-        "lastName": "Mayala",
-        "email": "cynthia.mayala@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/cynthia_m/100/100",
-        "createdAt": "2024-09-01T09:05:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-006",
-            "programId": "prog01",
-            "level": "Licence 2",
-            "cycle": "local",
-            "fieldId": "gf",
-            "enrollmentDate": "2024-09-01T09:05:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
-        }
-    },
-    {
-        "uid": "sarah_ebina",
-        "role": "student",
-        "firstName": "Sarah",
-        "lastName": "Ebina",
-        "email": "sarah.ebina@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/sarah_e/100/100",
-        "createdAt": "2024-09-01T09:06:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-007",
-            "programId": "prog01",
-            "level": "Licence 3",
-            "cycle": "local",
-            "fieldId": "lt",
-            "enrollmentDate": "2024-09-01T09:06:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
-        }
-    },
-    {
-        "uid": "patrick_bissila",
-        "role": "student",
-        "firstName": "Patrick",
-        "lastName": "Bissila",
-        "email": "patrick.bissila@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/patrick/100/100",
-        "createdAt": "2024-09-01T09:07:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-008",
-            "programId": "prog01",
-            "level": "Master 2",
-            "cycle": "local",
-            "fieldId": "lt",
-            "enrollmentDate": "2024-09-01T09:07:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
-        }
-    },
-    {
-        "uid": "kevin_ondongo",
-        "role": "student",
-        "firstName": "Kevin",
-        "lastName": "Ondongo",
-        "email": "kevin.ondongo@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/kevin/100/100",
-        "createdAt": "2024-09-01T09:08:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-009",
-            "programId": "prog01",
-            "level": "Master 2",
-            "cycle": "local",
-            "fieldId": "gf",
-            "enrollmentDate": "2024-09-01T09:08:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
-        }
-    },
-    {
-        "uid": "samuel_kanza",
-        "role": "student",
-        "firstName": "Samuel",
-        "lastName": "Kanza",
-        "email": "samuel.kanza@isgi.com",
-        "photoUrl": "https://picsum.photos/seed/samuel_k/100/100",
-        "createdAt": "2024-09-01T09:09:00Z",
-        "status": "active",
-        "student": {
-            "matricule": "ISGI2025-010",
-            "programId": "prog01",
-            "level": "Master 1",
-            "cycle": "local",
-            "fieldId": "lt",
-            "enrollmentDate": "2024-09-01T09:09:00Z",
-            "endDate": "2025-07-01T09:00:00Z"
-        }
-    }
-];
-
-export const mockAdminRoles: AdminRole[] = [
-    { 
-        id: 'super_admin', 
-        name: 'Super Admin', 
-        permissions: Object.keys(adminPermissions) as (keyof typeof adminPermissions)[]
-    },
-    { 
-        id: 'compta', 
-        name: 'Comptable', 
-        permissions: ['manage_tuition', 'manage_cash_flow', 'manage_fees', 'view_reporting']
     }
 ];
 
@@ -277,15 +153,169 @@ export const mockFields: Field[] = [
 ];
 
 
-// The following are empty as they are now fetched from Firestore.
-export const mockPrograms: Program[] = [];
-export const mockClasses: Class[] = [];
-export const mockCourses: Course[] = [];
-export const mockMessages: Message[] = [];
-export const mockPayments: Payment[] = [];
-export const mockGrades: Grade[] = [];
+export const mockPrograms: Program[] = [
+    {
+        id: "prog01",
+        name: "Ingénierie Informatique",
+        description: "Cycle d'ingénieur en génie logiciel et systèmes d'information",
+        createdAt: new Date().toISOString(),
+        responsible: "teacher01"
+    }
+]
+
+export const mockClasses: Class[] = [
+  {
+    id: 'class01',
+    programId: 'prog01',
+    name: 'Licence 3 - Génie Logiciel',
+    academicYear: '2024-2025',
+    students: ['student01', 'student02'],
+    createdAt: new Date().toISOString(),
+  },
+];
+
+export const mockCourses: Course[] = [
+    {
+        id: "math01",
+        name: "Mathématiques pour l'ingénieur",
+        description: "Cours de Licence 1",
+        teacherId: "teacher02",
+        fieldId: "gl",
+        level: "Licence 1",
+        cycle: "local",
+    },
+    {
+        id: "phys01",
+        name: "Physique Générale",
+        description: "Cours de Licence 1",
+        teacherId: "teacher01",
+        fieldId: "gl",
+        level: "Licence 1",
+        cycle: "local",
+    }
+]
+
+export const mockMessages: Message[] = [
+  {
+    id: 'msg01',
+    senderId: 'admin01',
+    receiverId: 'all',
+    content: 'Bienvenue à l\'année académique 2024-2025! Nous sommes ravis de vous accueillir à l\'ISGI.',
+    type: 'announcement',
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'msg02',
+    senderId: 'admin01',
+    receiverId: 'class01',
+    content: 'Rappel : La réunion de rentrée pour la classe de Licence 3 aura lieu ce vendredi.',
+    type: 'announcement',
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    attachments: ['https://example.com/ordre_du_jour.pdf'],
+  },
+  {
+    id: 'msg03',
+    senderId: 'teacher01',
+    receiverId: 'student01',
+    content: 'Bonjour Alice, n\'oublie pas de rendre ton projet de mathématiques avant demain soir.',
+    type: 'private',
+    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'msg04',
+    senderId: 'student01',
+    receiverId: 'teacher01',
+    content: 'Bonjour Mme. Curie, j\'ai une question concernant le projet. Pouvez-vous m\'éclairer sur la méthode à utiliser ?',
+    type: 'private',
+    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'msg05',
+    senderId: 'teacher01',
+    receiverId: 'student01',
+    content: 'Bien sûr, Alice. Pense à utiliser les méthodes d\'analyse numérique que nous avons vues en cours. C\'est un problème plus complexe qu\'il n\'y paraît. Il faut décomposer le problème en plusieurs étapes. La première étape consiste à bien définir le modèle mathématique. Ensuite, appliquez les algorithmes appropriés. Faites attention aux conditions initiales. Si tu as d\'autres questions, n\'hésite pas à venir me voir après le cours. Nous pourrons regarder ça ensemble. Bon courage!',
+    type: 'private',
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+export const mockPayments: Payment[] = [
+    {
+        id: "pay01",
+        studentId: "student01",
+        amountExpected: 150000,
+        amountPaid: 150000,
+        balance: 0,
+        month: "Inscription",
+        year: "2024-2025",
+        method: "cash",
+        status: "validated",
+        validatedBy: "admin01",
+        createdAt: "2024-09-01T10:00:00Z",
+        currency: "XAF"
+    },
+    {
+        id: "pay02",
+        studentId: "student01",
+        amountExpected: 50000,
+        amountPaid: 0,
+        balance: 50000,
+        month: "Octobre",
+        year: "2024-2025",
+        method: "cash",
+        status: "pending",
+        createdAt: "2024-10-01T11:00:00Z",
+        currency: "XAF"
+    }
+];
+
+export const mockGrades: Grade[] = [
+    {
+        id: "grade01",
+        studentId: "student01",
+        courseId: "math01",
+        type: 'devoir',
+        score: 15,
+        total: 20,
+        coefficient: 1,
+        academicYear: '2024-2025',
+        createdAt: '2024-10-15T10:00:00Z',
+    },
+    {
+        id: "grade02",
+        studentId: "student01",
+        courseId: "math01",
+        type: 'examen',
+        score: 14,
+        total: 20,
+        coefficient: 2,
+        academicYear: '2024-2025',
+        createdAt: '2024-12-10T10:00:00Z',
+    },
+     {
+        id: "grade03",
+        studentId: "student01",
+        courseId: "phys01",
+        type: 'examen',
+        score: 16,
+        total: 20,
+        coefficient: 2,
+        academicYear: '2024-2025',
+        createdAt: '2024-12-12T10:00:00Z',
+    }
+];
+
 export const mockSalaries: TeacherSalary[] = [];
 export const mockCashTransactions: CashTransaction[] = [];
 export const mockAttendances: Attendance[] = [];
+export const mockAdminRoles: AdminRole[] = [
+    { id: 'super_admin', name: 'Super Admin', permissions: []},
+    { id: 'compta', name: 'Comptable', permissions: ['manage_tuition', 'manage_cash_flow']}
+];
 export const mockDocuments: OfficialDocument[] = [];
-export const mockFeeStructures: FeeStructure[] = [];
+export const mockFeeStructures: FeeStructure[] = [
+    { id: 'local-licence_1', cycle: 'local', level: 'Licence 1', registration: 150000, tuition: 500000, currency: 'XAF'},
+    { id: 'local-licence_2', cycle: 'local', level: 'Licence 2', registration: 100000, tuition: 500000, currency: 'XAF'},
+]
+
+    
