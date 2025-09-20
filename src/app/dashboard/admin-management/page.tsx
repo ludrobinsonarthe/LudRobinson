@@ -21,7 +21,6 @@ import Image from "next/image";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
-  logoUrl: z.string().url("L'URL du logo doit être valide.").or(z.literal("")),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
   levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
@@ -42,7 +41,6 @@ export default function AdminManagementPage() {
         resolver: zodResolver(settingsFormSchema),
         defaultValues: {
             schoolName: "",
-            logoUrl: "",
             academicYear: "",
             currency: "",
             levels: [],
@@ -61,7 +59,9 @@ export default function AdminManagementPage() {
 
     useEffect(() => {
         if(settings) {
-            form.reset(settings);
+            form.reset({
+                ...settings,
+            });
         }
     }, [settings, form]);
     
@@ -140,19 +140,6 @@ export default function AdminManagementPage() {
                                     </FormItem>
                                 )}/>
                                 
-                                <FormField control={form.control} name="logoUrl" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>URL du logo de l'établissement</FormLabel>
-                                        <FormControl><Input placeholder="https://exemple.com/logo.png" {...field} /></FormControl>
-                                        {field.value && (
-                                            <div className="mt-2">
-                                                <Image src={field.value} alt="Aperçu du logo" width={100} height={100} className="rounded-md border bg-muted" />
-                                            </div>
-                                        )}
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-
                                 <div className="grid grid-cols-2 gap-8">
                                     <FormField control={form.control} name="academicYear" render={({ field }) => (
                                         <FormItem>

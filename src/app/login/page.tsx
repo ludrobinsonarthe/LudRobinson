@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -150,7 +151,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <Building className="h-7 w-7" />
+                    <Image src="/logo.png" alt="ISGI Logo" width={48} height={48} />
                 </div>
                 <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
                     ISGI
@@ -252,5 +253,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

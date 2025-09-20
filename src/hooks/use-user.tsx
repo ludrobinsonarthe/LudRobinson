@@ -90,7 +90,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
              const defaultSettings: Settings = {
                 id: 'system',
                 schoolName: 'ISGI',
-                logoUrl: '',
                 academicYear: '2024-2025',
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
