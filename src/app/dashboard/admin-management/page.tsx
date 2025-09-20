@@ -15,7 +15,7 @@ import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import Image from "next/image";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -23,7 +23,6 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
   logoUrl: z.string().url("L'URL du logo doit être valide.").optional().or(z.literal('')),
-  logoFile: z.any().optional(),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
   levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
@@ -39,6 +38,7 @@ export default function AdminManagementPage() {
     const { toast } = useToast();
     const { settings, loading: loadingSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
+    const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm<SettingsFormValues>({
@@ -76,21 +76,23 @@ export default function AdminManagementPage() {
     }, [settings, form]);
     
     const handleLogoUpload = async (file: File) => {
-        if (!file) return null;
-        setSubmitting(true);
+        if (!file) return;
+        setUploadingLogo(true);
         try {
             const storageRef = ref(storage, `logos/logo-${Date.now()}`);
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
+            
+            // Immediately save the new logo URL to Firestore
+            await updateDoc(doc(db, "settings", "system"), { logoUrl: downloadURL });
             form.setValue("logoUrl", downloadURL, { shouldDirty: true });
-            toast({ title: "Logo téléversé", description: "Cliquez sur 'Enregistrer' pour appliquer le nouveau logo." });
-            return downloadURL;
+            
+            toast({ title: "Logo mis à jour", description: "Le nouveau logo a été enregistré et mis à jour sur la plateforme." });
         } catch (error) {
             console.error("Error uploading logo: ", error);
-            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de téléverser le logo." });
-            return null;
+            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de mettre à jour le logo." });
         } finally {
-            setSubmitting(false);
+            setUploadingLogo(false);
         }
     };
     
@@ -104,8 +106,7 @@ export default function AdminManagementPage() {
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
         try {
-            const { logoFile, ...settingsToSave } = data;
-            await setDoc(doc(db, "settings", "system"), settingsToSave, { merge: true });
+            await setDoc(doc(db, "settings", "system"), data, { merge: true });
             toast({
                 title: "Paramètres enregistrés",
                 description: "Les paramètres globaux ont été mis à jour.",
@@ -162,14 +163,18 @@ export default function AdminManagementPage() {
                                         <FormLabel>Logo de l'établissement</FormLabel>
                                         <div className="flex items-center gap-4">
                                             <Image 
-                                                src={form.watch('logoUrl') || '/logo.png'} 
+                                                src={form.watch('logoUrl') || `https://placehold.co/64x64/000000/FFF?text=${(settings?.schoolName || 'I').charAt(0)}`}
                                                 alt="Logo"
                                                 width={64}
                                                 height={64}
                                                 className="rounded-md object-contain border p-1"
                                             />
-                                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                                <Upload className="mr-2 h-4 w-4" />
+                                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploadingLogo}>
+                                                {uploadingLogo ? (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Upload className="mr-2 h-4 w-4" />
+                                                )}
                                                 Téléverser le logo
                                             </Button>
                                             <Input
@@ -178,6 +183,7 @@ export default function AdminManagementPage() {
                                                 ref={fileInputRef}
                                                 onChange={onFileChange}
                                                 accept="image/png, image/jpeg, image/svg+xml"
+                                                disabled={uploadingLogo}
                                             />
                                         </div>
                                     </div>
@@ -271,8 +277,8 @@ export default function AdminManagementPage() {
                         </Card>
 
                         <div className="flex justify-end pt-4">
-                            <Button type="submit" disabled={submitting}>
-                                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button type="submit" disabled={submitting || uploadingLogo}>
+                                {(submitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Enregistrer les paramètres
                             </Button>
                         </div>
@@ -319,3 +325,5 @@ export default function AdminManagementPage() {
             </div>
         </div>
     );
+}
+    
