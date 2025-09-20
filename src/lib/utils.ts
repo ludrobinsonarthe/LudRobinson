@@ -5,10 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-
 export async function imageToDataUrl(url: string): Promise<string> {
     let fetchUrl = url;
-    // Ensure we have an absolute URL for local files when running in certain environments
     if (url.startsWith('/') && typeof window !== 'undefined') {
         fetchUrl = new URL(url, window.location.origin).toString();
     }
@@ -36,8 +34,6 @@ export async function imageToDataUrl(url: string): Promise<string> {
 
     } catch (error) {
         console.error(`Failed to convert image to data URL from ${url}:`, error);
-        // Fallback to returning a placeholder or a default path if conversion fails
-        // For this app, we will let the error propagate to be handled by the caller.
         throw error;
     }
 }
