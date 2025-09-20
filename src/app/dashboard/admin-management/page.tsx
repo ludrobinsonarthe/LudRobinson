@@ -16,13 +16,10 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
 import { doc, setDoc } from "firebase/firestore";
-import { db, storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import Image from "next/image";
+import { db } from "@/lib/firebase";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
-  logoUrl: z.string().url("Veuillez entrer une URL valide pour le logo.").or(z.literal('')),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
   levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
@@ -36,14 +33,13 @@ type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings, setSettings } = useUser();
+    const { settings, loading: loadingSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
         defaultValues: {
             schoolName: "",
-            logoUrl: "",
             academicYear: "",
             currency: "",
             levels: [],
@@ -64,7 +60,6 @@ export default function AdminManagementPage() {
         if(settings) {
             form.reset({
                 schoolName: settings.schoolName,
-                logoUrl: settings.logoUrl,
                 academicYear: settings.academicYear,
                 currency: settings.currency,
                 levels: settings.levels,
@@ -74,23 +69,13 @@ export default function AdminManagementPage() {
     }, [settings, form]);
     
     const onSubmit = async (data: SettingsFormValues) => {
-        if(!setSettings) return;
-
         setSubmitting(true);
         try {
-            const settingsToSave: Settings = {
-                id: 'system',
-                ...data,
-            };
-
+            const settingsToSave: Partial<Settings> = { ...data };
             await setDoc(doc(db, "settings", "system"), settingsToSave, { merge: true });
-            
-            // Update context
-            setSettings(settingsToSave);
-
             toast({
                 title: "Paramètres enregistrés",
-                description: "Les paramètres globaux ont été mis à jour.",
+                description: "Les paramètres globaux ont été mis à jour. Rechargez la page pour voir les changements.",
             });
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -111,16 +96,6 @@ export default function AdminManagementPage() {
             </div>
         );
     }
-    
-    if (!settings && !loadingSettings) {
-         return (
-            <div className="flex flex-col items-center justify-center h-96 text-center">
-               <p className="text-lg font-semibold text-muted-foreground">Impossible de charger les paramètres.</p>
-               <p className="text-sm text-muted-foreground">Veuillez vérifier les règles de sécurité de votre base de données Firestore.</p>
-            </div>
-        );
-    }
-
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -142,22 +117,13 @@ export default function AdminManagementPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-8">
-                                <div className="grid grid-cols-2 gap-8">
-                                    <FormField control={form.control} name="schoolName" render={({ field }) => (
-                                        <FormItem className="flex-1">
-                                            <FormLabel>Nom de l'établissement</FormLabel>
-                                            <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                     <FormField control={form.control} name="logoUrl" render={({ field }) => (
-                                        <FormItem className="flex-1">
-                                            <FormLabel>URL du Logo</FormLabel>
-                                            <FormControl><Input placeholder="https://example.com/logo.png" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                </div>
+                                 <FormField control={form.control} name="schoolName" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nom de l'établissement</FormLabel>
+                                        <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
                                 
                                 <div className="grid grid-cols-2 gap-8">
                                     <FormField control={form.control} name="academicYear" render={({ field }) => (

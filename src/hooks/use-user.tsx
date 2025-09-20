@@ -18,14 +18,23 @@ type UserContextType = {
   loading: boolean;
   roles: AdminRole[];
   setRoles: React.Dispatch<React.SetStateAction<AdminRole[]>>;
+  settings: Settings;
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
-  settings: Settings | null;
-  setSettings: React.Dispatch<React.SetStateAction<Settings | null>>;
   sectors: Sector[];
   fields: Field[];
   courses: Course[];
 }
+
+const defaultSettings: Settings = {
+    id: 'system',
+    schoolName: 'ISGI',
+    logoUrl: '/logo.png',
+    academicYear: '2024-2025',
+    currency: 'XAF',
+    levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
+    sectors: [],
+};
 
 const UserContext = createContext<UserContextType | null>(null);
 
@@ -33,7 +42,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user: authUser, loading: authLoading } = useAuth();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -80,21 +89,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
-      if (!isMounted) return;
+        if (!isMounted) return;
         if(doc.exists()){
             const settingsData = doc.data() as Settings;
             setSettings(settingsData);
+            setSectors(settingsData.sectors || []);
         } else {
-             const defaultSettings: Settings = {
-                id: 'system',
-                schoolName: 'ISGI',
-                logoUrl: '/logo.png',
-                academicYear: '2024-2025',
-                currency: 'XAF',
-                levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
-                sectors: mockSectors,
-            };
-            if(isMounted) setSettings(defaultSettings);
+            setSettings(defaultSettings);
+            setSectors(defaultSettings.sectors || []);
+             setDoc(doc(db, "settings", "system"), defaultSettings, { merge: true });
         }
     });
     
@@ -116,25 +119,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
     });
 
-    // We can rely on the onSnapshot listeners to eventually set loading to false
-    // but using a Promise.all for initial load can be more predictable.
-    const initialLoad = async () => {
-      try {
-        await Promise.all([
-          getDocs(collection(db, 'users')),
-          getDocs(collection(db, 'adminRoles')),
-          getDoc(doc(db, 'settings', 'system')),
-        ]);
-      } catch (error) {
-        console.error("Error during initial data load:", error);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+    const checkLoading = () => {
+        if (!authLoading && (allUsers.length > 0 || fields.length > 0)) {
+            setLoading(false);
         }
-      }
     };
-    
-    initialLoad();
+    const loadingTimeout = setTimeout(checkLoading, 500);
 
 
     return () => {
@@ -144,13 +134,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       unsubSettings();
       unsubFields();
       unsubCourses();
+      clearTimeout(loadingTimeout);
     };
    
   }, []);
   
   useEffect(() => {
+      if (authLoading) return;
     
-      if (authUser && (allUsers.length > 0 || !authLoading)) {
+      if (authUser && allUsers.length > 0) {
           const matchedUser = allUsers.find(u => u.uid === authUser.uid);
           if (matchedUser) {
               setCurrentUser(matchedUser);
@@ -187,8 +179,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                  setCurrentUser(newUserProfile);
               });
           }
-      } else if (!authLoading && !authUser) {
+           setLoading(false);
+      } else if (!authUser) {
           setCurrentUser(null);
+          setLoading(false);
       }
       
   }, [authUser, allUsers, authLoading]);
@@ -231,8 +225,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setRoles,
       userPermissions,
       hasPermission,
-      settings,
-      setSettings: setSettings as React.Dispatch<React.SetStateAction<Settings | null>>,
+      settings: settings || defaultSettings,
       sectors,
       fields,
       courses
