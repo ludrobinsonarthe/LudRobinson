@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -19,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useToast } from '@/hooks/use-toast';
+import { imageToDataUrl } from '@/lib/utils';
 
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -94,14 +96,18 @@ function ScheduleContent() {
         return teacher ? `${teacher.firstName[0]}. ${teacher.lastName}` : 'N/A';
     }
     
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
+        if (!settings) return;
         const doc = new jsPDF({ orientation: "landscape" });
         const selectedFieldName = selectedFieldId === 'all' ? 'Toutes les filières' : fieldsById[selectedFieldId]?.name || '';
         const levelName = selectedLevel === 'all' ? '' : ` - ${selectedLevel}`;
         const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
         const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
+        
+        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
 
-        doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
+        doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
         doc.setFontSize(18);
         doc.text(`Emploi du Temps - ${selectedFieldName}${levelName}`, 40, 22);
         doc.setFontSize(12);

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -32,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { imageToDataUrl } from "@/lib/utils";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -370,9 +372,13 @@ export default function StudentsPage() {
         });
     }
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         const doc = new jsPDF({ orientation: "landscape" });
-        doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
+        if(settings) {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+        }
         doc.text("Liste des Étudiants", 40, 16);
         
         const exportData = getExportData();
@@ -540,13 +546,15 @@ export default function StudentsPage() {
         }
     };
     
-    const createCertificatePdf = (student: User): Promise<Blob> => {
-        return new Promise((resolve) => {
-            const doc = new jsPDF();
-            const schoolName = settings?.schoolName || "Institut Supérieur";
-            const academicYear = settings?.academicYear || "2024-2025";
+    const createCertificatePdf = async (student: User): Promise<Blob> => {
+        const doc = new jsPDF();
+        if(settings) {
+            const schoolName = settings.schoolName;
+            const academicYear = settings.academicYear;
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
             
-            doc.addImage("/logo.png", 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+            doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(16);
             doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
@@ -581,20 +589,23 @@ export default function StudentsPage() {
 
             doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
             doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 220, { align: 'right' });
+        }
 
-            resolve(doc.output('blob'));
-        });
+        return doc.output('blob');
     };
 
-    const createTranscriptPdf = (student: User): Promise<Blob> => {
-        return new Promise((resolve) => {
-            const doc = new jsPDF();
-            const schoolName = settings?.schoolName || "Institut Supérieur";
-            const academicYear = settings?.academicYear || "2024-2025";
+    const createTranscriptPdf = async (student: User): Promise<Blob> => {
+        const doc = new jsPDF();
+        
+        if (settings) {
+            const schoolName = settings.schoolName;
+            const academicYear = settings.academicYear;
             const studentName = `${student.firstName} ${student.lastName}`;
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
             
             // Header
-            doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
+            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(18);
             doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
@@ -679,9 +690,9 @@ export default function StudentsPage() {
             doc.setFont("helvetica", "normal");
             doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
             doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
-            
-            resolve(doc.output('blob'));
-        });
+        }
+
+        return doc.output('blob');
     };
     
     const loading = loadingUsers || loadingData;

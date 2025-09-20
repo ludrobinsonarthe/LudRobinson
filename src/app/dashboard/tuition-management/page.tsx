@@ -29,6 +29,7 @@ import UserDeleteDialog from '@/components/user-delete-dialog';
 import jsPDF from "jspdf";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { imageToDataUrl } from '@/lib/utils';
 
 function TuitionManagementContent() {
     const { users, loading: usersLoading, settings } = useUser();
@@ -144,14 +145,16 @@ function TuitionManagementContent() {
         }
     }
 
-    const handleGenerateReceipt = (payment: Payment) => {
+    const handleGenerateReceipt = async (payment: Payment) => {
         const student = students.find(s => s.uid === payment.studentId);
-        if (!student) return;
+        if (!student || !settings) return;
 
         const doc = new jsPDF();
-        const schoolName = settings?.schoolName || "Institut Supérieur";
+        const schoolName = settings.schoolName;
+        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
         
-        doc.addImage("/logo.png", 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+        doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
         doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });

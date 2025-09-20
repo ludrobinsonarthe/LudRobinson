@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { imageToDataUrl } from '@/lib/utils';
 
 function SalaryManagementContent() {
     const { users, loading: usersLoading, settings } = useUser();
@@ -237,20 +238,22 @@ function SalaryManagementContent() {
         }
     }
     
-    const handleGeneratePayslip = (salary: UnifiedSalary) => {
+    const handleGeneratePayslip = async (salary: UnifiedSalary) => {
         const user = usersById[salary.userId];
-        if (!user) {
-            toast({ variant: 'destructive', title: 'Utilisateur introuvable' });
+        if (!user || !settings) {
+            toast({ variant: 'destructive', title: 'Utilisateur ou paramètres introuvables' });
             return;
         }
 
         const doc = new jsPDF();
+        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
         
-        doc.addImage("/logo.png", 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+        doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
-        doc.text(settings?.schoolName || 'ISGI', doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
+        doc.text(settings.schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
         
         doc.setFontSize(20);
         doc.text("BULLETIN DE PAIE", doc.internal.pageSize.getWidth() / 2, 55, { align: 'center' });

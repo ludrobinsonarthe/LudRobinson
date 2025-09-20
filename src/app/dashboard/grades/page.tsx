@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -18,6 +19,7 @@ import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { imageToDataUrl } from '@/lib/utils';
 
 interface CourseWithGrades extends Course {
     grades: Grade[];
@@ -25,7 +27,7 @@ interface CourseWithGrades extends Course {
 }
 
 export default function GradesPage() {
-    const { user: currentUser, users, courses: allCourses, settings, fields } from useUser();
+    const { user: currentUser, users, courses: allCourses, settings, fields } = useUser();
     const searchParams = useSearchParams();
     const studentIdFromParams = searchParams.get('studentId');
     const [grades, setGrades] = useState<Grade[]>([]);
@@ -143,16 +145,18 @@ export default function GradesPage() {
         setSelectedStudentId(studentId);
     }
     
-    const handleExportPDF = () => {
-        if (!studentToView) return;
+    const handleExportPDF = async () => {
+        if (!studentToView || !settings) return;
 
         const doc = new jsPDF();
-        const schoolName = settings?.schoolName || "Institut Supérieur";
-        const academicYear = settings?.academicYear || "2024-2025";
+        const schoolName = settings.schoolName;
+        const academicYear = settings.academicYear;
         const studentName = `${studentToView.firstName} ${studentToView.lastName}`;
+        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
 
         // Header
-        doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
+        doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
         doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });

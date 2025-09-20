@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/label';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { imageToDataUrl } from '@/lib/utils';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
@@ -289,19 +290,22 @@ function GradeManagementContent() {
         return { headers, data };
     }
 
-    const handleExportPDF = () => {
-        if (!course) return;
+    const handleExportPDF = async () => {
+        if (!course || !settings) return;
 
         const doc = new jsPDF({ orientation: "landscape" });
         const { headers, data } = getExportData();
         
-        doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
+        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+
+        doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
         doc.setFont("helvetica", "bold");
-        doc.text(settings?.schoolName || 'ISGI', 40, 18);
+        doc.text(settings.schoolName, 40, 18);
         doc.setFont("helvetica", "normal");
         doc.text(`Relevé de notes - ${course.name}`, 40, 25);
         doc.setFontSize(10);
-        doc.text(`Niveau: ${course.level} - Année: ${settings?.academicYear}`, 14, 35);
+        doc.text(`Niveau: ${course.level} - Année: ${settings.academicYear}`, 14, 35);
         
         autoTable(doc, {
             head: [headers],
