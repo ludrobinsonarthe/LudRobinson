@@ -49,7 +49,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [logoUrl, setLogoUrl] = useState("/logo.png");
+  const [logoUrl, setLogoUrl] = useState("https://placehold.co/100x100/195F35/FFFFFF/png?text=ISGI");
   const [schoolName, setSchoolName] = useState("ISGI");
   const { toast } = useToast();
   const router = useRouter();
@@ -67,19 +67,17 @@ export default function LoginPage() {
 
    useEffect(() => {
     // Fetch settings to display school name and logo
-    const fetchSettings = async () => {
-        try {
-            const settingsDoc = await getDoc(doc(db, "settings", "system"));
-            if (settingsDoc.exists()) {
-                const settingsData = settingsDoc.data();
-                setLogoUrl(settingsData.logoUrl || "/logo.png");
-                setSchoolName(settingsData.schoolName || "ISGI");
-            }
-        } catch(error) {
-            console.error("Could not fetch school settings for login page", error);
+    const unsub = onSnapshot(doc(db, "settings", "system"), (settingsDoc) => {
+        if (settingsDoc.exists()) {
+            const settingsData = settingsDoc.data();
+            setLogoUrl(settingsData.logoUrl || "https://placehold.co/100x100/195F35/FFFFFF/png?text=ISGI");
+            setSchoolName(settingsData.schoolName || "ISGI");
         }
-    };
-    fetchSettings();
+    }, (error) => {
+        console.error("Could not fetch school settings for login page", error);
+    });
+
+    return () => unsub();
   }, []);
   
   useEffect(() => {

@@ -42,9 +42,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      if (!isMounted) return;
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
         if (snapshot.empty) {
             console.log("Users collection is empty. Seeding mock users.");
@@ -54,18 +56,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 batch.set(userRef, user);
             });
             batch.commit().then(() => {
-                setAllUsers(mockUsers);
+                if(isMounted) setAllUsers(mockUsers);
                  console.log("Mock users seeded successfully.");
             }).catch(e => console.error("Error seeding mock users: ", e));
         } else {
-            setAllUsers(usersData);
+            if(isMounted) setAllUsers(usersData);
         }
     }, (error) => {
         console.error("Error fetching users:", error);
-        setAllUsers(mockUsers); 
+        if(isMounted) setAllUsers(mockUsers); 
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
+      if (!isMounted) return;
         if (!snapshot.empty) {
             const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
             setRoles(rolesData);
@@ -74,10 +77,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     }, (error) => {
         console.error("Error fetching roles:", error);
-        setRoles(mockAdminRoles);
+        if(isMounted) setRoles(mockAdminRoles);
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
+      if (!isMounted) return;
         if(doc.exists()){
             const settingsData = doc.data() as Settings;
             setSettings(settingsData);
@@ -90,18 +94,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
              const defaultSettings: Settings = {
                 id: 'system',
                 schoolName: 'ISGI',
-                logoUrl: '/logo.png',
+                logoUrl: 'https://placehold.co/100x100/195F35/FFFFFF/png?text=ISGI',
                 academicYear: '2024-2025',
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
                 sectors: mockSectors,
             };
-            setSettings(defaultSettings);
-            setSectors(mockSectors);
+            if(isMounted) setSettings(defaultSettings);
+            if(isMounted) setSectors(mockSectors);
         }
     });
     
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
+      if (!isMounted) return;
         if (!snapshot.empty) {
             const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
             setFields(fieldsData);
@@ -110,10 +115,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     }, (error) => {
         console.error("Error fetching fields:", error);
-        setFields(mockFields);
+        if(isMounted) setFields(mockFields);
     });
     
     const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
+      if (!isMounted) return;
         setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
     });
 
@@ -121,6 +127,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
 
     return () => {
+      isMounted = false;
       unsubUsers();
       unsubRoles();
       unsubSettings();
@@ -206,7 +213,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUser, 
       users: allUsers, 
       setUsers: setAllUsers, 
-      loading,
+      loading: loading || !settings,
       roles,
       setRoles,
       userPermissions,
