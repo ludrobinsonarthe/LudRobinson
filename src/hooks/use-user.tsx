@@ -7,7 +7,7 @@ import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course 
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockUsers, mockSectors } from '@/lib/mock-data';
+import { mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
 
 type UserContextType = {
@@ -25,57 +25,6 @@ type UserContextType = {
   fields: Field[];
   courses: Course[];
 }
-
-const initialSectors: Sector[] = [
-  { id: 'gestion', name: 'GESTION' },
-  { id: 'industrie', name: 'INDUSTRIE' },
-  { id: 'technologie', name: 'TECHNOLOGIE' },
-];
-
-const initialFields: Field[] = [
-    // GESTION
-    { "id": "cge", "name": "Comptabilité et gestion d’entreprise", "sectorId": "gestion" },
-    { "id": "acg", "name": "Audit et contrôle de gestion", "sectorId": "gestion" },
-    { "id": "ci", "name": "Commerce international", "sectorId": "gestion" },
-    { "id": "gam", "name": "Gestion en affaires mondiales", "sectorId": "gestion" },
-    { "id": "mce", "name": "Marketing et communication d’entreprise", "sectorId": "gestion" },
-    { "id": "gf", "name": "Gestion des finances", "sectorId": "gestion" },
-    { "id": "grhae", "name": "GRH et administration des entreprises", "sectorId": "gestion" },
-    { "id": "eli", "name": "Entrepreneuriat et leadership international", "sectorId": "gestion" },
-    { "id": "dia", "name": "Droit international des affaires", "sectorId": "gestion" },
-    { "id": "lt", "name": "Logistique et transport", "sectorId": "gestion" },
-
-    // TECHNOLOGIE
-    { "id": "ri", "name": "Réseaux informatiques", "sectorId": "technologie" },
-    { "id": "tfo", "name": "Télécommunications et fibre optique", "sectorId": "technologie" },
-    { "id": "mi", "name": "Maintenance informatique", "sectorId": "technologie" },
-    { "id": "a2d3dm", "name": "Animation 2D, 3D et motion design", "sectorId": "technologie" },
-    { "id": "gi", "name": "Génie informatique", "sectorId": "technologie" },
-    { "id": "cs", "name": "Cybersécurité", "sectorId": "technologie" },
-    { "id": "ria", "name": "Robotique et Intelligence Artificielle", "sectorId": "technologie" },
-    { "id": "dwm", "name": "Développement web et mobile", "sectorId": "technologie" },
-    { "id": "prog", "name": "Programmation", "sectorId": "technologie" },
-    { "id": "idg", "name": "Infographie et design graphique", "sectorId": "technologie" },
-    { "id": "ars", "name": "Administration réseaux et systèmes", "sectorId": "technologie" },
-    { "id": "abd", "name": "Administration des Bases de Données", "sectorId": "technologie" },
-    { "id": "gl", "name": "Génie Logiciel", "sectorId": "technologie" },
-
-    // INDUSTRIE
-    { "id": "gee", "name": "Génie électrique et électronique", "sectorId": "industrie" },
-    { "id": "gm", "name": "Génie mécanique", "sectorId": "industrie" },
-    { "id": "gca", "name": "Génie civil & Architecture", "sectorId": "industrie" },
-    { "id": "mpg", "name": "Maintenance du pétrole et du gaz", "sectorId": "industrie" },
-    { "id": "ervl", "name": "Entretien et réparation des véhicules légers", "sectorId": "industrie" },
-    { "id": "ervp", "name": "Entretien et réparation des véhicules lourds", "sectorId": "industrie" },
-    { "id": "tpg", "name": "Traitement du pétrole et du gaz", "sectorId": "industrie" },
-    { "id": "dpg", "name": "Distribution pétrolière et gazière", "sectorId": "industrie" },
-    { "id": "ot", "name": "Opérateur topographe", "sectorId": "industrie" },
-    { "id": "fc", "name": "Froid et climatisation", "sectorId": "industrie" },
-    { "id": "esr", "name": "Énergie solaire et renouvelable", "sectorId": "industrie" },
-    { "id": "psi", "name": "Plomberie et soudure industrielle", "sectorId": "industrie" },
-    { "id": "eis", "name": "Équipement industriel et sanitaire", "sectorId": "industrie" }
-];
-
 
 const defaultSettings: Settings = {
     id: 'system',
@@ -139,15 +88,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
              if (!settingsData.sectors || settingsData.sectors.length === 0) {
                 console.log("Settings document is missing sectors. Seeding initial sectors.");
                 const settingsRef = doc(db, "settings", "system");
-                updateDoc(settingsRef, { sectors: initialSectors }).then(() => {
-                    if (isMounted) setSettings({...settingsData, sectors: initialSectors});
+                updateDoc(settingsRef, { sectors: mockSectors }).then(() => {
+                    if (isMounted) setSettings({...settingsData, sectors: mockSectors});
                     console.log("Initial sectors seeded successfully.");
                 }).catch(e => console.error("Error seeding sectors:", e));
             } else {
                  if (isMounted) setSettings(settingsData);
             }
         } else {
-             const newSettings = {...defaultSettings, sectors: initialSectors };
+             const newSettings = {...defaultSettings, sectors: mockSectors };
              setDoc(doc(db, "settings", "system"), newSettings, { merge: true });
              if (isMounted) setSettings(newSettings);
         }
@@ -158,12 +107,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
          if (snapshot.empty) {
             console.log("Fields collection is empty. Seeding initial fields.");
             const batch = writeBatch(db);
-            initialFields.forEach(field => {
+            mockFields.forEach(field => {
                 const fieldRef = doc(db, 'fields', field.id);
                 batch.set(fieldRef, field);
             });
             batch.commit().then(() => {
-                if (isMounted) setFields(initialFields);
+                if (isMounted) setFields(mockFields);
                 console.log("Initial fields seeded successfully.");
             }).catch(e => console.error("Error seeding fields:", e));
         } else {
