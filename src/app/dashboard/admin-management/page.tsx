@@ -36,7 +36,7 @@ type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings } = useUser();
+    const { settings, loading: loadingSettings, setSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,14 +83,19 @@ export default function AdminManagementPage() {
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
             
-            // Immediately save the new logo URL to Firestore
-            await updateDoc(doc(db, "settings", "system"), { logoUrl: downloadURL });
+            const settingsRef = doc(db, "settings", "system");
+            await updateDoc(settingsRef, { logoUrl: downloadURL });
+            
+            // Update local state in the hook for immediate feedback
+            if(settings) {
+                setSettings({...settings, logoUrl: downloadURL});
+            }
             form.setValue("logoUrl", downloadURL, { shouldDirty: true });
             
             toast({ title: "Logo mis à jour", description: "Le nouveau logo a été enregistré et mis à jour sur la plateforme." });
         } catch (error) {
             console.error("Error uploading logo: ", error);
-            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de mettre à jour le logo." });
+            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de mettre à jour le logo. Vérifiez les règles de sécurité de Firebase Storage." });
         } finally {
             setUploadingLogo(false);
         }
@@ -101,12 +106,19 @@ export default function AdminManagementPage() {
         if (file) {
             handleLogoUpload(file);
         }
+         if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
         try {
-            await setDoc(doc(db, "settings", "system"), data, { merge: true });
+            const { logoUrl, ...restOfData } = data; // logoUrl is handled separately
+            await setDoc(doc(db, "settings", "system"), restOfData, { merge: true });
+            if(settings) {
+                 setSettings({...settings, ...restOfData});
+            }
             toast({
                 title: "Paramètres enregistrés",
                 description: "Les paramètres globaux ont été mis à jour.",
@@ -163,7 +175,7 @@ export default function AdminManagementPage() {
                                         <FormLabel>Logo de l'établissement</FormLabel>
                                         <div className="flex items-center gap-4">
                                             <Image 
-                                                src={form.watch('logoUrl') || `https://placehold.co/64x64/000000/FFF?text=${(settings?.schoolName || 'I').charAt(0)}`}
+                                                src={form.watch('logoUrl') || `https://placehold.co/64x64/eee/ccc?text=${(settings?.schoolName || 'I').charAt(0)}`}
                                                 alt="Logo"
                                                 width={64}
                                                 height={64}
@@ -186,6 +198,7 @@ export default function AdminManagementPage() {
                                                 disabled={uploadingLogo}
                                             />
                                         </div>
+                                         <p className="text-xs text-muted-foreground">Téléversez le logo de votre école. Recommandé: .png transparent.</p>
                                     </div>
                                 </div>
                                 

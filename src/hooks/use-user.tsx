@@ -17,7 +17,8 @@ type UserContextType = {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   loading: boolean;
   roles: AdminRole[];
-  settings: Settings;
+  settings: Settings | null;
+  setSettings: (settings: Settings) => void;
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
   sectors: Sector[];
@@ -41,10 +42,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user: authUser, loading: authLoading } = useAuth();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sectors, setSectors] = useState<Sector[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
 
@@ -208,6 +208,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(user);
       setAllUsers(prevUsers => prevUsers.map(u => u.uid === user.uid ? user : u));
   };
+
+  const handleSetSettings = (newSettings: Settings) => {
+    setSettings(newSettings);
+  };
   
   const finalLoadingState = authLoading || loading || (!!authUser && !currentUser);
 
@@ -221,6 +225,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       userPermissions,
       hasPermission,
       settings,
+      setSettings: handleSetSettings,
       sectors: settings?.sectors || [],
       fields,
       courses
@@ -236,3 +241,5 @@ export function useUser() {
   }
   return context;
 }
+
+    
