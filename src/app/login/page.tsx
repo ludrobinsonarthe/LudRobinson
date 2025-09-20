@@ -37,7 +37,7 @@ import { Loader2 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthErrorCodes } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { doc, onSnapshot, collection, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, collection, setDoc, getDoc } from "firebase/firestore";
 import QRCode from "qrcode.react";
 
 const loginSchema = z.object({
@@ -49,6 +49,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("/logo.png");
+  const [schoolName, setSchoolName] = useState("ISGI");
   const { toast } = useToast();
   const router = useRouter();
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
@@ -62,6 +64,23 @@ export default function LoginPage() {
       password: "password",
     },
   });
+
+   useEffect(() => {
+    // Fetch settings to display school name and logo
+    const fetchSettings = async () => {
+        try {
+            const settingsDoc = await getDoc(doc(db, "settings", "system"));
+            if (settingsDoc.exists()) {
+                const settingsData = settingsDoc.data();
+                setLogoUrl(settingsData.logoUrl || "/logo.png");
+                setSchoolName(settingsData.schoolName || "ISGI");
+            }
+        } catch(error) {
+            console.error("Could not fetch school settings for login page", error);
+        }
+    };
+    fetchSettings();
+  }, []);
   
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -151,10 +170,10 @@ export default function LoginPage() {
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <Image src="/logo.png" alt="ISGI Logo" width={48} height={48} />
+                    <Image src={logoUrl} alt="ISGI Logo" width={48} height={48} />
                 </div>
                 <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
-                    ISGI
+                    {schoolName}
                 </h1>
             </div>
           <CardTitle className="text-2xl font-bold">Connexion</CardTitle>

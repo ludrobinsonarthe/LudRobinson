@@ -55,13 +55,14 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import ShareDialog from "@/components/share-dialog";
 
 function AppLogo() {
+  const { settings } = useUser();
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <Image src="/logo.png" alt="ISGI Logo" width={40} height={40} />
+        <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={40} height={40} />
       </div>
       <h1 className="font-headline text-lg font-bold tracking-tight text-foreground">
-        ISGI
+        {settings?.schoolName || 'ISGI'}
       </h1>
     </Link>
   );

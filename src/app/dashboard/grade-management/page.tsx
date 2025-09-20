@@ -293,15 +293,23 @@ function GradeManagementContent() {
         if (!course) return;
 
         const doc = new jsPDF({ orientation: "landscape" });
-        doc.text(`Relevé de notes - ${course.name}`, 14, 16);
-        doc.text(`Niveau: ${course.level} - Année: ${settings?.academicYear}`, 14, 24);
-        
         const { headers, data } = getExportData();
-
+        
+        // Add header
+        if (settings?.logoUrl) {
+            doc.addImage(settings.logoUrl, 'PNG', 14, 10, 20, 20);
+        }
+        doc.setFont("helvetica", "bold");
+        doc.text(settings?.schoolName || 'ISGI', 40, 18);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Relevé de notes - ${course.name}`, 40, 25);
+        doc.setFontSize(10);
+        doc.text(`Niveau: ${course.level} - Année: ${settings?.academicYear}`, 14, 35);
+        
         autoTable(doc, {
             head: [headers],
             body: data,
-            startY: 30,
+            startY: 40,
             theme: 'striped',
             styles: { fontSize: 8 },
         });
@@ -547,7 +555,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-
-    
-
-    

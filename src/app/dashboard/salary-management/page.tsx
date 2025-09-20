@@ -245,23 +245,25 @@ function SalaryManagementContent() {
         }
 
         const doc = new jsPDF();
-        const schoolName = settings?.schoolName || "Institut Supérieur";
-        const academicYear = settings?.academicYear || "2024-2025";
         
+        if (settings?.logoUrl) {
+            doc.addImage(settings.logoUrl, 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+        }
+
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
-        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        doc.text(settings?.schoolName || 'ISGI', doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
         
         doc.setFontSize(20);
-        doc.text("BULLETIN DE PAIE", doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
+        doc.text("BULLETIN DE PAIE", doc.internal.pageSize.getWidth() / 2, 55, { align: 'center' });
 
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
-        doc.text(`Période: ${salary.month} ${salary.year}`, doc.internal.pageSize.getWidth() - 20, 60, { align: 'right' });
-        doc.text(`Date d'émission: ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 20, 60);
+        doc.text(`Période: ${salary.month} ${salary.year}`, doc.internal.pageSize.getWidth() - 20, 70, { align: 'right' });
+        doc.text(`Date d'émission: ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 20, 70);
 
-        doc.text(`Employé: ${user.firstName} ${user.lastName}`, 20, 80);
-        doc.text(`Poste: ${user.role === 'teacher' ? 'Professeur' : user.admin?.position || 'Personnel'}`, 20, 90);
+        doc.text(`Employé: ${user.firstName} ${user.lastName}`, 20, 90);
+        doc.text(`Poste: ${user.role === 'teacher' ? 'Professeur' : user.admin?.position || 'Personnel'}`, 20, 100);
 
         const body: (string | number)[][] = [];
         if (salary.userRole === 'teacher' && salary.hourlyRate && salary.hoursWorked) {
@@ -276,7 +278,7 @@ function SalaryManagementContent() {
         body.push(['Primes & Bonus (Exemple)', formatCurrency(0, salary.currency)]);
 
         autoTable(doc, {
-            startY: 100,
+            startY: 110,
             head: [['Description', 'Montant']],
             body: body,
             theme: 'grid',

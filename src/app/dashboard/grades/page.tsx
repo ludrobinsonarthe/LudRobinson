@@ -152,6 +152,9 @@ export default function GradesPage() {
         const studentName = `${studentToView.firstName} ${studentToView.lastName}`;
 
         // Header
+        if (settings?.logoUrl) {
+            doc.addImage(settings.logoUrl, 'PNG', 14, 10, 20, 20);
+        }
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
         doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
@@ -291,7 +294,6 @@ export default function GradesPage() {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Type d'évaluation</TableHead>
-                                                    <TableHead>Crédit</TableHead>
                                                     <TableHead className="text-right">Note</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -299,7 +301,6 @@ export default function GradesPage() {
                                                 {course.grades.map(grade => (
                                                     <TableRow key={grade.id + '-' + grade.type}>
                                                         <TableCell><Badge variant="outline" className="capitalize">{grade.type}</Badge></TableCell>
-                                                        <TableCell>{grade.credit}</TableCell>
                                                         <TableCell className='font-medium text-right'>{grade.score}/{grade.total}</TableCell>
                                                     </TableRow>
                                                 ))}
@@ -325,8 +326,3 @@ export default function GradesPage() {
         </div>
     );
 }
-
-
-    
-
-    

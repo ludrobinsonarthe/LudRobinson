@@ -10,17 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck, Upload } from "lucide-react";
 import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Image from "next/image";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
+  logoUrl: z.string().url("Veuillez entrer une URL valide."),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
   levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
@@ -41,6 +43,7 @@ export default function AdminManagementPage() {
         resolver: zodResolver(settingsFormSchema),
         defaultValues: {
             schoolName: "",
+            logoUrl: "",
             academicYear: "",
             currency: "",
             levels: [],
@@ -136,6 +139,17 @@ export default function AdminManagementPage() {
                                     <FormItem>
                                         <FormLabel>Nom de l'établissement</FormLabel>
                                         <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+
+                                 <FormField control={form.control} name="logoUrl" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>URL du logo</FormLabel>
+                                         <div className="flex items-center gap-4">
+                                            {settings?.logoUrl && <Image src={settings.logoUrl} alt="Logo" width={40} height={40} className="rounded-md" />}
+                                            <FormControl><Input placeholder="https://example.com/logo.png" {...field} /></FormControl>
+                                         </div>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
