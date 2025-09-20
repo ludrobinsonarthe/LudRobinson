@@ -1,5 +1,6 @@
 
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -225,6 +226,7 @@ export interface Attendance {
 export interface Settings {
   id: 'system';
   schoolName: string;
+  logoUrl: string;
   academicYear: string;
   currency: string;
   levels: { value: string }[];
