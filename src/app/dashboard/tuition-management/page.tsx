@@ -151,23 +151,24 @@ function TuitionManagementContent() {
         const doc = new jsPDF();
         const schoolName = settings?.schoolName || "Institut Supérieur";
         
+        doc.addImage("/logo.png", 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
-        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
         
         doc.setFontSize(20);
-        doc.text("REÇU DE PAIEMENT", doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
+        doc.text("REÇU DE PAIEMENT", doc.internal.pageSize.getWidth() / 2, 60, { align: 'center' });
 
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
-        doc.text(`Date: ${format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}`, 20, 60);
-        doc.text(`Reçu N°: ${payment.id}`, 20, 70);
+        doc.text(`Date: ${format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}`, 20, 80);
+        doc.text(`Reçu N°: ${payment.id}`, 20, 90);
 
-        doc.text(`Reçu de: ${student.firstName} ${student.lastName}`, 20, 90);
-        doc.text(`Matricule: ${student.student?.matricule}`, 20, 100);
+        doc.text(`Reçu de: ${student.firstName} ${student.lastName}`, 20, 110);
+        doc.text(`Matricule: ${student.student?.matricule}`, 20, 120);
 
-        doc.autoTable({
-            startY: 110,
+        autoTable(doc, {
+            startY: 130,
             head: [['Description', 'Montant']],
             body: [
                 ['Motif du paiement', `${payment.month} (${payment.year})`],
@@ -346,4 +347,5 @@ export default function TuitionManagementPage() {
         </Suspense>
     )
 }
+
     

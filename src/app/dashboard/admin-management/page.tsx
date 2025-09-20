@@ -22,7 +22,6 @@ import Image from "next/image";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
-  logoUrl: z.string().url("Veuillez entrer une URL valide."),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
   levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
@@ -43,7 +42,6 @@ export default function AdminManagementPage() {
         resolver: zodResolver(settingsFormSchema),
         defaultValues: {
             schoolName: "",
-            logoUrl: "",
             academicYear: "",
             currency: "",
             levels: [],
@@ -73,6 +71,7 @@ export default function AdminManagementPage() {
         try {
             const settingsToSave: Settings = {
                 id: 'system',
+                ...settings,
                 ...data,
             };
 
@@ -135,24 +134,16 @@ export default function AdminManagementPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-8">
-                                <FormField control={form.control} name="schoolName" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Nom de l'établissement</FormLabel>
-                                        <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-
-                                 <FormField control={form.control} name="logoUrl" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>URL du logo</FormLabel>
-                                         <div className="flex items-center gap-4">
-                                            {settings?.logoUrl && <Image src={settings.logoUrl} alt="Logo" width={40} height={40} className="rounded-md" />}
-                                            <FormControl><Input placeholder="https://example.com/logo.png" {...field} /></FormControl>
-                                         </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
+                                <div className="flex items-center gap-4">
+                                    <Image src="/logo.png" alt="Logo" width={40} height={40} className="rounded-md" />
+                                    <FormField control={form.control} name="schoolName" render={({ field }) => (
+                                        <FormItem className="flex-1">
+                                            <FormLabel>Nom de l'établissement</FormLabel>
+                                            <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                </div>
                                 
                                 <div className="grid grid-cols-2 gap-8">
                                     <FormField control={form.control} name="academicYear" render={({ field }) => (
@@ -291,3 +282,5 @@ export default function AdminManagementPage() {
         </div>
     );
 }
+
+    

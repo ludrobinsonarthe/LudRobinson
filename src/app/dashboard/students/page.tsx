@@ -72,9 +72,9 @@ export default function StudentsPage() {
         setLoadingData(true);
         const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
         const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as OfficialDocument)));
-        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Grade))));
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Course))));
-        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Attendance))));
+        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course)));
+        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
         const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), snapshot => setFeeStructures(snapshot.docs.map(doc => doc.data() as FeeStructure)));
 
         
@@ -372,7 +372,8 @@ export default function StudentsPage() {
 
     const handleExportPDF = () => {
         const doc = new jsPDF({ orientation: "landscape" });
-        doc.text("Liste des Étudiants", 14, 16);
+        doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
+        doc.text("Liste des Étudiants", 40, 16);
         
         const exportData = getExportData();
         if (exportData.length === 0) {
@@ -385,7 +386,7 @@ export default function StudentsPage() {
         autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
-            startY: 20,
+            startY: 25,
             theme: 'striped',
             styles: { fontSize: 8 },
             headStyles: { fillColor: [25, 95, 53] },
@@ -545,17 +546,18 @@ export default function StudentsPage() {
             const schoolName = settings?.schoolName || "Institut Supérieur";
             const academicYear = settings?.academicYear || "2024-2025";
             
+            doc.addImage("/logo.png", 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(16);
-            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
             
             doc.setFontSize(12);
             doc.setFont("helvetica", "normal");
-            doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+            doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 50, { align: 'center' });
 
             doc.setFontSize(20);
             doc.setFont("helvetica", "bold");
-            doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 60, { align: 'center' });
+            doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 80, { align: 'center' });
 
             doc.setFontSize(12);
             doc.setFont("helvetica", "normal");
@@ -575,10 +577,10 @@ export default function StudentsPage() {
                 `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
             ];
             
-            doc.text(textLines, 20, 90);
+            doc.text(textLines, 20, 110);
 
-            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 180, { align: 'right' });
-            doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
+            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
+            doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 220, { align: 'right' });
 
             resolve(doc.output('blob'));
         });
@@ -592,6 +594,7 @@ export default function StudentsPage() {
             const studentName = `${student.firstName} ${student.lastName}`;
             
             // Header
+            doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(18);
             doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
@@ -925,7 +928,5 @@ export default function StudentsPage() {
         </div>
     );
 }
-
-
 
     

@@ -246,9 +246,7 @@ function SalaryManagementContent() {
 
         const doc = new jsPDF();
         
-        if (settings?.logoUrl) {
-            doc.addImage(settings.logoUrl, 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
-        }
+        doc.addImage("/logo.png", 'PNG', doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
@@ -447,3 +445,5 @@ export default function SalaryManagementPage() {
         </Suspense>
     )
 }
+
+    

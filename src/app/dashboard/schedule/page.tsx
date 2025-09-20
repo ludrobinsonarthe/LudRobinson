@@ -101,10 +101,11 @@ function ScheduleContent() {
         const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
         const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
 
+        doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
         doc.setFontSize(18);
-        doc.text(`Emploi du Temps - ${selectedFieldName}${levelName}`, 14, 22);
+        doc.text(`Emploi du Temps - ${selectedFieldName}${levelName}`, 40, 22);
         doc.setFontSize(12);
-        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 14, 30);
+        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 40, 30);
         
         const head = [['Heure', ...daysOfWeek.map((day, index) => `${day}\n${format(addDays(currentWeek, index), 'dd/MM')}`)]];
         const body = timeSlots.map(slot => {

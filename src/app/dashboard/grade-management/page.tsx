@@ -295,10 +295,7 @@ function GradeManagementContent() {
         const doc = new jsPDF({ orientation: "landscape" });
         const { headers, data } = getExportData();
         
-        // Add header
-        if (settings?.logoUrl) {
-            doc.addImage(settings.logoUrl, 'PNG', 14, 10, 20, 20);
-        }
+        doc.addImage("/logo.png", 'PNG', 14, 10, 20, 20);
         doc.setFont("helvetica", "bold");
         doc.text(settings?.schoolName || 'ISGI', 40, 18);
         doc.setFont("helvetica", "normal");
@@ -555,3 +552,5 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+    

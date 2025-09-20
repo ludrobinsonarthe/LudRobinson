@@ -93,7 +93,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
              const defaultSettings: Settings = {
                 id: 'system',
                 schoolName: 'ISGI',
-                logoUrl: 'https://6000-firebase-studio-1758011149024.cluster-64pjnskmlbaxowh5lzq6i7v4ra.cloudworkstations.dev/capra/file-icon-theme/image.svg',
+                logoUrl: '/logo.png',
                 academicYear: '2024-2025',
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
@@ -147,7 +147,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                   email: authUser.email || '',
                   firstName: isSuperAdminEmail ? "ISGI Admin" : authUser.displayName?.split(' ')[0] || 'Nouveau',
                   lastName: isSuperAdminEmail ? "User" : authUser.displayName?.split(' ')[1] || 'Utilisateur',
-                  photoUrl: authUser.photoURL || `https://picsum.photos/seed/${authUser.uid}/100/100`,
+                  photoUrl: authUser.photoURL || `/logo.png`,
                   role: isSuperAdminEmail ? 'admin' : 'student',
                   status: 'active',
                   createdAt: new Date().toISOString(),
@@ -233,3 +233,5 @@ export function useUser() {
   }
   return context;
 }
+
+    
