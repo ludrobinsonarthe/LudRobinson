@@ -46,7 +46,7 @@ export const mockUsers: User[] = [
             specialty: "Mathématiques",
             assignedCourses: ["math01"]
         }
-    }
+    },
 ];
 
 export const mockSectors: Sector[] = [
@@ -81,7 +81,6 @@ export const mockFields: Field[] = [
     { "id": "idg", "name": "Infographie et design graphique", "sectorId": "technologie" },
     { "id": "ars", "name": "Administration réseaux et systèmes", "sectorId": "technologie" },
     { "id": "abd", "name": "Administration des Bases de Données", "sectorId": "technologie" },
-    { "id": "gl", "name": "Génie Logiciel", "sectorId": "technologie" },
 
     // INDUSTRIE
     { "id": "gee", "name": "Génie électrique et électronique", "sectorId": "industrie" },

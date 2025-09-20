@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -32,7 +33,6 @@ import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { imageToDataUrl } from "@/lib/utils";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -376,9 +376,11 @@ export default function StudentsPage() {
 
         try {
             if(settings) {
-                const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+                const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+                if (logoDataUrl) {
+                    const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                    doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+                }
             }
         } catch(error) {
             console.error("Could not add logo to PDF, proceeding without it.", error);
@@ -558,9 +560,11 @@ export default function StudentsPage() {
             const academicYear = settings.academicYear;
             
             try {
-                const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+                const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+                if (logoDataUrl) {
+                    const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                    doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+                }
             } catch (error) {
                  console.error("Could not add logo to PDF, proceeding without it.", error);
             }
@@ -613,9 +617,11 @@ export default function StudentsPage() {
             const studentName = `${student.firstName} ${student.lastName}`;
             
              try {
-                const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+                const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+                if (logoDataUrl) {
+                    const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                    doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+                }
             } catch (error) {
                  console.error("Could not add logo to PDF, proceeding without it.", error);
             }
