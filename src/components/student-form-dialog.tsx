@@ -22,6 +22,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import type { User, Class, Sector, Field, Cycle } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
@@ -43,7 +45,6 @@ const studentFormSchema = z.object({
   photo: z.any().optional(),
   matricule: z.string().min(1, "Le matricule est requis."),
   level: z.string().min(1, "Le niveau est requis."),
-  sectorId: z.string().min(1, "Le secteur est requis."),
   fieldId: z.string().min(1, "La filière est requise."),
   cycle: z.enum(['local', 'international', 'entrepreneur']),
   lastDiploma: z.string().optional(),
@@ -110,7 +111,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         nationality: '',
         matricule: '',
         level: '',
-        sectorId: '',
         fieldId: '',
         cycle: 'local',
         lastDiploma: '',
@@ -129,13 +129,15 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
   const [imgSrc, setImgSrc] = useState('');
 
   const parentSelection = form.watch('parentSelection');
-  const selectedSector = form.watch('sectorId');
   const selectedLevel = form.watch('level');
 
-  const availableFields = useMemo(() => {
-      if (!selectedSector) return [];
-      return fields.filter(f => f.sectorId === selectedSector);
-  }, [selectedSector, fields]);
+  const groupedFields = useMemo(() => {
+    return sectors.map(sector => ({
+      ...sector,
+      fields: fields.filter(field => field.sectorId === sector.id)
+    })).filter(sector => sector.fields.length > 0);
+  }, [sectors, fields]);
+
 
   const generateMatricule = (level: string) => {
     if (!level) return '';
@@ -149,7 +151,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
   useEffect(() => {
     if (isOpen) {
         if (student) {
-            const studentSectorId = fields.find(f => f.id === student.student?.fieldId)?.sectorId || '';
             form.reset({
                 firstName: student.firstName,
                 lastName: student.lastName,
@@ -161,7 +162,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 nationality: student.nationality,
                 matricule: student.student?.matricule,
                 level: student.student?.level,
-                sectorId: studentSectorId,
                 fieldId: student.student?.fieldId,
                 cycle: student.student?.cycle,
                 lastDiploma: student.student?.lastDiploma,
@@ -182,7 +182,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             nationality: '',
             matricule: generateMatricule(initialLevel),
             level: initialLevel,
-            sectorId: '',
             fieldId: '',
             cycle: 'local',
             lastDiploma: '',
@@ -204,15 +203,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         form.setValue('matricule', generateMatricule(selectedLevel));
     }
   }, [selectedLevel, isOpen, student, form]);
-
-   useEffect(() => {
-    if(!form.getValues('fieldId')) return;
-    const currentField = fields.find(f => f.id === form.getValues('fieldId'));
-    if(currentField && currentField.sectorId !== selectedSector) {
-        form.setValue('fieldId', '');
-    }
-   }, [selectedSector, form, fields]);
-
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -366,25 +356,39 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                     )}/>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="sectorId" render={({ field }) => (
-                        <FormItem><FormLabel>Secteur</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un secteur..." /></SelectTrigger></FormControl>
-                            <SelectContent>{sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <FormMessage />
+                <div className="grid grid-cols-1 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="fieldId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Filière</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sélectionner une filière..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {groupedFields.map((group) => (
+                                <SelectGroup key={group.id}>
+                                  <SelectLabel>{group.name}</SelectLabel>
+                                  {group.fields.map((f) => (
+                                    <SelectItem key={f.id} value={f.id}>
+                                      {f.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
                         </FormItem>
-                    )}/>
-                    <FormField control={form.control} name="fieldId" render={({ field }) => (
-                        <FormItem><FormLabel>Filière</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
-                            <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Sélectionner une filière..."} /></SelectTrigger></FormControl>
-                            <SelectContent>{availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}/>
+                      )}
+                    />
                 </div>
                 
                  <div className="grid grid-cols-2 gap-4">
