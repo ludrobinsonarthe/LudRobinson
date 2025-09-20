@@ -300,7 +300,7 @@ export default function AdminManagementPage() {
                     </Card>
                      <Card>
                         <CardHeader>
-                            <CardTitle>Rôles & Permissions</CardTitle>
+                            <CardTitle>Rôles &amp; Permissions</CardTitle>
                             <CardDescription>
                                 Définissez des rôles (ex: Comptable) et leurs permissions spécifiques dans l'application.
                             </CardDescription>
@@ -319,4 +319,3 @@ export default function AdminManagementPage() {
             </div>
         </div>
     );
-}
