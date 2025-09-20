@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -152,11 +151,16 @@ export default function GradesPage() {
         const schoolName = settings.schoolName;
         const academicYear = settings.academicYear;
         const studentName = `${studentToView.firstName} ${studentToView.lastName}`;
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
+            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
 
         // Header
-        doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
         doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
@@ -328,5 +332,3 @@ export default function GradesPage() {
         </div>
     );
 }
-
-    

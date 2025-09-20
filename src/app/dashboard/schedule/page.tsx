@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -104,10 +103,14 @@ function ScheduleContent() {
         const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
         const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
         
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
+            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+        } catch(error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
 
-        doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
         doc.setFontSize(18);
         doc.text(`Emploi du Temps - ${selectedFieldName}${levelName}`, 40, 22);
         doc.setFontSize(12);
@@ -274,14 +277,3 @@ function ScheduleContent() {
         </div>
     );
 }
-
-
-export default function SchedulePage() {
-    return (
-        <Suspense fallback={<div>Chargement...</div>}>
-            <ScheduleContent />
-        </Suspense>
-    )
-}
-
-    

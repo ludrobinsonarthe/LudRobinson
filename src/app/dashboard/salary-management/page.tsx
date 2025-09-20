@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -145,7 +144,7 @@ function SalaryManagementContent() {
         teacherAttendances.forEach(att => {
             const course = courses.find(c => c.id === att.courseId);
             if (course?.schedule) {
-                const scheduleEntry = course.schedule.find(s => format(new Date(att.date), 'EEEE', { locale: fr }) === s.day);
+                const scheduleEntry = course.schedule.find(s => s.day === format(new Date(att.date), 'EEEE', { locale: fr }));
                 if (scheduleEntry) {
                     try {
                         const [startHour, startMinute] = scheduleEntry.start.split(':').map(Number);
@@ -246,10 +245,14 @@ function SalaryManagementContent() {
         }
 
         const doc = new jsPDF();
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
         
-        doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
+            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+            doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
@@ -437,13 +440,3 @@ function SalaryManagementContent() {
         </div>
     );
 }
-
-export default function SalaryManagementPage() {
-    return (
-        <Suspense fallback={<div>Chargement...</div>}>
-            <SalaryManagementContent />
-        </Suspense>
-    )
-}
-
-    

@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
@@ -66,7 +65,7 @@ function GradeManagementContent() {
     const [newEvalType, setNewEvalType] = useState<Grade['type']>('devoir de classe');
     const [newEvalTotal, setNewEvalTotal] = useState<number>(20);
     const [newEvalCredit, setNewEvalCredit] = useState<number>(1);
-    const [newEvalCourseId, setNewEvalCourseId] = useState<string>(courseId || '');
+    const [newEvalCourseId, setNewEvalCourseId] = useState(courseId || '');
 
     // State for deleting an evaluation
     const [evalToDelete, setEvalToDelete] = useState<EvaluationColumn | null>(null);
@@ -296,10 +295,15 @@ function GradeManagementContent() {
         const doc = new jsPDF({ orientation: "landscape" });
         const { headers, data } = getExportData();
         
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
+            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
 
-        doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
+
         doc.setFont("helvetica", "bold");
         doc.text(settings.schoolName, 40, 18);
         doc.setFont("helvetica", "normal");
@@ -556,5 +560,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-
-    

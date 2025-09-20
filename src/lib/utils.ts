@@ -5,44 +5,39 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export async function imageToDataUrl(url: string, defaultLogo: string = '/logo.png'): Promise<string> {
-    // If the URL is remote, it's likely for a PDF generation.
-    // Client-side PDF generation with remote images from Firebase Storage can cause CORS issues.
-    // To prevent this, we will always use the local logo for PDF generation.
-    if (url.startsWith('http')) {
-        const localLogoUrl = new URL(defaultLogo, window.location.origin).toString();
-        try {
-            const response = await fetch(localLogoUrl);
-            if (!response.ok) throw new Error('Failed to fetch local logo');
-            const blob = await response.blob();
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        } catch (error) {
-            console.error("Could not fetch local logo, returning path:", error);
-            return defaultLogo; // Fallback to path if fetch fails.
-        }
+
+export async function imageToDataUrl(url: string): Promise<string> {
+    let fetchUrl = url;
+    // Ensure we have an absolute URL for local files when running in certain environments
+    if (url.startsWith('/') && typeof window !== 'undefined') {
+        fetchUrl = new URL(url, window.location.origin).toString();
     }
 
-    // For local URLs or if the initial check fails, try fetching directly.
     try {
-        const response = await fetch(url);
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
             throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
         }
         
         const blob = await response.blob();
+        
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    resolve(reader.result);
+                } else {
+                    reject(new Error('Failed to read blob as Data URL.'));
+                }
+            };
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
+
     } catch (error) {
         console.error(`Failed to convert image to data URL from ${url}:`, error);
-        return defaultLogo; // Fallback if anything goes wrong.
+        // Fallback to returning a placeholder or a default path if conversion fails
+        // For this app, we will let the error propagate to be handled by the caller.
+        throw error;
     }
 }
