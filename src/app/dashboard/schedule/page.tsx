@@ -103,12 +103,10 @@ function ScheduleContent() {
         const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
         const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
         
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
+        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+        if (logoDataUrl) {
             const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
             doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-        } catch(error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
         }
 
         doc.setFontSize(18);
@@ -275,5 +273,13 @@ function ScheduleContent() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function SchedulePage() {
+    return (
+        <Suspense fallback={<div>Chargement de l'emploi du temps...</div>}>
+            <ScheduleContent />
+        </Suspense>
     );
 }
