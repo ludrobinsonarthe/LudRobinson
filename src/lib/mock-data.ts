@@ -46,59 +46,6 @@ export const mockUsers: User[] = [
             specialty: "Mathématiques",
             assignedCourses: ["math01"]
         }
-    },
-    {
-        uid: "student01",
-        role: "student",
-        firstName: "Alice",
-        lastName: "Wonderland",
-        email: "alice.wonderland@isgi.com",
-        photoUrl: "https://picsum.photos/seed/student1/100/100",
-        createdAt: "2024-09-01T09:00:00Z",
-        status: "active",
-        student: {
-            matricule: "ISGI-2024-001",
-            programId: "prog01",
-            level: "Licence 1",
-            cycle: "local",
-            fieldId: "gl",
-            enrollmentDate: "2024-09-01T09:00:00Z",
-            endDate: "2025-07-01T09:00:00Z",
-            parentUid: "parent01"
-        }
-    },
-     {
-        uid: "student02",
-        role: "student",
-        firstName: "Bob",
-        lastName: "Builder",
-        email: "bob.builder@isgi.com",
-        photoUrl: "https://picsum.photos/seed/student2/100/100",
-        createdAt: "2024-09-01T09:05:00Z",
-        status: "active",
-        student: {
-            matricule: "ISGI-2024-002",
-            programId: "prog01",
-            level: "Licence 1",
-            cycle: "international",
-            fieldId: "cs",
-            enrollmentDate: "2024-09-01T09:05:00Z",
-            endDate: "2025-07-01T09:00:00Z",
-            parentUid: "parent01"
-        }
-    },
-    {
-        uid: "parent01",
-        role: "parent",
-        firstName: "Carol",
-        lastName: "Danvers",
-        email: "carol.danvers@email.com",
-        photoUrl: "https://picsum.photos/seed/parent1/100/100",
-        createdAt: "2024-09-01T08:00:00Z",
-        status: "active",
-        parent: {
-            childrenUids: ["student01", "student02"]
-        }
     }
 ];
 
@@ -169,7 +116,7 @@ export const mockClasses: Class[] = [
     programId: 'prog01',
     name: 'Licence 3 - Génie Logiciel',
     academicYear: '2024-2025',
-    students: ['student01', 'student02'],
+    students: [],
     createdAt: new Date().toISOString(),
   },
 ];
@@ -183,6 +130,7 @@ export const mockCourses: Course[] = [
         fieldId: "gl",
         level: "Licence 1",
         cycle: "local",
+        credit: 5
     },
     {
         id: "phys01",
@@ -192,6 +140,7 @@ export const mockCourses: Course[] = [
         fieldId: "gl",
         level: "Licence 1",
         cycle: "local",
+        credit: 4
     }
 ]
 
@@ -203,107 +152,12 @@ export const mockMessages: Message[] = [
     content: 'Bienvenue à l\'année académique 2024-2025! Nous sommes ravis de vous accueillir à l\'ISGI.',
     type: 'announcement',
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'msg02',
-    senderId: 'admin01',
-    receiverId: 'class01',
-    content: 'Rappel : La réunion de rentrée pour la classe de Licence 3 aura lieu ce vendredi.',
-    type: 'announcement',
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    attachments: ['https://example.com/ordre_du_jour.pdf'],
-  },
-  {
-    id: 'msg03',
-    senderId: 'teacher01',
-    receiverId: 'student01',
-    content: 'Bonjour Alice, n\'oublie pas de rendre ton projet de mathématiques avant demain soir.',
-    type: 'private',
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'msg04',
-    senderId: 'student01',
-    receiverId: 'teacher01',
-    content: 'Bonjour Mme. Curie, j\'ai une question concernant le projet. Pouvez-vous m\'éclairer sur la méthode à utiliser ?',
-    type: 'private',
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'msg05',
-    senderId: 'teacher01',
-    receiverId: 'student01',
-    content: 'Bien sûr, Alice. Pense à utiliser les méthodes d\'analyse numérique que nous avons vues en cours. C\'est un problème plus complexe qu\'il n\'y paraît. Il faut décomposer le problème en plusieurs étapes. La première étape consiste à bien définir le modèle mathématique. Ensuite, appliquez les algorithmes appropriés. Faites attention aux conditions initiales. Si tu as d\'autres questions, n\'hésite pas à venir me voir après le cours. Nous pourrons regarder ça ensemble. Bon courage!',
-    type: 'private',
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  },
+  }
 ];
 
-export const mockPayments: Payment[] = [
-    {
-        id: "pay01",
-        studentId: "student01",
-        amountExpected: 150000,
-        amountPaid: 150000,
-        balance: 0,
-        month: "Inscription",
-        year: "2024-2025",
-        method: "cash",
-        status: "validated",
-        validatedBy: "admin01",
-        createdAt: "2024-09-01T10:00:00Z",
-        currency: "XAF"
-    },
-    {
-        id: "pay02",
-        studentId: "student01",
-        amountExpected: 50000,
-        amountPaid: 0,
-        balance: 50000,
-        month: "Octobre",
-        year: "2024-2025",
-        method: "cash",
-        status: "pending",
-        createdAt: "2024-10-01T11:00:00Z",
-        currency: "XAF"
-    }
-];
+export const mockPayments: Payment[] = [];
 
-export const mockGrades: Grade[] = [
-    {
-        id: "grade01",
-        studentId: "student01",
-        courseId: "math01",
-        type: 'devoir',
-        score: 15,
-        total: 20,
-        coefficient: 1,
-        academicYear: '2024-2025',
-        createdAt: '2024-10-15T10:00:00Z',
-    },
-    {
-        id: "grade02",
-        studentId: "student01",
-        courseId: "math01",
-        type: 'examen',
-        score: 14,
-        total: 20,
-        coefficient: 2,
-        academicYear: '2024-2025',
-        createdAt: '2024-12-10T10:00:00Z',
-    },
-     {
-        id: "grade03",
-        studentId: "student01",
-        courseId: "phys01",
-        type: 'examen',
-        score: 16,
-        total: 20,
-        coefficient: 2,
-        academicYear: '2024-2025',
-        createdAt: '2024-12-12T10:00:00Z',
-    }
-];
+export const mockGrades: Grade[] = [];
 
 export const mockSalaries: TeacherSalary[] = [];
 export const mockCashTransactions: CashTransaction[] = [];
@@ -317,5 +171,3 @@ export const mockFeeStructures: FeeStructure[] = [
     { id: 'local-licence_1', cycle: 'local', level: 'Licence 1', registration: 150000, tuition: 500000, currency: 'XAF'},
     { id: 'local-licence_2', cycle: 'local', level: 'Licence 2', registration: 100000, tuition: 500000, currency: 'XAF'},
 ]
-
-    
