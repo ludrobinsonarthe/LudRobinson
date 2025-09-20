@@ -7,7 +7,7 @@ import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course 
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockAdminRoles, mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
+import { mockUsers } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
 
 type UserContextType = {
@@ -71,20 +71,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     }, (error) => {
         console.error("Error fetching users:", error);
-        if(isMounted) setAllUsers(mockUsers); 
     });
 
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
       if (!isMounted) return;
-        if (!snapshot.empty) {
-            const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
-            setRoles(rolesData);
-        } else {
-            setRoles(mockAdminRoles);
-        }
+        const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
+        setRoles(rolesData);
     }, (error) => {
         console.error("Error fetching roles:", error);
-        if(isMounted) setRoles(mockAdminRoles);
     });
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (docSnap) => {
@@ -99,15 +93,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
       if (!isMounted) return;
-        if (!snapshot.empty) {
-            const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
-            setFields(fieldsData);
-        } else {
-            setFields(mockFields);
-        }
+        const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
+        setFields(fieldsData);
     }, (error) => {
         console.error("Error fetching fields:", error);
-        if(isMounted) setFields(mockFields);
     });
     
     const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
@@ -241,5 +230,3 @@ export function useUser() {
   }
   return context;
 }
-
-    
