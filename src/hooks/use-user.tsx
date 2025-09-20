@@ -5,9 +5,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockUsers } from '@/lib/mock-data';
+import { mockUsers, mockFields as initialFields, mockSectors as initialSectors } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
 
 type UserContextType = {
@@ -84,17 +84,41 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (docSnap) => {
         if (!isMounted) return;
         if(docSnap.exists()){
-            setSettings(docSnap.data() as Settings);
+            const settingsData = docSnap.data() as Settings;
+             if (!settingsData.sectors || settingsData.sectors.length === 0) {
+                console.log("Settings document is missing sectors. Seeding initial sectors.");
+                const settingsRef = doc(db, "settings", "system");
+                updateDoc(settingsRef, { sectors: initialSectors }).then(() => {
+                    if (isMounted) setSettings({...settingsData, sectors: initialSectors});
+                    console.log("Initial sectors seeded successfully.");
+                }).catch(e => console.error("Error seeding sectors:", e));
+            } else {
+                 if (isMounted) setSettings(settingsData);
+            }
         } else {
-             setDoc(doc(db, "settings", "system"), defaultSettings, { merge: true });
-             setSettings(defaultSettings);
+             const newSettings = {...defaultSettings, sectors: initialSectors };
+             setDoc(doc(db, "settings", "system"), newSettings, { merge: true });
+             if (isMounted) setSettings(newSettings);
         }
     });
     
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
-      if (!isMounted) return;
-        const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
-        setFields(fieldsData);
+        if (!isMounted) return;
+         if (snapshot.empty) {
+            console.log("Fields collection is empty. Seeding initial fields.");
+            const batch = writeBatch(db);
+            initialFields.forEach(field => {
+                const fieldRef = doc(db, 'fields', field.id);
+                batch.set(fieldRef, field);
+            });
+            batch.commit().then(() => {
+                if (isMounted) setFields(initialFields);
+                console.log("Initial fields seeded successfully.");
+            }).catch(e => console.error("Error seeding fields:", e));
+        } else {
+             const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
+             if (isMounted) setFields(fieldsData);
+        }
     }, (error) => {
         console.error("Error fetching fields:", error);
     });
