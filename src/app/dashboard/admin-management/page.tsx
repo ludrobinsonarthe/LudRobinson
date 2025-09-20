@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState, useRef } from "react";
-import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck, Upload } from "lucide-react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck, Upload, Users } from "lucide-react";
 import { Settings, Field, Sector } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import Image from "next/image";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import UserDeleteDialog from "@/components/user-delete-dialog";
+import { Badge } from "@/components/ui/badge";
 
 
 const settingsFormSchema = z.object({
@@ -48,12 +49,25 @@ type StructureFormValues = z.infer<typeof structureFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors } = useUser();
+    const { users, settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [fieldToDelete, setFieldToDelete] = useState<Field | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    
+    const studentCountByField = useMemo(() => {
+        const counts: Record<string, number> = {};
+        students.forEach(student => {
+            const fieldId = student.student?.fieldId;
+            if (fieldId) {
+                counts[fieldId] = (counts[fieldId] || 0) + 1;
+            }
+        });
+        return counts;
+    }, [students]);
 
 
     const settingsForm = useForm<SettingsFormValues>({
@@ -404,9 +418,17 @@ export default function AdminManagementPage() {
                                             <FormField
                                                 control={structureForm.control}
                                                 name={`fields.${index}.name`}
-                                                render={({ field }) => (
+                                                render={({ field: formField }) => (
                                                     <FormItem className="flex-1">
-                                                        <FormControl><Input {...field} placeholder="Nom de la filière (ex: Génie Logiciel)" /></FormControl>
+                                                        <FormControl>
+                                                            <div className="flex items-center gap-2">
+                                                                <Input {...formField} placeholder="Nom de la filière (ex: Génie Logiciel)" />
+                                                                <Badge variant="secondary" className="whitespace-nowrap">
+                                                                    <Users className="w-3 h-3 mr-1.5" />
+                                                                    {studentCountByField[field.id] || 0}
+                                                                </Badge>
+                                                            </div>
+                                                        </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -507,3 +529,5 @@ export default function AdminManagementPage() {
     );
 }
     
+
+      
