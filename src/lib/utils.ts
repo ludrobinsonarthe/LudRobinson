@@ -6,28 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export async function imageToDataUrl(url: string, defaultLogo: string = '/logo.png'): Promise<string> {
-    if (!url) return defaultLogo;
-
-    let fetchUrl = url;
-
-    // Handle relative URLs on the server by creating an absolute URL
-    if (url.startsWith('/') && typeof window === 'undefined') {
-        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
-        fetchUrl = new URL(url, baseUrl).toString();
-    }
-    
-    try {
-        const response = await fetch(fetchUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-        }
-        
-        // Use Buffer on server, FileReader on client
-        if (typeof window === 'undefined') {
-            const buffer = Buffer.from(await response.arrayBuffer());
-            const mimeType = response.headers.get('content-type') || 'image/png';
-            return `data:${mimeType};base64,${buffer.toString('base64')}`;
-        } else {
+    // If the URL is remote, it's likely for a PDF generation.
+    // Client-side PDF generation with remote images from Firebase Storage can cause CORS issues.
+    // To prevent this, we will always use the local logo for PDF generation.
+    if (url.startsWith('http')) {
+        const localLogoUrl = new URL(defaultLogo, window.location.origin).toString();
+        try {
+            const response = await fetch(localLogoUrl);
+            if (!response.ok) throw new Error('Failed to fetch local logo');
             const blob = await response.blob();
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -35,10 +21,28 @@ export async function imageToDataUrl(url: string, defaultLogo: string = '/logo.p
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
             });
+        } catch (error) {
+            console.error("Could not fetch local logo, returning path:", error);
+            return defaultLogo; // Fallback to path if fetch fails.
         }
+    }
+
+    // For local URLs or if the initial check fails, try fetching directly.
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     } catch (error) {
-        console.error(`Failed to convert image to data URL from ${fetchUrl}:`, error);
-        // Fallback to a default local logo if fetching fails
-        return defaultLogo;
+        console.error(`Failed to convert image to data URL from ${url}:`, error);
+        return defaultLogo; // Fallback if anything goes wrong.
     }
 }
