@@ -29,13 +29,13 @@ const settingsFormSchema = z.object({
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
   levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
-  sectors: z.array(z.object({ 
-    id: z.string().min(1, "L'ID est requis."),
-    name: z.string().min(1, "Le nom est requis.") 
-  })),
 });
 
-const fieldsFormSchema = z.object({
+const structureFormSchema = z.object({
+    sectors: z.array(z.object({ 
+        id: z.string().min(1, "L'ID est requis."),
+        name: z.string().min(1, "Le nom est requis.") 
+    })),
     fields: z.array(z.object({
         id: z.string(),
         name: z.string().min(3, "Le nom est requis."),
@@ -44,7 +44,7 @@ const fieldsFormSchema = z.object({
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
-type FieldsFormValues = z.infer<typeof fieldsFormSchema>;
+type StructureFormValues = z.infer<typeof structureFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
@@ -64,13 +64,13 @@ export default function AdminManagementPage() {
             academicYear: "",
             currency: "",
             levels: [],
-            sectors: [],
         },
     });
     
-    const fieldsForm = useForm<FieldsFormValues>({
-        resolver: zodResolver(fieldsFormSchema),
+    const structureForm = useForm<StructureFormValues>({
+        resolver: zodResolver(structureFormSchema),
         defaultValues: {
+            sectors: [],
             fields: []
         }
     });
@@ -79,12 +79,13 @@ export default function AdminManagementPage() {
         control: settingsForm.control,
         name: "levels",
     });
+
     const { fields: sectorFields, append: appendSector, remove: removeSector } = useFieldArray({
-        control: settingsForm.control,
+        control: structureForm.control,
         name: "sectors",
     });
      const { fields: fieldFields, append: appendField, remove: removeField, replace: replaceFields } = useFieldArray({
-        control: fieldsForm.control,
+        control: structureForm.control,
         name: "fields",
         keyName: "formId"
     });
@@ -97,10 +98,12 @@ export default function AdminManagementPage() {
                 academicYear: settings.academicYear || "",
                 currency: settings.currency || "",
                 levels: settings.levels || [],
-                sectors: settings.sectors || [],
             });
         }
-    }, [settings, settingsForm]);
+        if (initialSectors) {
+            structureForm.setValue('sectors', initialSectors);
+        }
+    }, [settings, initialSectors, settingsForm, structureForm]);
 
     useEffect(() => {
         if (initialFields) {
@@ -167,19 +170,26 @@ export default function AdminManagementPage() {
         }
     };
 
-    const onFieldsSubmit = async (data: FieldsFormValues) => {
+    const onStructureSubmit = async (data: StructureFormValues) => {
         setSubmitting(true);
         const batch = writeBatch(db);
+        
+        // Save sectors in settings
+        const settingsRef = doc(db, "settings", "system");
+        batch.update(settingsRef, { sectors: data.sectors });
+        
+        // Save fields
         data.fields.forEach(field => {
             const fieldRef = doc(db, 'fields', field.id);
             batch.set(fieldRef, field);
         });
+
         try {
             await batch.commit();
-            toast({ title: "Filières enregistrées", description: "La liste des filières a été mise à jour." });
+            toast({ title: "Structure enregistrée", description: "Les secteurs et filières ont été mis à jour." });
         } catch (error) {
-            console.error("Error saving fields: ", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les filières." });
+            console.error("Error saving structure: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la structure." });
         } finally {
             setSubmitting(false);
         }
@@ -194,7 +204,7 @@ export default function AdminManagementPage() {
     }
 
     const handleDeleteField = async (index: number) => {
-        const field = fieldsForm.getValues().fields[index];
+        const field = structureForm.getValues().fields[index];
         if (field.id.startsWith("field_")) {
             removeField(index);
         } else {
@@ -336,45 +346,6 @@ export default function AdminManagementPage() {
                             </CardContent>
                         </Card>
 
-                        <Card>
-                             <CardHeader>
-                                <CardTitle>Secteurs d'Activité</CardTitle>
-                                <CardDescription>Gérez les grands secteurs de formation de votre institut.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {sectorFields.map((field, index) => (
-                                    <div key={field.id} className="flex items-center gap-2">
-                                        <FormField
-                                            control={settingsForm.control}
-                                            name={`sectors.${index}.id`}
-                                            render={({ field }) => (
-                                                <FormItem className="flex-1">
-                                                     <FormControl><Input {...field} placeholder="ID (ex: technologie)" /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={settingsForm.control}
-                                            name={`sectors.${index}.name`}
-                                            render={({ field }) => (
-                                                <FormItem className="flex-1">
-                                                    <FormControl><Input {...field} placeholder="Nom (ex: TECHNOLOGIE)" /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeSector(index)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm" onClick={() => appendSector({ id: '', name: '' })}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un secteur
-                                </Button>
-                            </CardContent>
-                        </Card>
-
                         <div className="flex justify-end pt-4">
                             <Button type="submit" disabled={submitting || uploadingLogo}>
                                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -384,59 +355,103 @@ export default function AdminManagementPage() {
                     </form>
                 </Form>
                 
-                 <Form {...fieldsForm}>
-                    <form onSubmit={fieldsForm.handleSubmit(onFieldsSubmit)} className="space-y-8">
+                 <Form {...structureForm}>
+                    <form onSubmit={structureForm.handleSubmit(onStructureSubmit)} className="space-y-8">
                          <Card>
                             <CardHeader>
-                                <CardTitle>Filières de Formation</CardTitle>
-                                <CardDescription>Gérez les filières de formation disponibles et associez-les à un secteur.</CardDescription>
+                                <CardTitle>Secteurs et Filières</CardTitle>
+                                <CardDescription>Gérez les grands secteurs et les filières de formation associées.</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                {fieldFields.map((field, index) => (
-                                    <div key={field.formId} className="flex items-center gap-2">
-                                        <FormField
-                                            control={fieldsForm.control}
-                                            name={`fields.${index}.name`}
-                                            render={({ field }) => (
-                                                <FormItem className="flex-1">
-                                                     <FormControl><Input {...field} placeholder="Nom de la filière (ex: Génie Logiciel)" /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={fieldsForm.control}
-                                            name={`fields.${index}.sectorId`}
-                                            render={({ field }) => (
-                                                <FormItem className="w-[200px]">
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl>
-                                                            <SelectTrigger><SelectValue placeholder="Secteur..."/></SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                            {initialSectors.map(sector => (
-                                                                <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteField(index)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm" onClick={addNewField}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une filière
-                                </Button>
+                            <CardContent className="space-y-6">
+                                <div>
+                                    <h4 className="font-medium mb-2 text-sm">Secteurs d'Activité</h4>
+                                     {sectorFields.map((field, index) => (
+                                        <div key={field.id} className="flex items-center gap-2 mb-2">
+                                            <FormField
+                                                control={structureForm.control}
+                                                name={`sectors.${index}.id`}
+                                                render={({ field }) => (
+                                                    <FormItem className="flex-1">
+                                                        <FormControl><Input {...field} placeholder="ID (ex: technologie)" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={structureForm.control}
+                                                name={`sectors.${index}.name`}
+                                                render={({ field }) => (
+                                                    <FormItem className="flex-1">
+                                                        <FormControl><Input {...field} placeholder="Nom (ex: TECHNOLOGIE)" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeSector(index)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm" onClick={() => appendSector({ id: '', name: '' })}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un secteur
+                                    </Button>
+                                </div>
+                                <Separator />
+                                <div>
+                                    <h4 className="font-medium mb-2 text-sm">Filières de Formation</h4>
+                                     {fieldFields.map((field, index) => (
+                                        <div key={field.formId} className="flex items-center gap-2 mb-2">
+                                            <FormField
+                                                control={structureForm.control}
+                                                name={`fields.${index}.name`}
+                                                render={({ field }) => (
+                                                    <FormItem className="flex-1">
+                                                        <FormControl><Input {...field} placeholder="Nom de la filière (ex: Génie Logiciel)" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={structureForm.control}
+                                                name={`fields.${index}.sectorId`}
+                                                render={({ field }) => (
+                                                    <FormItem className="w-[200px]">
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger><SelectValue placeholder="Secteur..."/></SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {structureForm.watch('sectors').map(sector => (
+                                                                    <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                             <FormField
+                                                control={structureForm.control}
+                                                name={`fields.${index}.id`}
+                                                render={({ field }) => (
+                                                    <Input type="hidden" {...field} />
+                                                )}
+                                            />
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteField(index)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm" onClick={addNewField}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une filière
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
                          <div className="flex justify-end pt-4">
                             <Button type="submit" disabled={submitting}>
                                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Enregistrer les filières
+                                Enregistrer la Structure
                             </Button>
                         </div>
                     </form>
