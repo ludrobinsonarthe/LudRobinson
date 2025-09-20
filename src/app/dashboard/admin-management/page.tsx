@@ -11,14 +11,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
 import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck, Upload } from "lucide-react";
-import { Settings } from "@/lib/types";
+import { Settings, Field, Sector } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, writeBatch, deleteDoc } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import Image from "next/image";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import UserDeleteDialog from "@/components/user-delete-dialog";
+
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
@@ -32,16 +35,28 @@ const settingsFormSchema = z.object({
   })),
 });
 
+const fieldsFormSchema = z.object({
+    fields: z.array(z.object({
+        id: z.string(),
+        name: z.string().min(3, "Le nom est requis."),
+        sectorId: z.string().min(1, "Le secteur est requis.")
+    }))
+});
+
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
+type FieldsFormValues = z.infer<typeof fieldsFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings, setSettings } = useUser();
+    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [fieldToDelete, setFieldToDelete] = useState<Field | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-    const form = useForm<SettingsFormValues>({
+
+    const settingsForm = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
         defaultValues: {
             schoolName: "",
@@ -52,19 +67,31 @@ export default function AdminManagementPage() {
             sectors: [],
         },
     });
+    
+    const fieldsForm = useForm<FieldsFormValues>({
+        resolver: zodResolver(fieldsFormSchema),
+        defaultValues: {
+            fields: []
+        }
+    });
 
     const { fields: levelFields, append: appendLevel, remove: removeLevel } = useFieldArray({
-        control: form.control,
+        control: settingsForm.control,
         name: "levels",
     });
-     const { fields: sectorFields, append: appendSector, remove: removeSector } = useFieldArray({
-        control: form.control,
+    const { fields: sectorFields, append: appendSector, remove: removeSector } = useFieldArray({
+        control: settingsForm.control,
         name: "sectors",
+    });
+     const { fields: fieldFields, append: appendField, remove: removeField, replace: replaceFields } = useFieldArray({
+        control: fieldsForm.control,
+        name: "fields",
+        keyName: "formId"
     });
 
     useEffect(() => {
         if(settings) {
-            form.reset({
+            settingsForm.reset({
                 schoolName: settings.schoolName || "",
                 logoUrl: settings.logoUrl || "",
                 academicYear: settings.academicYear || "",
@@ -73,7 +100,13 @@ export default function AdminManagementPage() {
                 sectors: settings.sectors || [],
             });
         }
-    }, [settings, form]);
+    }, [settings, settingsForm]);
+
+    useEffect(() => {
+        if (initialFields) {
+            replaceFields(initialFields);
+        }
+    }, [initialFields, replaceFields]);
     
     const handleLogoUpload = async (file: File) => {
         if (!file) return;
@@ -86,11 +119,10 @@ export default function AdminManagementPage() {
             const settingsRef = doc(db, "settings", "system");
             await updateDoc(settingsRef, { logoUrl: downloadURL });
             
-            // Update local state in the hook for immediate feedback
             if(settings) {
                 setSettings({...settings, logoUrl: downloadURL});
             }
-            form.setValue("logoUrl", downloadURL, { shouldDirty: true });
+            settingsForm.setValue("logoUrl", downloadURL, { shouldDirty: true });
             
             toast({ title: "Logo mis à jour", description: "Le nouveau logo a été enregistré et mis à jour sur la plateforme." });
         } catch (error) {
@@ -111,10 +143,10 @@ export default function AdminManagementPage() {
         }
     };
 
-    const onSubmit = async (data: SettingsFormValues) => {
+    const onSettingsSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
         try {
-            const { logoUrl, ...restOfData } = data; // logoUrl is handled separately
+            const { logoUrl, ...restOfData } = data;
             await setDoc(doc(db, "settings", "system"), restOfData, { merge: true });
             if(settings) {
                  setSettings({...settings, ...restOfData});
@@ -132,6 +164,60 @@ export default function AdminManagementPage() {
             });
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const onFieldsSubmit = async (data: FieldsFormValues) => {
+        setSubmitting(true);
+        const batch = writeBatch(db);
+        data.fields.forEach(field => {
+            const fieldRef = doc(db, 'fields', field.id);
+            batch.set(fieldRef, field);
+        });
+        try {
+            await batch.commit();
+            toast({ title: "Filières enregistrées", description: "La liste des filières a été mise à jour." });
+        } catch (error) {
+            console.error("Error saving fields: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les filières." });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+    
+    const addNewField = () => {
+        appendField({
+            id: `field_${Date.now()}`,
+            name: '',
+            sectorId: ''
+        });
+    }
+
+    const handleDeleteField = async (index: number) => {
+        const field = fieldsForm.getValues().fields[index];
+        if (field.id.startsWith("field_")) {
+            removeField(index);
+        } else {
+            setFieldToDelete(field as Field);
+            setIsDeleteDialogOpen(true);
+        }
+    };
+    
+    const confirmDeleteField = async () => {
+        if(!fieldToDelete) return;
+        try {
+            await deleteDoc(doc(db, 'fields', fieldToDelete.id));
+            const fieldIndex = fieldFields.findIndex(f => f.id === fieldToDelete.id);
+            if (fieldIndex > -1) {
+                removeField(fieldIndex);
+            }
+            toast({ title: 'Filière supprimée' });
+        } catch (error) {
+            console.error('Error deleting field:', error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la filière.' });
+        } finally {
+            setIsDeleteDialogOpen(false);
+            setFieldToDelete(null);
         }
     };
 
@@ -153,8 +239,8 @@ export default function AdminManagementPage() {
             </div>
             
             <div className="space-y-8">
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <Form {...settingsForm}>
+                    <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-8">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Paramètres Généraux</CardTitle>
@@ -164,7 +250,7 @@ export default function AdminManagementPage() {
                             </CardHeader>
                             <CardContent className="space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                                    <FormField control={form.control} name="schoolName" render={({ field }) => (
+                                    <FormField control={settingsForm.control} name="schoolName" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Nom de l'établissement</FormLabel>
                                             <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
@@ -175,7 +261,7 @@ export default function AdminManagementPage() {
                                         <FormLabel>Logo de l'établissement</FormLabel>
                                         <div className="flex items-center gap-4">
                                             <Image 
-                                                src={form.watch('logoUrl') || `https://placehold.co/64x64/eee/ccc?text=${(settings?.schoolName || 'I').charAt(0)}`}
+                                                src={settingsForm.watch('logoUrl') || `https://placehold.co/64x64/eee/ccc?text=${(settings?.schoolName || 'I').charAt(0)}`}
                                                 alt="Logo"
                                                 width={64}
                                                 height={64}
@@ -203,14 +289,14 @@ export default function AdminManagementPage() {
                                 </div>
                                 
                                 <div className="grid grid-cols-2 gap-8">
-                                    <FormField control={form.control} name="academicYear" render={({ field }) => (
+                                    <FormField control={settingsForm.control} name="academicYear" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Année Académique</FormLabel>
                                             <FormControl><Input placeholder="2024-2025" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
-                                    <FormField control={form.control} name="currency" render={({ field }) => (
+                                    <FormField control={settingsForm.control} name="currency" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Devise par défaut</FormLabel>
                                             <FormControl><Input placeholder="XAF" {...field} /></FormControl>
@@ -230,7 +316,7 @@ export default function AdminManagementPage() {
                                 {levelFields.map((field, index) => (
                                     <div key={field.id} className="flex items-center gap-2">
                                         <FormField
-                                            control={form.control}
+                                            control={settingsForm.control}
                                             name={`levels.${index}.value`}
                                             render={({ field }) => (
                                                 <FormItem className="flex-1">
@@ -259,7 +345,7 @@ export default function AdminManagementPage() {
                                 {sectorFields.map((field, index) => (
                                     <div key={field.id} className="flex items-center gap-2">
                                         <FormField
-                                            control={form.control}
+                                            control={settingsForm.control}
                                             name={`sectors.${index}.id`}
                                             render={({ field }) => (
                                                 <FormItem className="flex-1">
@@ -269,7 +355,7 @@ export default function AdminManagementPage() {
                                             )}
                                         />
                                         <FormField
-                                            control={form.control}
+                                            control={settingsForm.control}
                                             name={`sectors.${index}.name`}
                                             render={({ field }) => (
                                                 <FormItem className="flex-1">
@@ -291,8 +377,66 @@ export default function AdminManagementPage() {
 
                         <div className="flex justify-end pt-4">
                             <Button type="submit" disabled={submitting || uploadingLogo}>
-                                {(submitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Enregistrer les paramètres
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
+                
+                 <Form {...fieldsForm}>
+                    <form onSubmit={fieldsForm.handleSubmit(onFieldsSubmit)} className="space-y-8">
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Filières de Formation</CardTitle>
+                                <CardDescription>Gérez les filières de formation disponibles et associez-les à un secteur.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {fieldFields.map((field, index) => (
+                                    <div key={field.formId} className="flex items-center gap-2">
+                                        <FormField
+                                            control={fieldsForm.control}
+                                            name={`fields.${index}.name`}
+                                            render={({ field }) => (
+                                                <FormItem className="flex-1">
+                                                     <FormControl><Input {...field} placeholder="Nom de la filière (ex: Génie Logiciel)" /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={fieldsForm.control}
+                                            name={`fields.${index}.sectorId`}
+                                            render={({ field }) => (
+                                                <FormItem className="w-[200px]">
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger><SelectValue placeholder="Secteur..."/></SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {initialSectors.map(sector => (
+                                                                <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteField(index)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm" onClick={addNewField}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une filière
+                                </Button>
+                            </CardContent>
+                        </Card>
+                         <div className="flex justify-end pt-4">
+                            <Button type="submit" disabled={submitting}>
+                                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Enregistrer les filières
                             </Button>
                         </div>
                     </form>
@@ -334,7 +478,15 @@ export default function AdminManagementPage() {
                         </CardContent>
                     </Card>
                 </div>
-
+                
+                 <UserDeleteDialog
+                    isOpen={isDeleteDialogOpen}
+                    setIsOpen={setIsDeleteDialogOpen}
+                    onConfirm={confirmDeleteField}
+                    item={fieldToDelete}
+                    title="Supprimer cette filière ?"
+                    description="La suppression est définitive. Assurez-vous qu'aucun étudiant ou cours n'est lié à cette filière avant de la supprimer."
+                 />
             </div>
         </div>
     );
