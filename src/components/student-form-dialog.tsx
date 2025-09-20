@@ -24,6 +24,7 @@ import {
   SelectValue,
   SelectGroup,
   SelectLabel,
+  SelectSeparator,
 } from "@/components/ui/select";
 import type { User, Class, Sector, Field, Cycle } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
@@ -373,15 +374,18 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {groupedFields.map((group) => (
-                                <SelectGroup key={group.id}>
-                                  <SelectLabel>{group.name}</SelectLabel>
-                                  {group.fields.map((f) => (
-                                    <SelectItem key={f.id} value={f.id}>
-                                      {f.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
+                              {groupedFields.map((group, index) => (
+                                <React.Fragment key={group.id}>
+                                  <SelectGroup>
+                                    <SelectLabel>{group.name}</SelectLabel>
+                                    {group.fields.map((f) => (
+                                      <SelectItem key={f.id} value={f.id}>
+                                        {f.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                  {index < groupedFields.length - 1 && <SelectSeparator />}
+                                </React.Fragment>
                               ))}
                             </SelectContent>
                           </Select>
@@ -479,5 +483,3 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
-
-    
