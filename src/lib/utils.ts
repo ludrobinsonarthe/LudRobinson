@@ -21,13 +21,21 @@ export async function imageToDataUrl(url: string, defaultLogo: string = '/logo.p
         if (!response.ok) {
             throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
         }
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
+        
+        // Use Buffer on server, FileReader on client
+        if (typeof window === 'undefined') {
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const mimeType = response.headers.get('content-type') || 'image/png';
+            return `data:${mimeType};base64,${buffer.toString('base64')}`;
+        } else {
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
     } catch (error) {
         console.error(`Failed to convert image to data URL from ${fetchUrl}:`, error);
         // Fallback to a default local logo if fetching fails
