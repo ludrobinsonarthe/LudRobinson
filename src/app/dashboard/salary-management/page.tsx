@@ -315,9 +315,6 @@ function SalaryManagementContent() {
         <div className="space-y-6">
             <div className="flex justify-between items-start">
                  <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => router.back()}>
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
                     <div>
                         <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Salaires</h1>
                         <p className="text-muted-foreground">

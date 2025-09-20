@@ -63,7 +63,7 @@ function AppLogo() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-card text-card-foreground">
-        <Image src={settings?.logoUrl || '/logo.png'} alt="ISGI Logo" width={40} height={40} className="object-contain" />
+        <Image src='/logo.png' alt="ISGI Logo" width={40} height={40} className="object-contain" />
       </div>
       <h1 className="font-headline text-lg font-bold tracking-tight text-foreground">
         {settings?.schoolName || 'ISGI'}
@@ -108,7 +108,6 @@ function MainSidebar() {
       group: 'PÉDAGOGIE',
       items: [
         { href: "/dashboard/students", label: "Étudiants", icon: GraduationCap, permission: 'manage_students' },
-        { href: "/dashboard/users", label: "Professeurs", icon: BookUser, permission: 'manage_teachers' },
         { href: "/dashboard/course-management", label: "Gestion Cours", icon: BookMarked, permission: 'manage_course' },
         { href: "/dashboard/grade-management", label: "Évaluations et Notes", icon: ClipboardCheck, permission: 'manage_grades' },
         { href: "/dashboard/attendance", label: "Suivi Présences", icon: UserCheck, permission: 'manage_attendance' },

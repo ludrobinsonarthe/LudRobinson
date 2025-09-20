@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -140,20 +141,11 @@ function AttendanceContent() {
     }, [selectedCourse, students]);
 
     const loading = usersLoading || loadingData;
-    
-    const navigateToSalaries = () => {
-        if(selectedTeacher && selectedTeacher !== 'all') {
-            router.push(`/dashboard/salary-management?userId=${selectedTeacher}`);
-        }
-    }
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => router.back()}>
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
                     <div>
                         <h1 className="text-3xl font-bold font-headline tracking-tight">Suivi des Présences</h1>
                         <p className="text-muted-foreground">Enregistrez la présence des professeurs pour chaque cours planifié.</p>
@@ -175,9 +167,11 @@ function AttendanceContent() {
                                 </SelectContent>
                             </Select>
                             {selectedTeacher !== 'all' && (
-                                <Button variant="outline" onClick={navigateToSalaries}>
-                                    <Banknote className="mr-2 h-4 w-4" />
-                                    Gérer les salaires
+                                <Button variant="outline" asChild>
+                                    <Link href={`/dashboard/salary-management?userId=${selectedTeacher}`}>
+                                        <Banknote className="mr-2 h-4 w-4" />
+                                        Gérer les salaires
+                                    </Link>
                                 </Button>
                             )}
                         </div>
