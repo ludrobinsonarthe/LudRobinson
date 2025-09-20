@@ -30,7 +30,7 @@ type UserContextType = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { user: authUser } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -43,7 +43,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       if (!isMounted) return;
@@ -94,7 +93,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
              const defaultSettings: Settings = {
                 id: 'system',
                 schoolName: 'ISGI',
-                logoUrl: 'https://placehold.co/100x100/195F35/FFFFFF/png?text=ISGI',
+                logoUrl: 'https://6000-firebase-studio-1758011149024.cluster-64pjnskmlbaxowh5lzq6i7v4ra.cloudworkstations.dev/capra/file-icon-theme/image.svg',
                 academicYear: '2024-2025',
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
@@ -123,9 +122,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
     });
 
-    
-    setLoading(false);
-
     return () => {
       isMounted = false;
       unsubUsers();
@@ -138,7 +134,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-      if (authUser && (allUsers.length > 0 || !loading)) {
+    setLoading(true);
+      if (authUser && (allUsers.length > 0 || !authLoading)) {
           const matchedUser = allUsers.find(u => u.uid === authUser.uid);
           if (matchedUser) {
               setCurrentUser(matchedUser);
@@ -178,7 +175,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       } else if (!authUser) {
           setCurrentUser(null);
       }
-  }, [authUser, allUsers, loading]);
+      setLoading(false);
+  }, [authUser, allUsers, authLoading]);
 
   
   const userPermissions = useMemo((): AdminPermission[] => {
