@@ -61,7 +61,11 @@ export default function AdminManagementPage() {
     useEffect(() => {
         if(settings) {
             form.reset({
-                ...settings,
+                schoolName: settings.schoolName,
+                academicYear: settings.academicYear,
+                currency: settings.currency,
+                levels: settings.levels,
+                sectors: settings.sectors,
             });
         }
     }, [settings, form]);
@@ -78,7 +82,9 @@ export default function AdminManagementPage() {
             await setDoc(doc(db, "settings", "system"), settingsToSave);
             
             // Update context
-            setSettings(settingsToSave);
+            if(setSettings) {
+                setSettings(settingsToSave);
+            }
 
             toast({
                 title: "Paramètres enregistrés",
@@ -282,5 +288,7 @@ export default function AdminManagementPage() {
         </div>
     );
 }
+
+    
 
     

@@ -21,7 +21,7 @@ type UserContextType = {
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
   settings: Settings | null;
-  setSettings: React.Dispatch<React.SetStateAction<Settings | null>>;
+  setSettings: React.Dispatch<React.SetStateAction<Settings | null>> | null;
   sectors: Sector[];
   fields: Field[];
   courses: Course[];
@@ -43,6 +43,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       if (!isMounted) return;
@@ -93,7 +94,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
              const defaultSettings: Settings = {
                 id: 'system',
                 schoolName: 'ISGI',
-                logoUrl: '/logo.png',
                 academicYear: '2024-2025',
                 currency: 'XAF',
                 levels: [{ value: 'Licence 1' }, { value: 'Licence 2' }, { value: 'Licence 3' }, { value: 'Master 1' }, { value: 'Master 2' }],
@@ -122,6 +122,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
     });
 
+    Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'adminRoles')),
+        getDocs(doc(db, 'settings', 'system')),
+    ]).finally(() => {
+        if(isMounted) setLoading(false);
+    })
+
     return () => {
       isMounted = false;
       unsubUsers();
@@ -134,7 +142,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-    setLoading(true);
+    
       if (authUser && (allUsers.length > 0 || !authLoading)) {
           const matchedUser = allUsers.find(u => u.uid === authUser.uid);
           if (matchedUser) {
@@ -172,10 +180,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                  setCurrentUser(newUserProfile);
               });
           }
-      } else if (!authUser) {
+      } else if (!authLoading && !authUser) {
           setCurrentUser(null);
       }
-      setLoading(false);
+      
   }, [authUser, allUsers, authLoading]);
 
   
@@ -211,7 +219,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUser, 
       users: allUsers, 
       setUsers: setAllUsers, 
-      loading: loading || !settings,
+      loading: loading,
       roles,
       setRoles,
       userPermissions,
@@ -233,5 +241,7 @@ export function useUser() {
   }
   return context;
 }
+
+    
 
     
