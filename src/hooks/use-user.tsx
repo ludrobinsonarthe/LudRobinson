@@ -5,7 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { mockAdminRoles, mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
@@ -85,11 +85,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if(doc.exists()){
             const settingsData = doc.data() as Settings;
             setSettings(settingsData);
-            if (settingsData.sectors && settingsData.sectors.length > 0) {
-                setSectors(settingsData.sectors);
-            } else {
-                 setSectors(mockSectors);
-            }
         } else {
              const defaultSettings: Settings = {
                 id: 'system',
@@ -100,7 +95,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 sectors: mockSectors,
             };
             if(isMounted) setSettings(defaultSettings);
-            if(isMounted) setSectors(mockSectors);
         }
     });
     
@@ -125,7 +119,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'adminRoles')),
-        getDocs(doc(db, 'settings', 'system')),
+        getDoc(doc(db, 'settings', 'system')),
     ]).finally(() => {
         if(isMounted) setLoading(false);
     })
@@ -155,7 +149,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                   email: authUser.email || '',
                   firstName: isSuperAdminEmail ? "ISGI Admin" : authUser.displayName?.split(' ')[0] || 'Nouveau',
                   lastName: isSuperAdminEmail ? "User" : authUser.displayName?.split(' ')[1] || 'Utilisateur',
-                  photoUrl: authUser.photoURL || `/logo.png`,
+                  photoUrl: "/logo.png",
                   role: isSuperAdminEmail ? 'admin' : 'student',
                   status: 'active',
                   createdAt: new Date().toISOString(),
@@ -219,7 +213,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUser, 
       users: allUsers, 
       setUsers: setAllUsers, 
-      loading: loading,
+      loading: authLoading || loading,
       roles,
       setRoles,
       userPermissions,
@@ -241,7 +235,3 @@ export function useUser() {
   }
   return context;
 }
-
-    
-
-    

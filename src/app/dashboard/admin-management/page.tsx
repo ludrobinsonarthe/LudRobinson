@@ -75,7 +75,6 @@ export default function AdminManagementPage() {
         try {
             const settingsToSave: Settings = {
                 id: 'system',
-                ...settings,
                 ...data,
             };
 
@@ -288,7 +287,3 @@ export default function AdminManagementPage() {
         </div>
     );
 }
-
-    
-
-    

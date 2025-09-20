@@ -1,4 +1,5 @@
 
+
 "use client"
 import Link from "next/link";
 import { usePathname, redirect, useRouter } from "next/navigation";
@@ -55,7 +56,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import ShareDialog from "@/components/share-dialog";
 
 function AppLogo() {
-  const { settings } = useUser();
+  const { settings, loading } = useUser();
+  if (loading && !settings) {
+    return <div className="flex items-center gap-2.5 h-10" />;
+  }
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -229,7 +233,15 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
         if (!authLoading && !authUser) {
             redirect('/login');
         }
-    }, [authUser, authLoading]);
+    }, [authUser, authLoading, router]);
+    
+    if (authLoading || !authUser) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        );
+    }
     
     return (
         <UserProvider>
@@ -241,9 +253,9 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 }
 
 function ProtectedContent({children}: {children: React.ReactNode}) {
-    const { loading: userContextLoading } = useUser();
+    const { user, loading: userContextLoading } = useUser();
     
-    if (userContextLoading) {
+    if (userContextLoading || !user) {
          return (
             <div className="flex h-screen w-full items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -274,5 +286,3 @@ export default function DashboardLayout({
     </ProtectedLayout>
   );
 }
-
-    
