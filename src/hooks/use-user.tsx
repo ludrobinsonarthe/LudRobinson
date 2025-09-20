@@ -17,7 +17,6 @@ type UserContextType = {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   loading: boolean;
   roles: AdminRole[];
-  setRoles: React.Dispatch<React.SetStateAction<AdminRole[]>>;
   settings: Settings;
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
@@ -88,16 +87,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if(isMounted) setRoles(mockAdminRoles);
     });
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (docSnap) => {
         if (!isMounted) return;
-        if(doc.exists()){
-            const settingsData = doc.data() as Settings;
-            setSettings(settingsData);
-            setSectors(settingsData.sectors || []);
+        if(docSnap.exists()){
+            setSettings(docSnap.data() as Settings);
         } else {
-            setSettings(defaultSettings);
-            setSectors(defaultSettings.sectors || []);
              setDoc(doc(db, "settings", "system"), defaultSettings, { merge: true });
+             setSettings(defaultSettings);
         }
     });
     
@@ -119,12 +115,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
     });
 
-    const checkLoading = () => {
-        if (!authLoading && (allUsers.length > 0 || fields.length > 0)) {
+    // This ensures that loading is set to false only after all initial data fetches are attempted
+     const timer = setTimeout(() => {
+        if (isMounted) {
             setLoading(false);
         }
-    };
-    const loadingTimeout = setTimeout(checkLoading, 500);
+    }, 1500);
 
 
     return () => {
@@ -134,13 +130,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       unsubSettings();
       unsubFields();
       unsubCourses();
-      clearTimeout(loadingTimeout);
+      clearTimeout(timer);
     };
    
   }, []);
   
   useEffect(() => {
-      if (authLoading) return;
+      if (authLoading || loading) return;
     
       if (authUser && allUsers.length > 0) {
           const matchedUser = allUsers.find(u => u.uid === authUser.uid);
@@ -154,7 +150,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                   email: authUser.email || '',
                   firstName: isSuperAdminEmail ? "ISGI Admin" : authUser.displayName?.split(' ')[0] || 'Nouveau',
                   lastName: isSuperAdminEmail ? "User" : authUser.displayName?.split(' ')[1] || 'Utilisateur',
-                  photoUrl: "/logo.png",
+                  photoUrl: authUser.photoURL || "/logo.png",
                   role: isSuperAdminEmail ? 'admin' : 'student',
                   status: 'active',
                   createdAt: new Date().toISOString(),
@@ -179,13 +175,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                  setCurrentUser(newUserProfile);
               });
           }
-           setLoading(false);
       } else if (!authUser) {
           setCurrentUser(null);
-          setLoading(false);
       }
       
-  }, [authUser, allUsers, authLoading]);
+  }, [authUser, allUsers, authLoading, loading]);
 
   
   const userPermissions = useMemo((): AdminPermission[] => {
@@ -215,18 +209,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setAllUsers(prevUsers => prevUsers.map(u => u.uid === user.uid ? user : u));
   };
   
+  const finalLoadingState = authLoading || loading || (!!authUser && !currentUser);
+
   const value: UserContextType = { 
       user: currentUser, 
       setUser, 
       users: allUsers, 
       setUsers: setAllUsers, 
-      loading: authLoading || loading,
+      loading: finalLoadingState,
       roles,
-      setRoles,
       userPermissions,
       hasPermission,
-      settings: settings || defaultSettings,
-      sectors,
+      settings,
+      sectors: settings?.sectors || [],
       fields,
       courses
   };

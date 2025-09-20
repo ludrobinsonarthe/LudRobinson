@@ -33,10 +33,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "firebasestorage.googleapis.com",
       },
-      {
-        protocol: "https",
-        hostname: "6000-firebase-studio-1758011149024.cluster-64pjnskmlbaxowh5lzq6i7v4ra.cloudworkstations.dev",
-      }
     ],
   },
 };

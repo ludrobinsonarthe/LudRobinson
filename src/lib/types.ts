@@ -252,7 +252,3 @@ export interface UnifiedSalary {
   // Admin specific
   baseSalary?: number;
 }
-
-    
-
-    

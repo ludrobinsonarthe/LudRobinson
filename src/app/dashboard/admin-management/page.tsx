@@ -9,17 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck, Upload } from "lucide-react";
 import { Settings } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import Image from "next/image";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const settingsFormSchema = z.object({
   schoolName: z.string().min(3, "Le nom de l'école est requis."),
+  logoUrl: z.string().url("L'URL du logo doit être valide.").optional().or(z.literal('')),
+  logoFile: z.any().optional(),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, "Le format doit être AAAA-AAAA (ex: 2024-2025)."),
   currency: z.string().length(3, "La devise doit être un code de 3 lettres (ex: XAF)."),
   levels: z.array(z.object({ value: z.string().min(1, "Le niveau est requis.") })),
@@ -35,11 +39,13 @@ export default function AdminManagementPage() {
     const { toast } = useToast();
     const { settings, loading: loadingSettings } = useUser();
     const [submitting, setSubmitting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm<SettingsFormValues>({
         resolver: zodResolver(settingsFormSchema),
         defaultValues: {
             schoolName: "",
+            logoUrl: "",
             academicYear: "",
             currency: "",
             levels: [],
@@ -59,23 +65,50 @@ export default function AdminManagementPage() {
     useEffect(() => {
         if(settings) {
             form.reset({
-                schoolName: settings.schoolName,
-                academicYear: settings.academicYear,
-                currency: settings.currency,
-                levels: settings.levels,
-                sectors: settings.sectors,
+                schoolName: settings.schoolName || "",
+                logoUrl: settings.logoUrl || "",
+                academicYear: settings.academicYear || "",
+                currency: settings.currency || "",
+                levels: settings.levels || [],
+                sectors: settings.sectors || [],
             });
         }
     }, [settings, form]);
     
+    const handleLogoUpload = async (file: File) => {
+        if (!file) return null;
+        setSubmitting(true);
+        try {
+            const storageRef = ref(storage, `logos/logo-${Date.now()}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            form.setValue("logoUrl", downloadURL, { shouldDirty: true });
+            toast({ title: "Logo téléversé", description: "Cliquez sur 'Enregistrer' pour appliquer le nouveau logo." });
+            return downloadURL;
+        } catch (error) {
+            console.error("Error uploading logo: ", error);
+            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible de téléverser le logo." });
+            return null;
+        } finally {
+            setSubmitting(false);
+        }
+    };
+    
+    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            handleLogoUpload(file);
+        }
+    };
+
     const onSubmit = async (data: SettingsFormValues) => {
         setSubmitting(true);
         try {
-            const settingsToSave: Partial<Settings> = { ...data };
+            const { logoFile, ...settingsToSave } = data;
             await setDoc(doc(db, "settings", "system"), settingsToSave, { merge: true });
             toast({
                 title: "Paramètres enregistrés",
-                description: "Les paramètres globaux ont été mis à jour. Rechargez la page pour voir les changements.",
+                description: "Les paramètres globaux ont été mis à jour.",
             });
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -117,13 +150,38 @@ export default function AdminManagementPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-8">
-                                 <FormField control={form.control} name="schoolName" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Nom de l'établissement</FormLabel>
-                                        <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                                    <FormField control={form.control} name="schoolName" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nom de l'établissement</FormLabel>
+                                            <FormControl><Input placeholder="Institut Supérieur de Gestion et d'Ingénierie" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                    <div className="space-y-2">
+                                        <FormLabel>Logo de l'établissement</FormLabel>
+                                        <div className="flex items-center gap-4">
+                                            <Image 
+                                                src={form.watch('logoUrl') || '/logo.png'} 
+                                                alt="Logo"
+                                                width={64}
+                                                height={64}
+                                                className="rounded-md object-contain border p-1"
+                                            />
+                                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Téléverser le logo
+                                            </Button>
+                                            <Input
+                                                type="file"
+                                                className="hidden"
+                                                ref={fileInputRef}
+                                                onChange={onFileChange}
+                                                accept="image/png, image/jpeg, image/svg+xml"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                                 
                                 <div className="grid grid-cols-2 gap-8">
                                     <FormField control={form.control} name="academicYear" render={({ field }) => (
