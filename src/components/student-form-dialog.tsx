@@ -22,15 +22,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  SelectGroup,
-  SelectLabel,
-  SelectSeparator,
 } from "@/components/ui/select";
-import type { User, Class, Sector, Field, Cycle } from "@/lib/types";
+import type { User, Sector, Field, Cycle } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
 import ImageCropperDialog from "./image-cropper-dialog";
 import { useUser } from "@/hooks/use-user";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 
 
 const studentFormSchema = z.object({
@@ -362,33 +361,37 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                       control={form.control}
                       name="fieldId"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Filière</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner une filière..." />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {groupedFields.map((group, index) => (
-                                <React.Fragment key={group.id}>
-                                  <SelectGroup>
-                                    <SelectLabel>{group.name}</SelectLabel>
-                                    {group.fields.map((f) => (
-                                      <SelectItem key={f.id} value={f.id}>
-                                        {f.name}
-                                      </SelectItem>
+                        <FormItem className="space-y-3">
+                            <FormLabel>Filière</FormLabel>
+                            <Tabs defaultValue={groupedFields.find(s => s.fields.some(f => f.id === field.value))?.id || groupedFields[0]?.id} className="w-full">
+                                <TabsList className="grid w-full grid-cols-3">
+                                    {groupedFields.map(sector => (
+                                        <TabsTrigger key={sector.id} value={sector.id}>{sector.name}</TabsTrigger>
                                     ))}
-                                  </SelectGroup>
-                                  {index < groupedFields.length - 1 && <SelectSeparator />}
-                                </React.Fragment>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                                </TabsList>
+                                <FormControl>
+                                    <RadioGroup
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                    className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4"
+                                    >
+                                    {groupedFields.map(sector => (
+                                        <TabsContent key={sector.id} value={sector.id} className="m-0 space-y-3">
+                                            {sector.fields.map(f => (
+                                                <FormItem key={f.id} className="flex items-center space-x-3 space-y-0 rounded-md border p-3 hover:bg-accent/50 has-[:checked]:bg-accent has-[:checked]:text-accent-foreground">
+                                                    <FormControl>
+                                                        <RadioGroupItem value={f.id} />
+                                                    </FormControl>
+                                                    <FormLabel className="font-normal cursor-pointer w-full">
+                                                        {f.name}
+                                                    </FormLabel>
+                                                </FormItem>
+                                            ))}
+                                        </TabsContent>
+                                    ))}
+                                    </RadioGroup>
+                                </FormControl>
+                            </Tabs>
                           <FormMessage />
                         </FormItem>
                       )}
