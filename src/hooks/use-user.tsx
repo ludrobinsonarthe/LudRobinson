@@ -9,6 +9,7 @@ import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc
 import { adminPermissions } from '@/lib/types';
 import { mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
+import { useToast } from './use-toast';
 
 type UserContextType = {
   user: User | null;
@@ -39,7 +40,8 @@ const defaultSettings: Settings = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading, signOut } = useAuth();
+  const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -158,41 +160,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           } else {
               const isSuperAdminEmail = authUser.email === "admin@isgi.com" || authUser.email === "semfranslinbourangon@gmail.com";
               
-              const newUserProfile: User = {
-                  uid: authUser.uid,
-                  email: authUser.email || '',
-                  firstName: isSuperAdminEmail ? "ISGI Admin" : authUser.displayName?.split(' ')[0] || 'Nouveau',
-                  lastName: isSuperAdminEmail ? "User" : authUser.displayName?.split(' ')[1] || 'Utilisateur',
-                  photoUrl: authUser.photoURL || "/logo.png",
-                  role: isSuperAdminEmail ? 'admin' : 'student',
-                  status: 'active',
-                  createdAt: new Date().toISOString(),
-              };
-
               if (isSuperAdminEmail) {
-                newUserProfile.admin = {
-                    roleId: 'super_admin',
-                    position: 'Super-Administrateur'
-                }
-              }
-              
-              const userDocRef = doc(db, 'users', authUser.uid);
-              setDoc(userDocRef, newUserProfile).then(() => {
-                 setAllUsers(prev => {
-                    const userExists = prev.some(u => u.uid === newUserProfile.uid);
-                    if (!userExists) {
-                        return [...prev, newUserProfile];
+                // This is a special case to ensure the super admin can always log in and be created if not present.
+                 const newUserProfile: User = {
+                    uid: authUser.uid,
+                    email: authUser.email || '',
+                    firstName: "ISGI Admin",
+                    lastName: "User",
+                    photoUrl: authUser.photoURL || "/logo.png",
+                    role: 'admin',
+                    status: 'active',
+                    createdAt: new Date().toISOString(),
+                    admin: {
+                        roleId: 'super_admin',
+                        position: 'Super-Administrateur'
                     }
-                    return prev.map(u => u.uid === newUserProfile.uid ? newUserProfile : u);
+                };
+                 const userDocRef = doc(db, 'users', authUser.uid);
+                 setDoc(userDocRef, newUserProfile).then(() => {
+                    setAllUsers(prev => [...prev, newUserProfile]);
+                    setCurrentUser(newUserProfile);
                  });
-                 setCurrentUser(newUserProfile);
-              });
+              } else {
+                 // For any other user not found in the database, sign them out.
+                 toast({
+                    variant: "destructive",
+                    title: "Accès non autorisé",
+                    description: "Votre compte n'est pas enregistré dans le système. Veuillez contacter l'administration.",
+                });
+                signOut();
+              }
           }
       } else if (!authUser) {
           setCurrentUser(null);
       }
       
-  }, [authUser, allUsers, authLoading, loading]);
+  }, [authUser, allUsers, authLoading, loading, signOut, toast]);
 
   
   const userPermissions = useMemo((): AdminPermission[] => {

@@ -46,14 +46,13 @@ import {
   Loader2,
   BookUser,
   UserCheck,
-  Share2,
+  QrCode,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect, useState } from "react";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
-import ShareDialog from "@/components/share-dialog";
 
 function AppLogo() {
   const { settings, loading } = useUser();
@@ -77,7 +76,6 @@ function MainSidebar() {
   const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -145,7 +143,6 @@ function MainSidebar() {
 
 
   return (
-    <>
       <Sidebar>
         <SidebarHeader>
           <AppLogo />
@@ -207,10 +204,12 @@ function MainSidebar() {
                   </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip={"Partager"} onClick={() => setIsShareDialogOpen(true)}>
-                  <Share2 />
-                  <span>Partager</span>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname === "/dashboard/share-session"} tooltip={"Partager la session"}>
+                  <Link href="/dashboard/share-session">
+                    <QrCode />
+                    <span>Partager la session</span>
+                  </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -219,8 +218,6 @@ function MainSidebar() {
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <ShareDialog isOpen={isShareDialogOpen} setIsOpen={setIsShareDialogOpen} />
-    </>
   );
 }
 
