@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Course, Field, Sector, Cycle } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays, FileDown } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc } from "firebase/firestore";
@@ -26,6 +26,11 @@ import CourseFormDialog from "@/components/course-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { imageToDataUrl } from '@/lib/utils';
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
@@ -145,6 +150,51 @@ export default function CourseManagementPage() {
         }
     }
 
+    const handleExportPDF = async () => {
+        if (!settings) return;
+        const doc = new jsPDF();
+
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if(logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
+
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Liste des Cours - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
+
+        const tableColumn = ["Nom du Cours", "Niveau", "Filière", "Professeur", "Crédit"];
+        const tableRows: (string | number)[][] = [];
+
+        filteredCourses.forEach(course => {
+            const courseData = [
+                course.name,
+                course.level,
+                getFieldInfo(course.fieldId).fieldName,
+                getTeacherName(course.teacherId),
+                course.credit,
+            ];
+            tableRows.push(courseData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+        });
+
+        doc.save(`liste_cours_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        toast({ title: 'Téléchargement réussi', description: 'La liste des cours a été exportée en PDF.' });
+    };
+
     const pageIsLoading = loading || loadingCourses;
 
     return (
@@ -157,6 +207,10 @@ export default function CourseManagementPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                     <Button variant="outline" onClick={handleExportPDF}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exporter
+                    </Button>
                     <Button variant="outline" asChild>
                         <Link href="/dashboard/schedule">
                             <CalendarDays className="mr-2 h-4 w-4" />

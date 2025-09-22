@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { TeacherSalary, Attendance, Course, UnifiedSalary, User } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download, ArrowLeft } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download, ArrowLeft, FileDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -299,6 +299,51 @@ function SalaryManagementContent() {
         toast({ title: 'Bulletin de paie généré' });
     }
 
+    const handleExportPDF = async () => {
+        if (!settings) return;
+        const doc = new jsPDF();
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if(logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Historique des Salaires - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
+
+        const tableColumn = ["Employé", "Rôle", "Mois/Année", "Salaire Total", "Statut"];
+        const tableRows: string[][] = [];
+
+        filteredSalaries.forEach(s => {
+            const salaryData = [
+                s.userName,
+                s.userRole === 'teacher' ? 'Professeur' : 'Admin',
+                `${s.month} ${s.year}`,
+                formatCurrency(s.totalSalary, s.currency),
+                statusTranslation[s.status],
+            ];
+            tableRows.push(salaryData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+        });
+
+        doc.save(`historique_salaires_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        toast({ title: 'Téléchargement réussi', description: 'Le fichier PDF de l\'historique des salaires a été généré.' });
+    };
+
     const statusVariant: { [key: string]: "default" | "secondary" } = {
         paid: "default",
         pending: "secondary",
@@ -331,10 +376,16 @@ function SalaryManagementContent() {
                         </p>
                     </div>
                 </div>
-                <Button onClick={handleAdd}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Générer une fiche de paie
-                </Button>
+                 <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={handleExportPDF}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exporter
+                    </Button>
+                    <Button onClick={handleAdd}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Générer une fiche de paie
+                    </Button>
+                </div>
             </div>
             <Card>
                 <CardHeader>

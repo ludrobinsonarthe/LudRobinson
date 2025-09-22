@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, UserRole, AdminRole, TeacherSalary } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote, FileDown } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +30,9 @@ import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { imageToDataUrl } from '@/lib/utils';
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
@@ -53,7 +56,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { users, loading, roles } = useUser();
+    const { users, loading, roles, settings } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -178,6 +181,50 @@ export default function UsersPage() {
         }
     }
 
+    const handleExportPDF = async () => {
+        if (!settings) return;
+        const doc = new jsPDF();
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if(logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Liste du Personnel - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
+
+        const tableColumn = ["Nom", "Email", "Rôle", "Spécificité"];
+        const tableRows: string[][] = [];
+
+        filteredEmployees.forEach(user => {
+            const userData = [
+                `${user.lastName} ${user.firstName}`,
+                user.email,
+                roleTranslation[user.role],
+                user.role === 'teacher' ? user.teacher?.specialty || 'N/A' : rolesById[user.admin?.roleId || '']?.name || 'N/A',
+            ];
+            tableRows.push(userData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+        });
+
+        doc.save(`liste_personnel_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        toast({ title: 'Téléchargement réussi', description: 'Le fichier PDF du personnel a été généré.' });
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
@@ -187,18 +234,24 @@ export default function UsersPage() {
                         Gérez les comptes des professeurs et du personnel administratif.
                     </p>
                 </div>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Ajouter du personnel
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleAdd('teacher')}>Ajouter un Professeur</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleAdd('admin')}>Ajouter un Administrateur</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center gap-2">
+                     <Button variant="outline" onClick={handleExportPDF}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exporter
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Ajouter du personnel
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleAdd('teacher')}>Ajouter un Professeur</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAdd('admin')}>Ajouter un Administrateur</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
             <Card>
                 <CardHeader>
