@@ -1,10 +1,13 @@
 
 
-import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
+// ===================================================================================
+// IMPORTANT: CE FICHIER EST OBSOLÈTE ET N'EST PLUS UTILISÉ PAR L'APPLICATION.
+// Il est conservé uniquement à des fins de référence historique.
+// L'application s'appuie désormais exclusivement sur la base de données Firestore
+// sécurisée par les règles de sécurité.
+// ===================================================================================
 
-// Mock data is now being used as the primary source until Firestore rules are configured.
-// THIS FILE IS NOW DEPRECATED as of the implementation of Firestore rules.
-// It is kept for reference but should not be used for seeding in production.
+import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
 
 export const mockUsers: User[] = [
     {
