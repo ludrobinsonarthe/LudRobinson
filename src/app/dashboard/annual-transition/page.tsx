@@ -18,6 +18,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { db } from '@/lib/firebase';
 import { writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -25,9 +40,16 @@ import { useRouter } from 'next/navigation';
 
 const PASSING_GRADE = 10;
 
+type StudentWithAverage = User & { average: number };
+type ListType = 'promus' | 'diplômés' | 'redoublants';
+
+
 export default function AnnualTransitionPage() {
     const { users, loading, settings, setUsers, courses, grades } = useUser();
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isListDialogOpen, setIsListDialogOpen] = useState(false);
+    const [listToShow, setListToShow] = useState<StudentWithAverage[]>([]);
+    const [listTitle, setListTitle] = useState('');
     const { toast } = useToast();
     const router = useRouter();
 
@@ -73,29 +95,45 @@ export default function AnnualTransitionPage() {
         return totalCredits > 0 ? totalWeightedAverage / totalCredits : 0;
     };
     
+    const getNextLevel = (currentLevel: string): string | null => {
+        if (!settings?.levels) return null;
+        const currentIndex = settings.levels.findIndex(l => l.value === currentLevel);
+        if (currentIndex > -1 && currentIndex < settings.levels.length - 1) {
+            return settings.levels[currentIndex + 1].value;
+        }
+        return null; // This is the last level, student will graduate
+    };
+
     const transitionPlan = useMemo(() => {
-        const studentsToPromote: User[] = [];
-        const studentsToRepeat: User[] = [];
-        const studentsToGraduate: User[] = [];
-        const studentsWithNoGrades: User[] = [];
+        const studentsToPromote: StudentWithAverage[] = [];
+        const studentsToRepeat: StudentWithAverage[] = [];
+        const studentsToGraduate: StudentWithAverage[] = [];
+        const studentsWithNoGrades: StudentWithAverage[] = [];
 
         activeStudents.forEach(student => {
              if (student.student?.fieldId && student.student?.level) {
                 const studentCourses = courses.filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
                 const average = getOverallAverage(student.uid, studentCourses);
+                const studentWithAvg = { ...student, average };
+
+                if (average === 0 && studentCourses.length > 0) {
+                    studentsWithNoGrades.push(studentWithAvg);
+                    studentsToRepeat.push(studentWithAvg); // Consider them repeating if no grades
+                    return;
+                }
 
                 if (average >= PASSING_GRADE) {
                     const nextLevel = getNextLevel(student.student.level);
                     if (nextLevel) {
-                        studentsToPromote.push(student);
+                        studentsToPromote.push(studentWithAvg);
                     } else {
-                        studentsToGraduate.push(student);
+                        studentsToGraduate.push(studentWithAvg);
                     }
                 } else {
-                    studentsToRepeat.push(student);
+                    studentsToRepeat.push(studentWithAvg);
                 }
             } else {
-                 studentsWithNoGrades.push(student);
+                 studentsWithNoGrades.push({ ...student, average: 0 });
             }
         });
         
@@ -104,13 +142,22 @@ export default function AnnualTransitionPage() {
     }, [activeStudents, courses, grades, settings]);
 
 
-    const getNextLevel = (currentLevel: string): string | null => {
-        if (!settings?.levels) return null;
-        const currentIndex = settings.levels.findIndex(l => l.value === currentLevel);
-        if (currentIndex > -1 && currentIndex < settings.levels.length - 1) {
-            return settings.levels[currentIndex + 1].value;
+    const handleShowList = (type: ListType) => {
+        switch(type) {
+            case 'promus':
+                setListToShow(transitionPlan.studentsToPromote);
+                setListTitle("Liste des étudiants promus");
+                break;
+            case 'diplômés':
+                setListToShow(transitionPlan.studentsToGraduate);
+                setListTitle("Liste des futurs diplômés");
+                break;
+            case 'redoublants':
+                setListToShow(transitionPlan.studentsToRepeat);
+                setListTitle("Liste des étudiants redoublants");
+                break;
         }
-        return null; // This is the last level, student will graduate
+        setIsListDialogOpen(true);
     };
 
     const handlePromoteStudents = async () => {
@@ -182,37 +229,43 @@ export default function AnnualTransitionPage() {
                 <CardHeader>
                     <CardTitle>Résumé de la Transition</CardTitle>
                     <CardDescription>
-                        Aperçu des promotions, redoublements et diplômes qui seront appliqués.
+                        Aperçu des promotions, redoublements et diplômes qui seront appliqués. Cliquez sur une carte pour voir la liste.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                     <Card className="text-center bg-green-500/10 border-green-500">
-                        <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium flex items-center justify-center gap-2"><CheckCircle className="h-4 w-4" /> Promus</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{transitionPlan.studentsToPromote.length}</p>
-                            <p className="text-xs text-muted-foreground">étudiants admis</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="text-center bg-blue-500/10 border-blue-500">
-                        <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium flex items-center justify-center gap-2"><GraduationCap className="h-4 w-4"/> Diplômés</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{transitionPlan.studentsToGraduate.length}</p>
-                            <p className="text-xs text-muted-foreground">étudiants en fin de cycle</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="text-center bg-orange-500/10 border-orange-500">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center justify-center gap-2"><Repeat className="h-4 w-4"/> Redoublants</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{transitionPlan.studentsToRepeat.length}</p>
-                            <p className="text-xs text-muted-foreground">étudiants non admis</p>
-                        </CardContent>
-                    </Card>
+                     <button onClick={() => handleShowList('promus')} className="text-left">
+                        <Card className="text-center bg-green-500/10 border-green-500 hover:bg-green-500/20 transition-colors">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium flex items-center justify-center gap-2"><CheckCircle className="h-4 w-4" /> Promus</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">{transitionPlan.studentsToPromote.length}</p>
+                                <p className="text-xs text-muted-foreground">étudiants admis</p>
+                            </CardContent>
+                        </Card>
+                     </button>
+                     <button onClick={() => handleShowList('diplômés')} className="text-left">
+                        <Card className="text-center bg-blue-500/10 border-blue-500 hover:bg-blue-500/20 transition-colors">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium flex items-center justify-center gap-2"><GraduationCap className="h-4 w-4"/> Diplômés</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">{transitionPlan.studentsToGraduate.length}</p>
+                                <p className="text-xs text-muted-foreground">étudiants en fin de cycle</p>
+                            </CardContent>
+                        </Card>
+                     </button>
+                     <button onClick={() => handleShowList('redoublants')} className="text-left">
+                        <Card className="text-center bg-orange-500/10 border-orange-500 hover:bg-orange-500/20 transition-colors">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium flex items-center justify-center gap-2"><Repeat className="h-4 w-4"/> Redoublants</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">{transitionPlan.studentsToRepeat.length}</p>
+                                <p className="text-xs text-muted-foreground">étudiants non admis</p>
+                            </CardContent>
+                        </Card>
+                    </button>
                 </CardContent>
             </Card>
 
@@ -257,6 +310,43 @@ export default function AnnualTransitionPage() {
                 </CardContent>
             </Card>
 
+            <Dialog open={isListDialogOpen} onOpenChange={setIsListDialogOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>{listTitle}</DialogTitle>
+                        <DialogDescription>
+                            Liste des étudiants concernés par cette catégorie.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Étudiant</TableHead>
+                                    <TableHead>Matricule</TableHead>
+                                    <TableHead className="text-right">Moyenne</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {listToShow.length > 0 ? listToShow.map(student => (
+                                    <TableRow key={student.uid}>
+                                        <TableCell className="font-medium">{student.lastName} {student.firstName}</TableCell>
+                                        <TableCell>{student.student?.matricule}</TableCell>
+                                        <TableCell className="text-right font-bold">{student.average.toFixed(2)} / 20</TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center h-24">Aucun étudiant dans cette catégorie.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
+
+    
