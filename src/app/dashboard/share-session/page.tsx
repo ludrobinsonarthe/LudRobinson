@@ -12,7 +12,6 @@ import { useAuth } from "@/hooks/use-auth";
 import QRCode from "qrcode.react";
 import { signInWithCustomToken } from "firebase/auth";
 import { Button } from "@/components/ui/button";
-import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 function ShareSessionContent() {
   const [mode, setMode] = useState<'initial' | 'display_qr' | 'validate_qr'>('initial');
@@ -160,10 +159,10 @@ function ShareSessionContent() {
       return (
          <Card className="w-full max-w-md mx-auto">
             <CardHeader className="items-center text-center">
-                <DialogTitle>Connexion par Code QR</DialogTitle>
-                <DialogDescription>
+                <CardTitle>Connexion par Code QR</CardTitle>
+                <CardDescription>
                     Connectez-vous sur votre téléphone, allez dans "Partager la session", puis scannez ce code.
-                </DialogDescription>
+                </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center p-4 gap-4">
                 {qrSessionId ? (
@@ -239,5 +238,3 @@ export default function ShareSessionPage() {
         </div>
     )
 }
-
-    
