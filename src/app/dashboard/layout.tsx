@@ -90,6 +90,7 @@ function MainSidebar() {
     { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
     { href: "/dashboard/grades", label: "Notes", icon: ClipboardList },
     { href: "/dashboard/schedule", label: "Emploi du temps", icon: CalendarDays },
+    { href: "/dashboard/tutor", label: "Tuteur IA", icon: Bot },
     { href: "/dashboard/promotion", label: "Ma Promotion", icon: Users },
     { href: "/dashboard/documents", label: "Documents", icon: FileText },
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
