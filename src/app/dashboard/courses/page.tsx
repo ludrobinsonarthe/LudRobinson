@@ -62,7 +62,7 @@ export default function CoursesPage() {
         }
 
         const unsubscribe = onSnapshot(q, snapshot => {
-            setCourses(snapshot.docs.map(doc => doc.data() as Course));
+            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
             setLoading(false);
         });
 
@@ -188,5 +188,3 @@ export default function CoursesPage() {
         </div>
     );
 }
-
-    

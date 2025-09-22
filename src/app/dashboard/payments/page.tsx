@@ -117,7 +117,7 @@ export default function PaymentsPage() {
                                 <SelectContent>
                                     {children.map(child => (
                                         <SelectItem key={child.uid} value={child.uid}>
-                                            {child.firstName} {child.lastName}
+                                            {child.lastName} {child.firstName}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

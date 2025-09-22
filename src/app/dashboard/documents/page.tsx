@@ -101,7 +101,7 @@ export default function DocumentsPage() {
                                 <SelectContent>
                                     {children.map(child => (
                                         <SelectItem key={child.uid} value={child.uid}>
-                                            {child.firstName} {child.lastName}
+                                            {child.lastName} {child.firstName}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -144,7 +144,7 @@ export default function DocumentsPage() {
                                         {format(new Date(doc.issuedAt), 'd MMMM yyyy', { locale: fr })}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button asChild variant="outline" size="sm" disabled={doc.fileUrl === '#'}>
+                                        <Button asChild variant="outline" size="sm" disabled={!doc.fileUrl || doc.fileUrl === '#'}>
                                             <a href={doc.fileUrl} download>
                                                 <Download className="mr-2 h-4 w-4"/>
                                                 Télécharger
