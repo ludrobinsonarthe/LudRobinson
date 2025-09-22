@@ -142,10 +142,9 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
   const generateMatricule = (level: string) => {
     if (!level) return '';
     const year = new Date().getFullYear();
-    const levelCode = level.replace(' ', '').slice(-2).toUpperCase(); // L1, L2, M1...
     const studentsInLevel = students.filter(s => s.student?.level === level).length;
     const nextId = (studentsInLevel + 1).toString().padStart(4, '0');
-    return `ISGI-${year}-${levelCode}-${nextId}`;
+    return `ISGI-${year}-${level.replace(/[^0-9]/g, '')}-${nextId}`;
   };
 
   useEffect(() => {
@@ -167,7 +166,12 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 lastDiploma: student.student?.lastDiploma || '',
                 parentUid: student.student?.parentUid || '',
                 parentalLink: student.student?.parentalLink || '',
-                parentSelection: student.student?.parentUid ? 'existing' : 'new'
+                parentSelection: student.student?.parentUid ? 'existing' : 'new',
+                parentFirstName: '',
+                parentLastName: '',
+                parentEmail: '',
+                parentPhone: '',
+                parentAddress: '',
             });
         } else {
           // Reset and generate new matricule if level is already selected
@@ -313,7 +317,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="gender" render={({ field }) => (
                         <FormItem><FormLabel>Sexe</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
                               <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                               <SelectContent>
                                   <SelectItem value="M">Masculin</SelectItem>
@@ -347,7 +351,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                     )}/>
                      <FormField control={form.control} name="level" render={({ field }) => (
                         <FormItem><FormLabel>Niveau</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un niveau..." /></SelectTrigger></FormControl>
                             <SelectContent>{settings?.levels.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}</SelectContent>
                         </Select>
@@ -401,7 +405,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                  <div className="grid grid-cols-2 gap-4">
                      <FormField control={form.control} name="cycle" render={({ field }) => (
                         <FormItem><FormLabel>Cycle</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un cycle..." /></SelectTrigger></FormControl>
                             <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
@@ -423,7 +427,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
                 <FormField control={form.control} name="parentSelection" render={({ field }) => (
                     <FormItem>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
                         <SelectContent>
                             <SelectItem value="existing">Sélectionner un tuteur existant</SelectItem>
@@ -436,7 +440,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 {parentSelection === 'existing' && (
                     <FormField control={form.control} name="parentUid" render={({ field }) => (
                         <FormItem><FormLabel>Tuteur existant</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un tuteur..." /></SelectTrigger></FormControl>
                             <SelectContent>{parents.map(p => <SelectItem key={p.uid} value={p.uid}>{p.firstName} {p.lastName}</SelectItem>)}</SelectContent>
                         </Select>
