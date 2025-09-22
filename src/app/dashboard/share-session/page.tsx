@@ -11,6 +11,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
 import QRCode from "qrcode.react";
 import { signInWithCustomToken } from "firebase/auth";
+import { Button } from "@/components/ui/button";
+import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 function ShareSessionContent() {
   const [mode, setMode] = useState<'initial' | 'display_qr' | 'validate_qr'>('initial');
@@ -237,3 +239,5 @@ export default function ShareSessionPage() {
         </div>
     )
 }
+
+    
