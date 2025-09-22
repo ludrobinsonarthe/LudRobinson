@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useUser } from '@/hooks/use-user';
 import { User, Grade, Course } from '@/lib/types';
-import { ArrowRight, CheckCircle, GraduationCap, Loader2, Users, Repeat } from 'lucide-react';
+import { ArrowRight, CheckCircle, GraduationCap, Loader2, Users, Repeat, FileDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Table,
@@ -37,6 +38,12 @@ import { db } from '@/lib/firebase';
 import { writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { imageToDataUrl } from '@/lib/utils';
+
 
 const PASSING_GRADE = 10;
 
@@ -206,6 +213,59 @@ export default function AnnualTransitionPage() {
             setIsProcessing(false);
         }
     };
+    
+    const handleDownloadList = async () => {
+        if (!settings || listToShow.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Erreur',
+                description: 'Impossible de générer le PDF : aucune donnée à afficher ou paramètres manquants.',
+            });
+            return;
+        }
+
+        const doc = new jsPDF();
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if(logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${listTitle} - Année ${settings.academicYear}`, 40, 25);
+        
+        const tableColumn = ["NOM", "Prénom", "Matricule", "Moyenne /20"];
+        const tableRows: (string | number)[][] = [];
+
+        listToShow.forEach(student => {
+            const studentData = [
+                student.lastName,
+                student.firstName,
+                student.student?.matricule || 'N/A',
+                student.average.toFixed(2),
+            ];
+            tableRows.push(studentData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+        });
+
+        const fileName = `${listTitle.toLowerCase().replace(/ /g, '_')}_${settings.academicYear}.pdf`;
+        doc.save(fileName);
+        toast({ title: 'Téléchargement réussi', description: `Le fichier ${fileName} a été généré.` });
+    };
 
 
     if (loading) {
@@ -342,11 +402,19 @@ export default function AnnualTransitionPage() {
                             </TableBody>
                         </Table>
                     </div>
+                     <DialogFooter>
+                        <Button variant="outline" onClick={handleDownloadList} disabled={listToShow.length === 0}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Télécharger la liste (PDF)
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
         </div>
     );
 }
+
+    
 
     
