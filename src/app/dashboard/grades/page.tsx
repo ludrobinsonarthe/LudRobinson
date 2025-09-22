@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
+import { FileDown, ArrowLeft } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,7 @@ interface CourseWithGrades extends Course {
 
 export default function GradesPage() {
     const { user: currentUser, users, courses: allCourses, settings, fields } = useUser();
+    const router = useRouter();
     const searchParams = useSearchParams();
     const studentIdFromParams = searchParams.get('studentId');
     const [grades, setGrades] = useState<Grade[]>([]);
@@ -215,11 +216,18 @@ export default function GradesPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold font-headline tracking-tight">{pageTitle}</h1>
-                <p className="text-muted-foreground">
-                    {pageDescription}
-                </p>
+            <div className="flex items-center gap-4">
+                 {currentUser?.role === 'admin' && studentIdFromParams && (
+                    <Button variant="outline" size="icon" onClick={() => router.back()}>
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                )}
+                <div>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">{pageTitle}</h1>
+                    <p className="text-muted-foreground">
+                        {pageDescription}
+                    </p>
+                </div>
             </div>
              {currentUser?.role === 'parent' && (
                 <Card>
@@ -330,5 +338,7 @@ export default function GradesPage() {
         </div>
     );
 }
+
+    
 
     
