@@ -110,7 +110,7 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
                 year: payment.year,
                 currency: payment.currency,
                 method: payment.method,
-                proofUrl: payment.proofUrl,
+                proofUrl: payment.proofUrl || '',
             });
         } else {
             form.reset({

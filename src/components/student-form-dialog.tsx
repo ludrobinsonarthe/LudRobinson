@@ -152,21 +152,21 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
     if (isOpen) {
         if (student) {
             form.reset({
-                firstName: student.firstName,
-                lastName: student.lastName,
-                email: student.email,
-                phone: student.phone,
-                dob: student.dob,
-                pob: student.pob,
+                firstName: student.firstName || '',
+                lastName: student.lastName || '',
+                email: student.email || '',
+                phone: student.phone || '',
+                dob: student.dob || '',
+                pob: student.pob || '',
                 gender: student.gender,
-                nationality: student.nationality,
-                matricule: student.student?.matricule,
-                level: student.student?.level,
-                fieldId: student.student?.fieldId,
-                cycle: student.student?.cycle,
-                lastDiploma: student.student?.lastDiploma,
-                parentUid: student.student?.parentUid,
-                parentalLink: student.student?.parentalLink,
+                nationality: student.nationality || '',
+                matricule: student.student?.matricule || '',
+                level: student.student?.level || '',
+                fieldId: student.student?.fieldId || '',
+                cycle: student.student?.cycle || 'local',
+                lastDiploma: student.student?.lastDiploma || '',
+                parentUid: student.student?.parentUid || '',
+                parentalLink: student.student?.parentalLink || '',
                 parentSelection: student.student?.parentUid ? 'existing' : 'new'
             });
         } else {
@@ -313,7 +313,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="gender" render={({ field }) => (
                         <FormItem><FormLabel>Sexe</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl>
                               <SelectContent>
                                   <SelectItem value="M">Masculin</SelectItem>
@@ -448,10 +448,10 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                     <div className="space-y-4 rounded-md border p-4">
                         <div className="grid grid-cols-2 gap-4">
                             <FormField control={form.control} name="parentFirstName" render={({ field }) => (
-                                <FormItem><FormLabel>Prénom du tuteur</FormLabel><FormControl><Input placeholder="Marie" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Prénom du tuteur</FormLabel><FormControl><Input placeholder="Marie" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name="parentLastName" render={({ field }) => (
-                                <FormItem><FormLabel>Nom du tuteur</FormLabel><FormControl><Input placeholder="Dubois" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Nom du tuteur</FormLabel><FormControl><Input placeholder="Dubois" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
                          <FormField control={form.control} name="parentEmail" render={({ field }) => (
@@ -486,6 +486,3 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
-
-    
-  

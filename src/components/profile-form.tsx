@@ -236,7 +236,7 @@ export default function ProfileForm() {
               <FormItem>
                 <FormLabel>Téléphone</FormLabel>
                 <FormControl>
-                  <Input placeholder="+242 XX XXX XX XX" {...field} />
+                  <Input placeholder="+242 XX XXX XX XX" {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -249,7 +249,7 @@ export default function ProfileForm() {
               <FormItem>
                 <FormLabel>Adresse</FormLabel>
                 <FormControl>
-                  <Input placeholder="Votre adresse" {...field} />
+                  <Input placeholder="Votre adresse" {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

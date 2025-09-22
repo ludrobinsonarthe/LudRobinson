@@ -258,7 +258,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                             <FormItem>
                                 <FormLabel>Salaire de base mensuel</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="500000" {...field} />
+                                    <Input type="number" placeholder="500000" {...field} value={field.value || 0} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
