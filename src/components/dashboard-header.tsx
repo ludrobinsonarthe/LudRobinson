@@ -50,7 +50,7 @@ export default function DashboardHeader() {
   }
 
   const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
   };
 
   return (
@@ -63,7 +63,7 @@ export default function DashboardHeader() {
 
       <div className="flex items-center gap-4">
         <div className="text-right hidden sm:block">
-          <p className="font-semibold">{`${user.firstName} ${user.lastName}`}</p>
+          <p className="font-semibold">{`${user.lastName} ${user.firstName}`}</p>
           <Badge variant="outline" className="text-xs">
             {roleTranslation[user.role]}
           </Badge>
@@ -82,7 +82,7 @@ export default function DashboardHeader() {
           <DropdownMenuContent className="w-64" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{`${user.firstName} ${user.lastName}`}</p>
+                <p className="text-sm font-medium leading-none">{`${user.lastName} ${user.firstName}`}</p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {user.email}
                 </p>
@@ -112,3 +112,5 @@ export default function DashboardHeader() {
     </header>
   );
 }
+
+    

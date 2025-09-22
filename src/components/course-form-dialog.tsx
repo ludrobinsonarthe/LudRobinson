@@ -206,7 +206,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un professeur..." /></SelectTrigger></FormControl>
                         <SelectContent>
                             {teachers.map(teacher => (
-                                <SelectItem key={teacher.uid} value={teacher.uid}>{teacher.firstName} {teacher.lastName}</SelectItem>
+                                <SelectItem key={teacher.uid} value={teacher.uid}>{teacher.lastName} {teacher.firstName}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -317,3 +317,5 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     </Dialog>
   );
 }
+
+    

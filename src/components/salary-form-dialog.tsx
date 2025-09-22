@@ -135,7 +135,7 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
                     <FormItem><FormLabel>Professeur</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!initialTeacherId}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un professeur..." /></SelectTrigger></FormControl>
-                        <SelectContent>{teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.firstName} {t.lastName}</SelectItem>)}</SelectContent>
+                        <SelectContent>{teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}</SelectContent>
                     </Select>
                     <FormMessage /></FormItem>
                 )}/>

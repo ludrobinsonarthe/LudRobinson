@@ -64,7 +64,7 @@ export default function CourseManagementPage() {
 
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(t => t.uid === teacherId);
-        return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Non assigné';
+        return teacher ? `${teacher.lastName} ${teacher.firstName}` : 'Non assigné';
     }
 
     const getFieldInfo = (fieldId: string) => {

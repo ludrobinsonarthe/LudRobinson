@@ -152,7 +152,7 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
                     <FormItem><FormLabel>Étudiant</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value} disabled={!!initialStudentId}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un étudiant..." /></SelectTrigger></FormControl>
-                        <SelectContent>{students.map(s => <SelectItem key={s.uid} value={s.uid}>{s.firstName} {s.lastName} ({s.student?.matricule})</SelectItem>)}</SelectContent>
+                        <SelectContent>{students.map(s => <SelectItem key={s.uid} value={s.uid}>{s.lastName} {s.firstName} ({s.student?.matricule})</SelectItem>)}</SelectContent>
                     </Select>
                     <FormMessage /></FormItem>
                 )}/>
@@ -218,3 +218,5 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
     </Dialog>
   );
 }
+
+    

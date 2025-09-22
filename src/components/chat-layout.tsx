@@ -60,8 +60,8 @@ export default function ChatLayout({
     setIsMounted(true);
   }, []);
   
-  const getInitials = (name: string) => {
-    const parts = name.split(' ');
+  const getInitials = (firstName: string = '', lastName: string = '') => {
+    const parts = `${lastName} ${firstName}`.split(' ');
     return `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase();
   }
 
@@ -207,10 +207,10 @@ export default function ChatLayout({
                       alt={partner.firstName}
                       data-ai-hint="person face"
                     />
-                    <AvatarFallback>{getInitials(`${partner.firstName} ${partner.lastName}`)}</AvatarFallback>
+                    <AvatarFallback>{getInitials(partner.firstName, partner.lastName)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 text-left">
-                    <div className="font-semibold">{`${partner.firstName} ${partner.lastName}`}</div>
+                    <div className="font-semibold">{`${partner.lastName} ${partner.firstName}`}</div>
                     <p className={cn("text-xs truncate", selectedConversation === partner.uid ? "text-primary-foreground/80" : "text-muted-foreground")}>
                       {lastMessage?.content || "Aucun message"}
                     </p>
@@ -243,9 +243,9 @@ export default function ChatLayout({
                       alt={selectedUser.firstName}
                        data-ai-hint="person face"
                     />
-                    <AvatarFallback>{getInitials(`${selectedUser.firstName} ${selectedUser.lastName}`)}</AvatarFallback>
+                    <AvatarFallback>{getInitials(selectedUser.firstName, selectedUser.lastName)}</AvatarFallback>
                   </Avatar>
-                  <div className="font-semibold flex-1">{`${selectedUser.firstName} ${selectedUser.lastName}`}</div>
+                  <div className="font-semibold flex-1">{`${selectedUser.lastName} ${selectedUser.firstName}`}</div>
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" onClick={handleFeatureNotAvailable}>
                         <Phone className="h-5 w-5" />
@@ -271,7 +271,7 @@ export default function ChatLayout({
                       {message.senderId !== currentUser?.uid && (
                         <Avatar className="h-8 w-8 border">
                           <AvatarImage src={selectedUser.photoUrl} alt={selectedUser.firstName} />
-                          <AvatarFallback>{getInitials(`${selectedUser.firstName} ${selectedUser.lastName}`)}</AvatarFallback>
+                          <AvatarFallback>{getInitials(selectedUser.firstName, selectedUser.lastName)}</AvatarFallback>
                         </Avatar>
                       )}
                       <div
@@ -294,7 +294,7 @@ export default function ChatLayout({
                        {message.senderId === currentUser?.uid && currentUser && (
                         <Avatar className="h-8 w-8 border">
                           <AvatarImage src={currentUser.photoUrl} alt={currentUser.firstName} />
-                          <AvatarFallback>{getInitials(`${currentUser.firstName} ${currentUser.lastName}`)}</AvatarFallback>
+                          <AvatarFallback>{getInitials(currentUser.firstName, currentUser.lastName)}</AvatarFallback>
                         </Avatar>
                       )}
                     </div>

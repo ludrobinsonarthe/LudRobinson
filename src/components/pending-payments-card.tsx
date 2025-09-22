@@ -17,7 +17,7 @@ interface PendingPaymentsCardProps {
 }
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function PendingPaymentsCard({ payments, users }: PendingPaymentsCardProps) {
@@ -73,7 +73,7 @@ export default function PendingPaymentsCard({ payments, users }: PendingPayments
                             </Avatar>
                             <div className="grid gap-1">
                                 <p className="text-sm font-medium leading-none">
-                                    {student?.firstName} {student?.lastName}
+                                    {student?.lastName} {student?.firstName}
                                 </p>
                                 <p className="text-sm text-muted-foreground">{payment.month} - {new Intl.NumberFormat('fr-FR').format(payment.amountPaid)} {payment.currency}</p>
                             </div>
@@ -96,3 +96,4 @@ export default function PendingPaymentsCard({ payments, users }: PendingPayments
     );
 }
 
+    

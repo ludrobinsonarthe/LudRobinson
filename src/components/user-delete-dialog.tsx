@@ -26,7 +26,7 @@ interface UserDeleteDialogProps {
 export default function UserDeleteDialog({ isOpen, setIsOpen, onConfirm, item, title, description }: UserDeleteDialogProps) {
   if (!item) return null;
 
-  const itemName = item.name || `${item.firstName || ''} ${item.lastName || ''}`.trim();
+  const itemName = item.name || `${item.lastName || ''} ${item.firstName || ''}`.trim();
 
 
   return (
@@ -51,3 +51,5 @@ export default function UserDeleteDialog({ isOpen, setIsOpen, onConfirm, item, t
     </AlertDialog>
   );
 }
+
+    

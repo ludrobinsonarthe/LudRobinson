@@ -39,7 +39,7 @@ export default function CoursesPage() {
     const getTeacherName = (teacherId?: string) => {
         if (!teacherId) return "N/A";
         const teacher = teachers.find(t => t.uid === teacherId);
-        return teacher ? `${teacher.firstName} ${teacher.lastName}` : "Inconnu";
+        return teacher ? `${teacher.lastName} ${teacher.firstName}` : "Inconnu";
     }
 
     useEffect(() => {
@@ -120,7 +120,7 @@ export default function CoursesPage() {
                                 <SelectContent>
                                     {children.map(child => (
                                         <SelectItem key={child.uid} value={child.uid}>
-                                            {child.firstName} {child.lastName}
+                                            {child.lastName} {child.firstName}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -188,3 +188,5 @@ export default function CoursesPage() {
         </div>
     );
 }
+
+    

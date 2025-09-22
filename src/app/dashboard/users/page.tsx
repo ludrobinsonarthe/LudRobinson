@@ -49,7 +49,7 @@ const roleTranslation: { [key: string]: string } = {
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function UsersPage() {
@@ -70,7 +70,7 @@ export default function UsersPage() {
 
     const filteredEmployees = useMemo(() => {
         return employees.filter(employee => 
-            (`${employee.firstName} ${employee.lastName}`.toLowerCase().includes(nameFilter.toLowerCase())) &&
+            (`${employee.lastName} ${employee.firstName}`.toLowerCase().includes(nameFilter.toLowerCase())) &&
             (roleFilter === 'all' || employee.role === roleFilter)
         )
     }, [employees, nameFilter, roleFilter]);
@@ -253,7 +253,7 @@ export default function UsersPage() {
                                                 <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
                                             </Avatar>
                                             <div className="grid gap-0.5">
-                                                <span className="font-semibold">{user.firstName} {user.lastName}</span>
+                                                <span className="font-semibold">{user.lastName} {user.firstName}</span>
                                                 <span className="text-sm text-muted-foreground">{user.email}</span>
                                             </div>
                                         </div>
@@ -324,8 +324,10 @@ export default function UsersPage() {
                 onConfirm={confirmDelete}
                 item={selectedUser}
                 title={`Supprimer ${selectedUser?.role === 'teacher' ? 'ce professeur' : 'cet admin'} ?`}
-                description={`L'utilisateur "${selectedUser?.firstName} ${selectedUser?.lastName}" et toutes ses données associées (salaires, etc.) seront définitivement supprimés. Cette action est irréversible.`}
+                description={`L'utilisateur "${selectedUser?.lastName} ${selectedUser?.firstName}" et toutes ses données associées (salaires, etc.) seront définitivement supprimés. Cette action est irréversible.`}
             />
         </div>
     );
 }
+
+    

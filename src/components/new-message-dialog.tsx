@@ -22,14 +22,14 @@ interface NewMessageDialogProps {
 }
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function NewMessageDialog({ isOpen, setIsOpen, users, onSelectUser }: NewMessageDialogProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredUsers = users.filter(user =>
-    `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${user.lastName} ${user.firstName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -66,7 +66,7 @@ export default function NewMessageDialog({ isOpen, setIsOpen, users, onSelectUse
                         <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
                     </Avatar>
                     <div className="grid gap-0.5">
-                        <p className="font-semibold">{user.firstName} {user.lastName}</p>
+                        <p className="font-semibold">{user.lastName} {user.firstName}</p>
                         <p className="text-sm text-muted-foreground">{user.email}</p>
                     </div>
                 </button>
@@ -78,3 +78,5 @@ export default function NewMessageDialog({ isOpen, setIsOpen, users, onSelectUse
     </Dialog>
   );
 }
+
+    

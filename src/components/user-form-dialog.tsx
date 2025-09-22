@@ -160,12 +160,12 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
             <div className="grid grid-cols-2 gap-4">
                 <FormField
                     control={form.control}
-                    name="firstName"
+                    name="lastName"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Prénom</FormLabel>
+                        <FormLabel>Nom</FormLabel>
                         <FormControl>
-                            <Input placeholder="Jean" {...field} />
+                            <Input placeholder="Dupont" {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -173,12 +173,12 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                 />
                 <FormField
                     control={form.control}
-                    name="lastName"
+                    name="firstName"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Nom</FormLabel>
+                        <FormLabel>Prénom</FormLabel>
                         <FormControl>
-                            <Input placeholder="Dupont" {...field} />
+                            <Input placeholder="Jean" {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -289,3 +289,5 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
     </>
   );
 }
+
+    

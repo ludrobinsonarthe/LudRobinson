@@ -64,7 +64,7 @@ function TuitionManagementContent() {
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const getStudentName = (studentId: string) => {
         const student = students.find(s => s.uid === studentId);
-        return student ? `${student.firstName} ${student.lastName}` : 'Inconnu';
+        return student ? `${student.lastName} ${student.firstName}` : 'Inconnu';
     }
     
     const filteredPayments = useMemo(() => {
@@ -170,7 +170,7 @@ function TuitionManagementContent() {
         doc.text(`Date: ${format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}`, 20, 80);
         doc.text(`Reçu N°: ${payment.id}`, 20, 90);
 
-        doc.text(`Reçu de: ${student.firstName} ${student.lastName}`, 20, 110);
+        doc.text(`Reçu de: ${student.lastName} ${student.firstName}`, 20, 110);
         doc.text(`Matricule: ${student.student?.matricule}`, 20, 120);
 
         autoTable(doc, {
@@ -189,7 +189,7 @@ function TuitionManagementContent() {
         doc.text("Signature de l'administration", doc.internal.pageSize.getWidth() - 20, (doc as any).lastAutoTable.finalY + 30, { align: 'right' });
 
         doc.save(`recu_${payment.id}.pdf`);
-        toast({ title: "Reçu généré", description: `Le reçu pour ${student.firstName} ${student.lastName} a été téléchargé.` });
+        toast({ title: "Reçu généré", description: `Le reçu pour ${student.lastName} ${student.firstName} a été téléchargé.` });
     };
 
     const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
@@ -240,7 +240,7 @@ function TuitionManagementContent() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les étudiants</SelectItem>
-                                {students.map(s => <SelectItem key={s.uid} value={s.uid}>{s.firstName} {s.lastName}</SelectItem>)}
+                                {students.map(s => <SelectItem key={s.uid} value={s.uid}>{s.lastName} {s.firstName}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -350,3 +350,5 @@ export default function TuitionManagementPage() {
         </Suspense>
     );
 }
+
+    

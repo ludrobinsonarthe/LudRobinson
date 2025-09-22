@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -39,7 +38,7 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function ProfileForm() {
@@ -180,25 +179,12 @@ export default function ProfileForm() {
                 />
             </div>
             <div className="space-y-1">
-                <h2 className="text-2xl font-bold font-headline">{`${user.firstName} ${user.lastName}`}</h2>
+                <h2 className="text-2xl font-bold font-headline">{`${user.lastName} ${user.firstName}`}</h2>
                 <p className="text-muted-foreground">{user.email}</p>
             </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Prénom</FormLabel>
-                <FormControl>
-                  <Input placeholder="Votre prénom" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           <FormField
             control={form.control}
             name="lastName"
@@ -207,6 +193,19 @@ export default function ProfileForm() {
                 <FormLabel>Nom</FormLabel>
                 <FormControl>
                   <Input placeholder="Votre nom de famille" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Prénom</FormLabel>
+                <FormControl>
+                  <Input placeholder="Votre prénom" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -274,3 +273,5 @@ export default function ProfileForm() {
     </>
   );
 }
+
+    

@@ -36,7 +36,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
@@ -133,7 +133,7 @@ export default function StudentsPage() {
 
     const filteredStudents = useMemo(() => {
         return studentsFromUsers.filter(student => {
-            const fullName = `${student.firstName} ${student.lastName}`.toLowerCase();
+            const fullName = `${student.lastName} ${student.firstName}`.toLowerCase();
             const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId] : null;
             const studentSectorId = studentField?.sectorId;
 
@@ -251,7 +251,7 @@ export default function StudentsPage() {
                         category: 'tuition',
                         amount: payment.amountPaid,
                         currency: payment.currency,
-                        description: `Inscription - ${finalStudentData.firstName} ${finalStudentData.lastName}`,
+                        description: `Inscription - ${finalStudentData.lastName} ${finalStudentData.firstName}`,
                         date: new Date().toISOString(),
                         createdBy: adminUser?.uid || 'system',
                         relatedDocId: payment.id,
@@ -340,7 +340,7 @@ export default function StudentsPage() {
     const getParentName = (parentUid?: string) => {
         if (!parentUid) return 'N/A';
         const parent = parents.find(p => p.uid === parentUid);
-        return parent ? `${parent.firstName} ${parent.lastName}` : 'Inconnu';
+        return parent ? `${parent.lastName} ${parent.firstName}` : 'Inconnu';
     };
 
     const getCoursesForStudent = (student: User) => {
@@ -352,8 +352,8 @@ export default function StudentsPage() {
         return filteredStudents.map(student => {
             const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student.parentUid) : null;
             return {
-                "Prénom": student.firstName,
                 "Nom": student.lastName,
+                "Prénom": student.firstName,
                 "Email": student.email,
                 "Téléphone": student.phone,
                 "Matricule": student.student?.matricule,
@@ -363,7 +363,7 @@ export default function StudentsPage() {
                 "Secteur": student.student?.fieldId && fieldsById[student.student.fieldId] ? sectorsById[fieldsById[student.student.fieldId].sectorId]?.name : 'N/A',
                 "Date d'inscription": format(new Date(student.createdAt), 'd MMMM yyyy', { locale: fr }),
                 "Solde Scolarité": studentBalances[student.uid] || 0,
-                "Tuteur": parent ? `${parent.firstName} ${parent.lastName}` : 'N/A',
+                "Tuteur": parent ? `${parent.lastName} ${parent.firstName}` : 'N/A',
                 "Email Tuteur": parent?.email,
                 "Téléphone Tuteur": parent?.phone,
                 "Lien Parental": student.student?.parentalLink
@@ -505,7 +505,7 @@ export default function StudentsPage() {
                             category: 'tuition',
                             amount: payment.amountPaid,
                             currency: payment.currency,
-                            description: `Inscription - ${newUser.firstName} ${newUser.lastName}`,
+                            description: `Inscription - ${newUser.lastName} ${newUser.firstName}`,
                             date: new Date().toISOString(),
                             createdBy: adminUser?.uid || 'system',
                             relatedDocId: payment.id,
@@ -545,7 +545,7 @@ export default function StudentsPage() {
             };
             await addDoc(collection(db, "officialDocuments"), newDoc);
 
-            toast({ title: `${type === 'certificat' ? 'Certificat' : 'Bulletin'} généré et enregistré`, description: `Le document pour ${student.firstName} ${student.lastName} est disponible.` });
+            toast({ title: `${type === 'certificat' ? 'Certificat' : 'Bulletin'} généré et enregistré`, description: `Le document pour ${student.lastName} ${student.firstName} est disponible.` });
 
         } catch (error) {
             console.error(`Error generating ${type}:`, error);
@@ -584,7 +584,7 @@ export default function StudentsPage() {
             doc.setFontSize(12);
             doc.setFont("helvetica", "normal");
 
-            const studentName = `${student.firstName} ${student.lastName}`;
+            const studentName = `${student.lastName} ${student.firstName}`;
             const studentMatricule = student.student?.matricule || 'N/A';
             const studentLevel = student.student?.level || 'N/A';
             const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A';
@@ -614,7 +614,7 @@ export default function StudentsPage() {
         if (settings) {
             const schoolName = settings.schoolName;
             const academicYear = settings.academicYear;
-            const studentName = `${student.firstName} ${student.lastName}`;
+            const studentName = `${student.lastName} ${student.firstName}`;
             
              try {
                 const logoDataUrl = await imageToDataUrl(settings.logoUrl);
@@ -849,7 +849,7 @@ export default function StudentsPage() {
                                                 <AvatarFallback>{getInitials(student.firstName, student.lastName)}</AvatarFallback>
                                             </Avatar>
                                             <div className="grid gap-0.5">
-                                                <span className="font-semibold">{student.firstName} {student.lastName}</span>
+                                                <span className="font-semibold">{student.lastName} {student.firstName}</span>
                                                 <span className="text-sm text-muted-foreground">{student.email}</span>
                                             </div>
                                         </div>
@@ -955,8 +955,10 @@ export default function StudentsPage() {
                 onConfirm={confirmDelete}
                 item={selectedStudent}
                 title="Supprimer cet étudiant ?"
-                description={`L'étudiant "${selectedStudent.firstName} ${selectedStudent.lastName}" et toutes ses données associées (notes, paiements, etc.) seront définitivement supprimés. Cette action est irréversible.`}
+                description={`L'étudiant "${selectedStudent.lastName} ${selectedStudent.firstName}" et toutes ses données associées (notes, paiements, etc.) seront définitivement supprimés. Cette action est irréversible.`}
             />}
         </div>
     );
 }
+
+    

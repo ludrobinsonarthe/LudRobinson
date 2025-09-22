@@ -298,11 +298,11 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                     <FormMessage />
                 </FormItem>
                 <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="firstName" render={({ field }) => (
-                        <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
                     <FormField control={form.control} name="lastName" render={({ field }) => (
                         <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="Dupont" {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={form.control} name="firstName" render={({ field }) => (
+                        <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
                  <div className="grid grid-cols-2 gap-4">
@@ -442,7 +442,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                         <FormItem><FormLabel>Tuteur existant</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un tuteur..." /></SelectTrigger></FormControl>
-                            <SelectContent>{parents.map(p => <SelectItem key={p.uid} value={p.uid}>{p.firstName} {p.lastName}</SelectItem>)}</SelectContent>
+                            <SelectContent>{parents.map(p => <SelectItem key={p.uid} value={p.uid}>{p.lastName} {p.firstName}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage /></FormItem>
                     )}/>
@@ -451,11 +451,11 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 {parentSelection === 'new' && (
                     <div className="space-y-4 rounded-md border p-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="parentFirstName" render={({ field }) => (
-                                <FormItem><FormLabel>Prénom du tuteur</FormLabel><FormControl><Input placeholder="Marie" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
-                            )}/>
                             <FormField control={form.control} name="parentLastName" render={({ field }) => (
                                 <FormItem><FormLabel>Nom du tuteur</FormLabel><FormControl><Input placeholder="Dubois" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="parentFirstName" render={({ field }) => (
+                                <FormItem><FormLabel>Prénom du tuteur</FormLabel><FormControl><Input placeholder="Marie" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
                          <FormField control={form.control} name="parentEmail" render={({ field }) => (
@@ -490,3 +490,5 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
+
+    

@@ -92,7 +92,7 @@ function ScheduleContent() {
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(t => t.uid === teacherId);
-        return teacher ? `${teacher.firstName[0]}. ${teacher.lastName}` : 'N/A';
+        return teacher ? `${teacher.lastName[0]}. ${teacher.firstName}` : 'N/A';
     }
     
     const handleExportPDF = async () => {
@@ -283,3 +283,5 @@ export default function SchedulePage() {
         </Suspense>
     );
 }
+
+    

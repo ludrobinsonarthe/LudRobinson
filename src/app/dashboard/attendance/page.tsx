@@ -163,7 +163,7 @@ function AttendanceContent() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous les professeurs</SelectItem>
-                                    {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.firstName} {t.lastName}</SelectItem>)}
+                                    {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             {selectedTeacher !== 'all' && (
@@ -222,7 +222,7 @@ function AttendanceContent() {
                                         <div key={course.id + course.scheduleInfo.start} className="p-3 border rounded-lg space-y-3">
                                             <div>
                                                 <p className="font-semibold">{course.name}</p>
-                                                <p className="text-sm text-muted-foreground">{course.teacher?.firstName} {course.teacher?.lastName}</p>
+                                                <p className="text-sm text-muted-foreground">{course.teacher?.lastName} {course.teacher?.firstName}</p>
                                                 <p className="text-sm text-muted-foreground">Heure: {course.scheduleInfo.start} - {course.scheduleInfo.end}</p>
                                             </div>
                                             <Button 

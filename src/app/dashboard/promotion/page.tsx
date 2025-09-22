@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { User } from 'lucide-react';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function PromotionPage() {
@@ -75,11 +75,11 @@ export default function PromotionPage() {
                                 <Card key={classmate.uid} className="p-4">
                                     <div className="flex flex-col items-center gap-3 text-center">
                                         <Avatar className="h-20 w-20 border-2 border-primary">
-                                            <AvatarImage src={classmate.photoUrl} alt={`${classmate.firstName} ${classmate.lastName}`} />
+                                            <AvatarImage src={classmate.photoUrl} alt={`${classmate.lastName} ${classmate.firstName}`} />
                                             <AvatarFallback className="text-2xl">{getInitials(classmate.firstName, classmate.lastName)}</AvatarFallback>
                                         </Avatar>
                                         <div className="grid gap-0.5">
-                                            <p className="font-semibold">{classmate.firstName} {classmate.lastName}</p>
+                                            <p className="font-semibold">{classmate.lastName} {classmate.firstName}</p>
                                             <p className="text-sm text-muted-foreground">{classmate.student?.matricule}</p>
                                         </div>
                                          <Badge variant="secondary">{classmate.email}</Badge>
@@ -102,3 +102,4 @@ export default function PromotionPage() {
     );
 }
 
+    

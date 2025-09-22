@@ -78,7 +78,7 @@ function SalaryManagementContent() {
     
     const getUserName = (userId: string) => {
         const user = usersById[userId];
-        return user ? `${user.firstName} ${user.lastName}` : 'Inconnu';
+        return user ? `${user.lastName} ${user.firstName}` : 'Inconnu';
     }
 
     const unifiedSalaries = useMemo((): UnifiedSalary[] => {
@@ -106,7 +106,7 @@ function SalaryManagementContent() {
              allSalaries.push({
                 id: `admin-${admin.uid}-${currentYear}-${currentMonth}`,
                 userId: admin.uid,
-                userName: `${admin.firstName} ${admin.lastName}`,
+                userName: `${admin.lastName} ${admin.firstName}`,
                 userRole: 'admin',
                 month: format(new Date(), 'MMMM', { locale: fr }),
                 year: `${currentYear}`,
@@ -264,7 +264,7 @@ function SalaryManagementContent() {
         doc.text(`Période: ${salary.month} ${salary.year}`, doc.internal.pageSize.getWidth() - 20, 70, { align: 'right' });
         doc.text(`Date d'émission: ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 20, 70);
 
-        doc.text(`Employé: ${user.firstName} ${user.lastName}`, 20, 90);
+        doc.text(`Employé: ${user.lastName} ${user.firstName}`, 20, 90);
         doc.text(`Poste: ${user.role === 'teacher' ? 'Professeur' : user.admin?.position || 'Personnel'}`, 20, 100);
 
         const body: (string | number)[][] = [];
@@ -344,7 +344,7 @@ function SalaryManagementContent() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les employés</SelectItem>
-                                {teachersAndAdmins.map(u => <SelectItem key={u.uid} value={u.uid}>{u.firstName} {u.lastName}</SelectItem>)}
+                                {teachersAndAdmins.map(u => <SelectItem key={u.uid} value={u.uid}>{u.lastName} {u.firstName}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -446,3 +446,5 @@ export default function SalaryManagementPage() {
         </Suspense>
     );
 }
+
+    

@@ -35,7 +35,7 @@ import * as XLSX from 'xlsx';
 import { imageToDataUrl } from '@/lib/utils';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 type EvaluationColumn = {
@@ -278,7 +278,7 @@ function GradeManagementContent() {
     const getExportData = () => {
         const headers = ["Étudiant", ...evaluationColumns.map(col => col.name), "Moyenne /20"];
         const data = students.map(student => {
-            const row: (string | number)[] = [`${student.firstName} ${student.lastName}`];
+            const row: (string | number)[] = [`${student.lastName} ${student.firstName}`];
             evaluationColumns.forEach(col => {
                 const grade = gradesByStudentAndEval[student.uid]?.[col.id];
                 row.push(grade ? grade.score : "-");
@@ -504,7 +504,7 @@ function GradeManagementContent() {
                             <TableBody>
                                 {students.length > 0 ? students.map(student => (
                                     <TableRow key={student.uid}>
-                                        <TableCell className="font-medium sticky left-0 bg-card z-10">{student.firstName} {student.lastName}</TableCell>
+                                        <TableCell className="font-medium sticky left-0 bg-card z-10">{student.lastName} {student.firstName}</TableCell>
                                         {evaluationColumns.map(col => {
                                             const grade = gradesByStudentAndEval[student.uid]?.[col.id];
                                             return (
@@ -560,3 +560,5 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+    

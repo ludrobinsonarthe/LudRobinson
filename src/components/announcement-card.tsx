@@ -33,8 +33,8 @@ const roleTranslation: { [key: string]: string } = {
     parent: "Parent",
 };
 
-const getInitials = (firstName: string, lastName:string ) => {
-    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
+const getInitials = (firstName: string = '', lastName: string = '' ) => {
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function AnnouncementCard({ announcement, onEdit, onDelete }: AnnouncementCardProps) {
@@ -85,12 +85,12 @@ export default function AnnouncementCard({ announcement, onEdit, onDelete }: Ann
       <CardHeader>
         <div className="flex items-start gap-4">
           <Avatar className="h-12 w-12 border">
-            <AvatarImage src={sender.photoUrl} alt={`${sender.firstName} ${sender.lastName}`} data-ai-hint="person face" />
+            <AvatarImage src={sender.photoUrl} alt={`${sender.lastName} ${sender.firstName}`} data-ai-hint="person face" />
             <AvatarFallback>{getInitials(sender.firstName, sender.lastName)}</AvatarFallback>
           </Avatar>
           <div className="grid gap-1 flex-1">
             <div className="flex items-center gap-2">
-                <p className="font-semibold">{`${sender.firstName} ${sender.lastName}`}</p>
+                <p className="font-semibold">{`${sender.lastName} ${sender.firstName}`}</p>
                 <Badge variant="secondary">{roleTranslation[sender.role]}</Badge>
             </div>
             {isMounted ? (
@@ -143,3 +143,5 @@ export default function AnnouncementCard({ announcement, onEdit, onDelete }: Ann
     </Card>
   );
 }
+
+    

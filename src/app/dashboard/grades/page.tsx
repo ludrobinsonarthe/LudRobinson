@@ -150,7 +150,7 @@ export default function GradesPage() {
         const doc = new jsPDF();
         const schoolName = settings.schoolName;
         const academicYear = settings.academicYear;
-        const studentName = `${studentToView.firstName} ${studentToView.lastName}`;
+        const studentName = `${studentToView.lastName} ${studentToView.firstName}`;
         
         const logoDataUrl = await imageToDataUrl(settings.logoUrl);
         if (logoDataUrl) {
@@ -209,7 +209,7 @@ export default function GradesPage() {
         toast({ title: 'Bulletin de notes généré', description: `Le bulletin pour ${studentName} a été téléchargé.` });
     };
 
-    const pageTitle = studentToView ? `Relevé de notes de ${studentToView.firstName} ${studentToView.lastName}` : "Mes Notes";
+    const pageTitle = studentToView ? `Relevé de notes de ${studentToView.lastName} ${studentToView.firstName}` : "Mes Notes";
     const pageDescription = studentToView ? "Voici le résumé de ses performances académiques." : "Consultez vos notes et résultats pour chaque matière.";
 
 
@@ -238,7 +238,7 @@ export default function GradesPage() {
                                 <SelectContent>
                                     {children.map(child => (
                                         <SelectItem key={child.uid} value={child.uid}>
-                                            {child.firstName} {child.lastName}
+                                            {child.lastName} {child.firstName}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -330,3 +330,5 @@ export default function GradesPage() {
         </div>
     );
 }
+
+    

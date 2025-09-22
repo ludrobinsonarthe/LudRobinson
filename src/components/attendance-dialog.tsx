@@ -150,7 +150,7 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
 
                                     return (
                                     <TableRow key={field.id}>
-                                        <TableCell>{student.firstName} {student.lastName}</TableCell>
+                                        <TableCell>{student.lastName} {student.firstName}</TableCell>
                                         <TableCell className="text-right">
                                             <FormField
                                                 control={form.control}
@@ -190,3 +190,5 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
     </Dialog>
   );
 }
+
+    
