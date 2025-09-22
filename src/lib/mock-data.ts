@@ -91,12 +91,13 @@ export const mockFields: Field[] = [
     { "id": "ervl", "name": "Entretien et réparation des véhicules légers", "sectorId": "industrie" },
     { "id": "ervp", "name": "Entretien et réparation des véhicules lourds", "sectorId": "industrie" },
     { "id": "tpg", "name": "Traitement du pétrole et du gaz", "sectorId": "industrie" },
-    { "id": "dpg", "name": "Distribution pétrolière et gazière", "sectorId": "industrie" },
+    { "id": "ipg", "name": "Instrumentation pétrolière et gazière", "sectorId": "industrie" },
     { "id": "ot", "name": "Opérateur topographe", "sectorId": "industrie" },
+    { "id": "qhse", "name": "QHSE", "sectorId": "industrie" },
     { "id": "fc", "name": "Froid et climatisation", "sectorId": "industrie" },
-    { "id": "esr", "name": "Énergie solaire et renouvelable", "sectorId": "industrie" },
-    { "id": "psi", "name": "Plomberie et soudure industrielle", "sectorId": "industrie" },
-    { "id": "eis", "name": "Équipement industriel et sanitaire", "sectorId": "industrie" }
+    { "id": "enr", "name": "Énergie nouvelle et renouvelable", "sectorId": "industrie" },
+    { "id": "msi", "name": "Maintenance et soudure industrielle", "sectorId": "industrie" },
+    { "id": "pis", "name": "Plomberie industrielle et sanitaire", "sectorId": "industrie" }
 ];
 
 
