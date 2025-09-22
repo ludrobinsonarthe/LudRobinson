@@ -49,6 +49,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [fields, setFields] = useState<Field[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -87,20 +89,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if (!isMounted) return;
         if(docSnap.exists()){
             const settingsData = docSnap.data() as Settings;
-             if (!settingsData.sectors || settingsData.sectors.length === 0) {
-                console.log("Settings document is missing sectors. Seeding initial sectors.");
-                const settingsRef = doc(db, "settings", "system");
-                updateDoc(settingsRef, { sectors: mockSectors }).then(() => {
-                    if (isMounted) setSettings({...settingsData, sectors: mockSectors});
-                    console.log("Initial sectors seeded successfully.");
-                }).catch(e => console.error("Error seeding sectors:", e));
-            } else {
-                 if (isMounted) setSettings(settingsData);
-            }
+            setSettings(settingsData);
         } else {
-             const newSettings = {...defaultSettings, sectors: mockSectors };
-             setDoc(doc(db, "settings", "system"), newSettings, { merge: true });
-             if (isMounted) setSettings(newSettings);
+             setDoc(doc(db, "settings", "system"), defaultSettings, { merge: true });
+             if (isMounted) setSettings(defaultSettings);
+        }
+    });
+
+    const unsubSectors = onSnapshot(collection(db, "sectors"), (snapshot) => {
+        if (!isMounted) return;
+        if (snapshot.empty) {
+            console.log("Sectors collection is empty. Seeding initial sectors.");
+            const batch = writeBatch(db);
+            mockSectors.forEach(sector => {
+                const sectorRef = doc(db, 'sectors', sector.id);
+                batch.set(sectorRef, sector);
+            });
+            batch.commit().then(() => {
+                if (isMounted) setSectors(mockSectors);
+                console.log("Initial sectors seeded successfully.");
+            }).catch(e => console.error("Error seeding sectors:", e));
+        } else {
+            const sectorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sector));
+            if (isMounted) setSectors(sectorsData);
         }
     });
     
@@ -145,6 +156,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       unsubSettings();
       unsubFields();
       unsubCourses();
+      unsubSectors();
       clearTimeout(timer);
     };
    
@@ -242,7 +254,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       hasPermission,
       settings,
       setSettings: handleSetSettings,
-      sectors: settings?.sectors || [],
+      sectors,
       fields,
       courses
   };

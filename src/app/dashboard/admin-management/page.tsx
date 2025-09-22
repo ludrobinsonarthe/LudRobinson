@@ -94,7 +94,7 @@ export default function AdminManagementPage() {
         name: "levels",
     });
 
-    const { fields: sectorFields, append: appendSector, remove: removeSector } = useFieldArray({
+    const { fields: sectorFields, append: appendSector, remove: removeSector, replace: replaceSectors } = useFieldArray({
         control: structureForm.control,
         name: "sectors",
     });
@@ -115,15 +115,13 @@ export default function AdminManagementPage() {
             });
         }
         if (initialSectors) {
-            structureForm.setValue('sectors', initialSectors);
+            replaceSectors(initialSectors);
         }
-    }, [settings, initialSectors, settingsForm, structureForm]);
-
-    useEffect(() => {
-        if (initialFields) {
+         if (initialFields) {
             replaceFields(initialFields);
         }
-    }, [initialFields, replaceFields]);
+    }, [settings, initialSectors, initialFields, settingsForm, structureForm, replaceSectors, replaceFields]);
+
     
     const handleLogoUpload = async (file: File) => {
         if (!file) return;
@@ -188,11 +186,11 @@ export default function AdminManagementPage() {
         setSubmitting(true);
         const batch = writeBatch(db);
         
-        // Save sectors in settings
-        const settingsRef = doc(db, "settings", "system");
-        batch.update(settingsRef, { sectors: data.sectors });
+        data.sectors.forEach(sector => {
+            const sectorRef = doc(db, 'sectors', sector.id);
+            batch.set(sectorRef, sector);
+        })
         
-        // Save fields
         data.fields.forEach(field => {
             const fieldRef = doc(db, 'fields', field.id);
             batch.set(fieldRef, field);
