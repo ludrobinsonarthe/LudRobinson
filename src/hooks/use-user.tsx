@@ -3,7 +3,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -26,6 +26,7 @@ type UserContextType = {
   sectors: Sector[];
   fields: Field[];
   courses: Course[];
+  grades: Grade[];
 }
 
 const defaultSettings: Settings = {
@@ -51,6 +52,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [fields, setFields] = useState<Field[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
 
 
   useEffect(() => {
@@ -103,6 +105,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
     });
 
+    const unsubGrades = onSnapshot(collection(db, "grades"), (snapshot) => {
+        if (!isMounted) return;
+        setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
+    });
+
     // This ensures that loading is set to false only after all initial data fetches are attempted
      const timer = setTimeout(() => {
         if (isMounted) {
@@ -119,6 +126,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       unsubFields();
       unsubCourses();
       unsubSectors();
+      unsubGrades();
       clearTimeout(timer);
     };
    
@@ -139,8 +147,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                  const newUserProfile: User = {
                     uid: authUser.uid,
                     email: authUser.email || '',
-                    firstName: "ISGI Admin",
-                    lastName: "User",
+                    firstName: "Admin",
+                    lastName: "ISGI",
                     photoUrl: authUser.photoURL || "/logo.png",
                     role: 'admin',
                     status: 'active',
@@ -183,7 +191,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (currentUser.admin?.roleId) {
-          const userRole = roles.find(r => r.id === currentUser.admin?.roleId);
+          const userRole = roles.find(r => r.id === currentUser.admin.roleId);
           return userRole?.permissions || [];
       }
       
@@ -218,7 +226,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setSettings: handleSetSettings,
       sectors,
       fields,
-      courses
+      courses,
+      grades
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
