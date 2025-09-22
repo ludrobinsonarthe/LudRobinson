@@ -4,6 +4,18 @@ import { Toaster } from "@/components/ui/toaster";
 import 'react-image-crop/dist/ReactCrop.css';
 import { AuthProvider } from '@/hooks/use-auth';
 import { ThemeProvider } from '@/components/theme-provider';
+import { PT_Sans, Space_Grotesk } from 'next/font/google'
+
+const ptSans = PT_Sans({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-body',
+})
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-headline',
+})
 
 
 export const metadata: Metadata = {
@@ -18,16 +30,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/logo.png" sizes="any" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-body antialiased">
+      <body className={`${ptSans.variable} ${spaceGrotesk.variable} font-body antialiased`}>
         <ThemeProvider
             attribute="class"
-            defaultTheme="dark"
+            defaultTheme="light"
             enableSystem
           >
           <AuthProvider>
@@ -39,3 +45,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    

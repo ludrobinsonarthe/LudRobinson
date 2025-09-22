@@ -85,6 +85,7 @@ function GradeManagementContent() {
         if (courseId) {
             const courseData = allCourses.find(c => c.id === courseId);
             setCourse(courseData || null);
+            setNewEvalCourseId(courseId);
         } else {
             setCourse(null);
         }
@@ -97,7 +98,7 @@ function GradeManagementContent() {
                 user.role === 'student' &&
                 user.student?.fieldId === course.fieldId &&
                 user.student?.level === course.level
-            ).sort((a,b) => a.lastName.localeCompare(b.lastName));
+            ).sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
             setStudents(courseStudents);
         } else {
             setStudents([]);
@@ -251,6 +252,7 @@ function GradeManagementContent() {
     }
     
     const handleDeleteEvaluation = (evaluation: EvaluationColumn) => {
+        if (!evaluation) return;
         setEvalToDelete(evaluation);
         setIsDeleteDialogOpen(true);
     };
@@ -297,9 +299,10 @@ function GradeManagementContent() {
         
         try {
             const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
-            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-
-            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            if (logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
         } catch (error) {
             console.error("Could not add logo to PDF, proceeding without it.", error);
         }
@@ -504,7 +507,7 @@ function GradeManagementContent() {
                             <TableBody>
                                 {students.length > 0 ? students.map(student => (
                                     <TableRow key={student.uid}>
-                                        <TableCell className="font-medium sticky left-0 bg-card z-10">{student.lastName} {student.firstName}</TableCell>
+                                        <TableCell className="font-medium sticky left-0 bg-card z-10">{`${student.lastName || ''} ${student.firstName || ''}`}</TableCell>
                                         {evaluationColumns.map(col => {
                                             const grade = gradesByStudentAndEval[student.uid]?.[col.id];
                                             return (
@@ -560,5 +563,7 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+    
 
     

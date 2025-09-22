@@ -344,7 +344,7 @@ function SalaryManagementContent() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les employés</SelectItem>
-                                {teachersAndAdmins.map(u => <SelectItem key={u.uid} value={u.uid}>{u.lastName} {u.firstName}</SelectItem>)}
+                                {teachersAndAdmins.map(u => <SelectItem key={u.uid} value={u.uid}>{`${u.lastName} ${u.firstName}`}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -446,5 +446,7 @@ export default function SalaryManagementPage() {
         </Suspense>
     );
 }
+
+    
 
     

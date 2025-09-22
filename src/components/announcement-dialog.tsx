@@ -52,6 +52,11 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
   
   const form = useForm<AnnouncementFormValues>({
     resolver: zodResolver(announcementSchema),
+    defaultValues: {
+      receiverId: 'all',
+      title: '',
+      content: '',
+    },
   });
 
   useEffect(() => {
@@ -59,7 +64,7 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
         if (announcement) {
             form.reset({
                 receiverId: announcement.receiverId,
-                title: announcement.title,
+                title: announcement.title || '',
                 content: announcement.content,
             });
         } else {
@@ -124,7 +129,7 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
                 <FormField control={form.control} name="receiverId" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Destinataire</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                             <SelectTrigger><SelectValue placeholder="Sélectionner un destinataire..." /></SelectTrigger>
                             </FormControl>
@@ -144,7 +149,7 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
                 <FormField control={form.control} name="title" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Titre (Optionnel)</FormLabel>
-                        <FormControl><Input placeholder="Titre de l'annonce" {...field} /></FormControl>
+                        <FormControl><Input placeholder="Titre de l'annonce" {...field} value={field.value || ''} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )}/>
@@ -178,3 +183,5 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     </Dialog>
   );
 }
+
+    

@@ -2,13 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 226 50% 97%; /* Light Indigo */
     --foreground: 222.2 47.4% 11.2%;
 
     --card: 0 0% 100%;
@@ -17,7 +13,7 @@ body {
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 47.4% 11.2%;
  
-    --primary: 25 95% 53%; /* Orange */
+    --primary: 231 48% 48%; /* Deep Indigo */
     --primary-foreground: 0 0% 100%;
  
     --secondary: 220 13% 91%;
@@ -26,7 +22,7 @@ body {
     --muted: 220 13% 91%;
     --muted-foreground: 220 9% 46%;
  
-    --accent: 25 95% 53%; /* Orange */
+    --accent: 174 100% 29%; /* Teal */
     --accent-foreground: 0 0% 100%;
  
     --destructive: 0 84.2% 60.2%;
@@ -34,28 +30,28 @@ body {
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 25 95% 53%; /* Orange */
+    --ring: 231 48% 48%; /* Deep Indigo */
  
     --radius: 0.5rem;
 
-    --sidebar-background: 222.2 47.4% 11.2%; /* Night Blue */
+    --sidebar-background: 222.2 47.4% 11.2%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 25 95% 53%; /* Orange */
+    --sidebar-primary: 231 48% 48%; /* Deep Indigo */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 20% 20%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 20% 25%;
-    --sidebar-ring: 25 95% 53%; /* Orange */
+    --sidebar-ring: 231 48% 48%; /* Deep Indigo */
 
-    --chart-1: 220 80% 65%;
-    --chart-2: 25 95% 53%;
-    --chart-3: 160 60% 45%;
+    --chart-1: 231 48% 48%;
+    --chart-2: 174 100% 29%;
+    --chart-3: 220 80% 65%;
     --chart-4: 330 75% 55%;
     --chart-5: 50 90% 55%;
   }
  
   .dark {
-    --background: 222.2 47.4% 11.2%; /* Night Blue */
+    --background: 222.2 47.4% 11.2%;
     --foreground: 0 0% 100%;
 
     --card: 220 20% 15%;
@@ -64,7 +60,7 @@ body {
     --popover: 222.2 47.4% 11.2%;
     --popover-foreground: 0 0% 100%;
  
-    --primary: 25 95% 53%; /* Orange */
+    --primary: 231 48% 58%; /* Lighter Indigo for dark mode */
     --primary-foreground: 0 0% 100%;
  
     --secondary: 220 20% 20%;
@@ -73,30 +69,24 @@ body {
     --muted: 220 20% 20%;
     --muted-foreground: 220 10% 65%;
  
-    --accent: 25 95% 53%; /* Orange */
-    --accent-foreground: 0 0% 100%;
+    --accent: 174 100% 39%; /* Lighter Teal for dark mode */
+    --accent-foreground: 0 0% 0%;
  
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
  
     --border: 220 20% 25%;
     --input: 220 20% 25%;
-    --ring: 25 95% 53%; /* Orange */
+    --ring: 231 48% 58%; /* Lighter Indigo for dark mode */
 
-    --sidebar-background: 222.2 47.4% 11.2%; /* Night Blue */
+    --sidebar-background: 222.2 47.4% 11.2%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 25 95% 53%; /* Orange */
+    --sidebar-primary: 231 48% 58%; /* Lighter Indigo for dark mode */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 20% 20%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 20% 25%;
-    --sidebar-ring: 25 95% 53%; /* Orange */
-
-    --chart-1: 220 80% 65%;
-    --chart-2: 25 95% 53%;
-    --chart-3: 160 60% 45%;
-    --chart-4: 330 75% 55%;
-    --chart-5: 50 90% 55%;
+    --sidebar-ring: 231 48% 58%; /* Lighter Indigo for dark mode */
   }
 }
 
@@ -116,3 +106,5 @@ body {
     background-repeat: repeat;
   }
 }
+
+    
