@@ -18,7 +18,7 @@ const TutorMessageSchema = z.object({
 });
 export type TutorMessage = z.infer<typeof TutorMessageSchema>;
 
-export const TutorInputSchema = z.object({
+const TutorInputSchema = z.object({
   history: z.array(TutorMessageSchema),
 });
 export type TutorInput = z.infer<typeof TutorInputSchema>;
@@ -30,7 +30,7 @@ const QuizQuestionSchema = z.object({
     explanation: z.string().describe("A brief explanation of why the answer is correct."),
 });
 
-export const TutorOutputSchema = z.object({
+const TutorOutputSchema = z.object({
   response: z.string().describe("The AI tutor's text response to the user's question."),
   quiz: z.optional(z.array(QuizQuestionSchema)).describe("An optional quiz with 3 questions to test the user's knowledge on the topic."),
 });
