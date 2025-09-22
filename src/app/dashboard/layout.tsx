@@ -49,7 +49,6 @@ import {
   Loader2,
   BookUser,
   UserCheck,
-  QrCode,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect, useState } from "react";
@@ -220,14 +219,6 @@ function MainSidebar() {
                   <Link href={"/dashboard/profile"}>
                     <UserIcon />
                     <span>Profil</span>
-                  </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === "/dashboard/share-session"} tooltip={"Partager la session"}>
-                  <Link href="/dashboard/share-session">
-                    <QrCode />
-                    <span>Partager la session</span>
                   </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
