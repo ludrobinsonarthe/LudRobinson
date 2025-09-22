@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,13 +16,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
   Form,
   FormControl,
   FormField,
@@ -32,16 +24,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { ChromeIcon, QrCode } from "lucide-react";
+import { ChromeIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthErrorCodes, signInWithCustomToken } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, AuthErrorCodes } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { doc, onSnapshot, collection, setDoc, getDoc, updateDoc } from "firebase/firestore";
-import QRCode from "qrcode.react";
+import { doc, onSnapshot } from "firebase/firestore";
 import { Settings } from "@/lib/types";
-import { useUser } from "@/hooks/use-user";
 
 const loginSchema = z.object({
   email: z.string().email("Veuillez saisir une adresse e-mail valide."),
@@ -55,9 +45,6 @@ export default function LoginPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
-  const [qrSessionId, setQrSessionId] = useState<string | null>(null);
-  const [qrLoginError, setQrLoginError] = useState<string | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -80,57 +67,6 @@ export default function LoginPage() {
     return () => unsub();
   }, []);
   
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    if (isQrDialogOpen && qrSessionId) {
-      const sessionRef = doc(db, 'qr_sessions', qrSessionId);
-      unsubscribe = onSnapshot(sessionRef, async (doc) => {
-        if (doc.exists() && doc.data().status === 'validated' && doc.data().userId) {
-            try {
-                setLoading(true);
-                // The validation is done on the other device. Here we just "trust" the validated session.
-                // For a real app, you'd want a more secure method like a custom token.
-                // This is a simplified flow for the demo.
-                
-                // Since we can't directly log in with just a UID, we'll have to consider this a "success"
-                // and let the main auth flow handle the redirection.
-                // A better approach would be to generate a custom token.
-                
-                // For this implementation, we can simulate a successful login by updating a local state
-                // but for a real redirect, we need a proper Firebase session.
-                // Let's assume for the demo the `use-auth` hook would eventually get the user.
-                
-                // A simple way to do this without custom tokens is to "mark" this browser for a one-time login
-                // but this is complex.
-                
-                // Let's just update the status and redirect. The auth state should eventually sync.
-                await updateDoc(sessionRef, { status: 'completed' });
-                toast({ title: "Connexion par QR Code validée", description: "Finalisation de la connexion..." });
-                // The actual login should be handled by a custom token or a similar secure mechanism.
-                // For this demo, we'll assume a mechanism that logs the user in and redirects.
-                // We'll manually push to dashboard and let the auth state catch up.
-                router.push("/dashboard");
-                setIsQrDialogOpen(false);
-            } catch (error) {
-                 setQrLoginError("Une erreur est survenue lors de la finalisation de la connexion.");
-                 toast({
-                    variant: "destructive",
-                    title: "Erreur de connexion QR",
-                    description: "Impossible de finaliser la connexion.",
-                });
-            } finally {
-                setLoading(false);
-            }
-        }
-      });
-    }
-    // Cleanup function to unsubscribe when the dialog is closed or component unmounts
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [isQrDialogOpen, qrSessionId, router, toast]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setLoading(true);
@@ -160,7 +96,6 @@ export default function LoginPage() {
     try {
       await signInWithPopup(auth, provider);
       // The useUser hook will handle redirection or rejection.
-      // We just need to wait a bit for the check to complete.
        toast({ title: "Connexion Google réussie", description: "Vérification des autorisations..." });
        router.push("/dashboard");
     } catch (error: any) {
@@ -175,13 +110,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleQrCodeClick = async () => {
-    const sessionId = doc(collection(db, 'qr_sessions')).id;
-    await setDoc(doc(db, 'qr_sessions', sessionId), { status: 'pending', createdAt: new Date() });
-    setQrSessionId(sessionId);
-    setQrLoginError(null);
-    setIsQrDialogOpen(true);
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -251,43 +179,12 @@ export default function LoginPage() {
                     </span>
                 </div>
             </div>
-             <div className="grid grid-cols-2 gap-4 w-full">
-                <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChromeIcon className="mr-2 h-4 w-4" />}
-                    Google
-                </Button>
-                 <Button variant="outline" className="w-full" onClick={handleQrCodeClick} disabled={loading}>
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
-                    Code QR
-                </Button>
-            </div>
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChromeIcon className="mr-2 h-4 w-4" />}
+                Google
+            </Button>
         </CardFooter>
       </Card>
-      
-      <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Connexion par Code QR</DialogTitle>
-                <DialogDescription>
-                    Connectez-vous sur votre téléphone, allez dans "Partager la session" et scannez ce code.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="flex items-center justify-center p-4">
-                {qrSessionId ? (
-                    <QRCode value={`${window.location.origin}/dashboard/share-session?sessionId=${qrSessionId}`} size={256} />
-                ) : (
-                    <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                )}
-            </div>
-            {qrLoginError ? (
-                <p className="text-center text-sm text-destructive">{qrLoginError}</p>
-            ) : (
-                <p className="text-center text-sm text-muted-foreground">
-                    En attente de validation...
-                </p>
-            )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
