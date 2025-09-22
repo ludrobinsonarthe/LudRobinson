@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useUser } from '@/hooks/use-user';
 import { User, Grade, Course } from '@/lib/types';
-import { ArrowRight, CheckCircle, GraduationCap, Loader2, Users, Repeat, FileDown } from 'lucide-react';
+import { ArrowRight, CheckCircle, GraduationCap, Loader2, Users, Repeat, FileDown, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,8 +47,8 @@ import { imageToDataUrl } from '@/lib/utils';
 
 const PASSING_GRADE = 10;
 
-type StudentWithAverage = User & { average: number };
-type ListType = 'promus' | 'diplômés' | 'redoublants';
+type StudentWithAverage = User & { average: number; hasGrades: boolean };
+type ListType = 'promus' | 'diplômés' | 'redoublants' | 'sans_notes';
 
 
 export default function AnnualTransitionPage() {
@@ -62,16 +62,18 @@ export default function AnnualTransitionPage() {
 
     const activeStudents = useMemo(() => users.filter(u => u.role === 'student' && u.status === 'active'), [users]);
     
-    const getOverallAverage = (studentId: string, studentCourses: Course[]): number => {
+    const getOverallAverage = (studentId: string, studentCourses: Course[]): { average: number, hasGrades: boolean } => {
         const studentGrades = grades.filter(g => g.studentId === studentId);
-        if (studentGrades.length === 0 || studentCourses.length === 0) return 0;
+        if (studentGrades.length === 0 || studentCourses.length === 0) return { average: 0, hasGrades: false };
 
         let totalWeightedAverage = 0;
         let totalCredits = 0;
+        let hasAnyGrade = false;
 
         studentCourses.forEach(course => {
             const courseGrades = studentGrades.filter(g => g.courseId === course.id);
             if (courseGrades.length > 0) {
+                 hasAnyGrade = true;
                 const dc = courseGrades.find(g => g.type === 'devoir de classe');
                 const dr = courseGrades.find(g => g.type === 'devoir de recherche');
                 const exam = courseGrades.find(g => g.type === 'examen');
@@ -99,7 +101,10 @@ export default function AnnualTransitionPage() {
             }
         });
 
-        return totalCredits > 0 ? totalWeightedAverage / totalCredits : 0;
+        if (!hasAnyGrade) return { average: 0, hasGrades: false };
+
+        const average = totalCredits > 0 ? totalWeightedAverage / totalCredits : 0;
+        return { average, hasGrades: true };
     };
     
     const getNextLevel = (currentLevel: string): string | null => {
@@ -120,12 +125,11 @@ export default function AnnualTransitionPage() {
         activeStudents.forEach(student => {
              if (student.student?.fieldId && student.student?.level) {
                 const studentCourses = courses.filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
-                const average = getOverallAverage(student.uid, studentCourses);
-                const studentWithAvg = { ...student, average };
+                const { average, hasGrades } = getOverallAverage(student.uid, studentCourses);
+                const studentWithAvg = { ...student, average, hasGrades };
 
-                if (average === 0 && studentCourses.length > 0) {
+                if (!hasGrades) {
                     studentsWithNoGrades.push(studentWithAvg);
-                    studentsToRepeat.push(studentWithAvg); // Consider them repeating if no grades
                     return;
                 }
 
@@ -139,8 +143,6 @@ export default function AnnualTransitionPage() {
                 } else {
                     studentsToRepeat.push(studentWithAvg);
                 }
-            } else {
-                 studentsWithNoGrades.push({ ...student, average: 0 });
             }
         });
         
@@ -162,6 +164,10 @@ export default function AnnualTransitionPage() {
             case 'redoublants':
                 setListToShow(transitionPlan.studentsToRepeat);
                 setListTitle("Liste des étudiants redoublants");
+                break;
+            case 'sans_notes':
+                setListToShow(transitionPlan.studentsWithNoGrades);
+                setListTitle("Liste des étudiants sans notes");
                 break;
         }
         setIsListDialogOpen(true);
@@ -251,7 +257,7 @@ export default function AnnualTransitionPage() {
                 student.lastName,
                 student.firstName,
                 student.student?.matricule || 'N/A',
-                student.average.toFixed(2),
+                student.hasGrades ? student.average.toFixed(2) : 'N/A',
             ];
             tableRows.push(studentData);
         });
@@ -277,22 +283,22 @@ export default function AnnualTransitionPage() {
     }
     
     return (
-        <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="space-y-6 max-w-5xl mx-auto">
             <div>
                 <h1 className="text-3xl font-bold font-headline tracking-tight">Transition Annuelle</h1>
                 <p className="text-muted-foreground">
-                    Gérez le passage des étudiants à l'année académique suivante en fonction de leurs résultats. Seuls les étudiants avec une moyenne générale de {PASSING_GRADE}/20 ou plus seront promus.
+                    Gérez le passage des étudiants à l'année académique suivante. Seuls les étudiants avec une moyenne de {PASSING_GRADE}/20 ou plus seront promus.
                 </p>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Résumé de la Transition</CardTitle>
+                    <CardTitle>Aperçu de la Transition pour l'Année {settings?.academicYear}</CardTitle>
                     <CardDescription>
-                        Aperçu des promotions, redoublements et diplômes qui seront appliqués. Cliquez sur une carte pour voir la liste.
+                        Prévisualisation des promotions, redoublements et diplômes basés sur les notes actuelles. Cliquez sur une carte pour voir la liste détaillée.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
                      <button onClick={() => handleShowList('promus')} className="text-left">
                         <Card className="text-center bg-green-500/10 border-green-500 hover:bg-green-500/20 transition-colors">
                             <CardHeader className="pb-2">
@@ -326,6 +332,17 @@ export default function AnnualTransitionPage() {
                             </CardContent>
                         </Card>
                     </button>
+                    <button onClick={() => handleShowList('sans_notes')} className="text-left">
+                        <Card className="text-center bg-gray-500/10 border-gray-500 hover:bg-gray-500/20 transition-colors">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium flex items-center justify-center gap-2"><AlertTriangle className="h-4 w-4"/> En Attente</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">{transitionPlan.studentsWithNoGrades.length}</p>
+                                <p className="text-xs text-muted-foreground">étudiants sans notes</p>
+                            </CardContent>
+                        </Card>
+                    </button>
                 </CardContent>
             </Card>
 
@@ -355,7 +372,7 @@ export default function AnnualTransitionPage() {
                                     Cette action est majeure et ne peut pas être annulée facilement.
                                     Les étudiants avec une moyenne supérieure ou égale à {PASSING_GRADE}/20 seront promus. Les autres redoubleront. Les étudiants en fin de cycle seront diplômés.
                                     <br/><br/>
-                                    Assurez-vous que toutes les notes et les paiements pour l'année en cours sont finalisés avant de continuer.
+                                    Assurez-vous que toutes les notes sont finalisées avant de continuer. Les étudiants sans notes ne seront pas affectés.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -392,7 +409,9 @@ export default function AnnualTransitionPage() {
                                     <TableRow key={student.uid}>
                                         <TableCell className="font-medium">{student.lastName} {student.firstName}</TableCell>
                                         <TableCell>{student.student?.matricule}</TableCell>
-                                        <TableCell className="text-right font-bold">{student.average.toFixed(2)} / 20</TableCell>
+                                        <TableCell className={`text-right font-bold ${!student.hasGrades ? 'text-muted-foreground' : ''}`}>
+                                            {student.hasGrades ? `${student.average.toFixed(2)} / 20` : 'N/A'}
+                                        </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
@@ -414,7 +433,5 @@ export default function AnnualTransitionPage() {
         </div>
     );
 }
-
-    
 
     
