@@ -21,9 +21,67 @@ interface MessageWithQuiz extends TutorMessage {
     quiz?: TutorOutput['quiz'];
 }
 
+const QuizComponent = ({ quiz }: { quiz: NonNullable<TutorOutput['quiz']> }) => {
+    const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+    const [submitted, setSubmitted] = useState(false);
+    const { toast } = useToast();
+
+    const handleCheckAnswers = () => {
+        setSubmitted(true);
+        let correctCount = 0;
+        quiz.forEach((q, index) => {
+            if (selectedAnswers[index] === q.answer) {
+                correctCount++;
+            }
+        });
+        toast({
+            title: 'Résultats du Quiz',
+            description: `Vous avez obtenu ${correctCount} sur ${quiz.length} !`,
+        });
+    };
+
+    return (
+        <Card className="mt-4 bg-muted/50">
+            <CardHeader>
+                <CardTitle className="text-lg font-semibold">Mini-Quiz</CardTitle>
+                <CardDescription>Testez votre compréhension !</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                {quiz.map((q, index) => (
+                    <div key={index} className={cn("p-4 rounded-lg border", submitted && (selectedAnswers[index] === q.answer ? 'border-green-500 bg-green-500/10' : 'border-destructive bg-destructive/10'))}>
+                        <p className="font-medium mb-2">{index + 1}. {q.question}</p>
+                        <RadioGroup
+                            value={selectedAnswers[index]}
+                            onValueChange={(value) => setSelectedAnswers(prev => ({ ...prev, [index]: value }))}
+                            disabled={submitted}
+                        >
+                            {q.options.map((option, i) => (
+                                <div key={i} className="flex items-center space-x-2">
+                                    <RadioGroupItem value={option} id={`q${index}-o${i}`} />
+                                    <Label htmlFor={`q${index}-o${i}`} className="cursor-pointer">{option}</Label>
+                                </div>
+                            ))}
+                        </RadioGroup>
+                        {submitted && (
+                            <div className="mt-3 text-sm p-2 rounded-md bg-background/50">
+                                <p><strong>Réponse correcte :</strong> {q.answer}</p>
+                                <p><strong>Explication :</strong> {q.explanation}</p>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </CardContent>
+            <CardFooter>
+                <Button onClick={handleCheckAnswers} disabled={submitted || Object.keys(selectedAnswers).length < quiz.length}>
+                    Vérifier mes réponses
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+};
+
 export default function TutorPage() {
     const { user } = useUser();
-    const { toast } = useToast();
     const [messages, setMessages] = useState<MessageWithQuiz[]>([
         {
             role: 'model',
@@ -72,73 +130,19 @@ export default function TutorPage() {
             });
         }
     }, [messages]);
-
-    const QuizComponent = ({ quiz }: { quiz: NonNullable<TutorOutput['quiz']> }) => {
-        const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-        const [submitted, setSubmitted] = useState(false);
-
-        const handleCheckAnswers = () => {
-            setSubmitted(true);
-            let correctCount = 0;
-            quiz.forEach((q, index) => {
-                if (selectedAnswers[index] === q.answer) {
-                    correctCount++;
-                }
-            });
-            toast({
-                title: 'Résultats du Quiz',
-                description: `Vous avez obtenu ${correctCount} sur ${quiz.length} !`,
-            });
-        };
-
-        return (
-            <Card className="mt-4 bg-muted/50">
-                <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Mini-Quiz</CardTitle>
-                    <CardDescription>Testez votre compréhension !</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    {quiz.map((q, index) => (
-                        <div key={index} className={cn("p-4 rounded-lg border", submitted && (selectedAnswers[index] === q.answer ? 'border-green-500 bg-green-500/10' : 'border-destructive bg-destructive/10'))}>
-                            <p className="font-medium mb-2">{index + 1}. {q.question}</p>
-                            <RadioGroup
-                                value={selectedAnswers[index]}
-                                onValueChange={(value) => setSelectedAnswers(prev => ({ ...prev, [index]: value }))}
-                                disabled={submitted}
-                            >
-                                {q.options.map((option, i) => (
-                                    <div key={i} className="flex items-center space-x-2">
-                                        <RadioGroupItem value={option} id={`q${index}-o${i}`} />
-                                        <Label htmlFor={`q${index}-o${i}`} className="cursor-pointer">{option}</Label>
-                                    </div>
-                                ))}
-                            </RadioGroup>
-                            {submitted && (
-                                <div className="mt-3 text-sm p-2 rounded-md bg-background/50">
-                                    <p><strong>Réponse correcte :</strong> {q.answer}</p>
-                                    <p><strong>Explication :</strong> {q.explanation}</p>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </CardContent>
-                <CardFooter>
-                    <Button onClick={handleCheckAnswers} disabled={submitted || Object.keys(selectedAnswers).length < quiz.length}>
-                        Vérifier mes réponses
-                    </Button>
-                </CardFooter>
-            </Card>
-        );
-    };
-
+    
     return (
-        <div className="h-[calc(100vh-8rem)] flex flex-col">
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold font-headline tracking-tight">Tuteur IA</h1>
-                <p className="text-muted-foreground">Votre assistant personnel pour vous aider à réussir vos études.</p>
-            </div>
+        <div className="h-full flex flex-col">
+            <header className="p-4 border-b">
+                <h1 className="text-xl font-bold font-headline tracking-tight flex items-center gap-2">
+                    <Bot /> Tuteur IA
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                    Votre assistant personnel pour vous aider à réussir vos études.
+                </p>
+            </header>
 
-            <Card className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
                 <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
                     <div className="space-y-6">
                         {messages.map((message, index) => (
@@ -148,7 +152,7 @@ export default function TutorPage() {
                                         <AvatarFallback><Bot /></AvatarFallback>
                                     </Avatar>
                                 )}
-                                <div className={cn('max-w-2xl rounded-lg px-4 py-3', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
+                                <div className={cn('max-w-md rounded-lg px-4 py-3', message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
                                     <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
                                         {message.content}
                                     </ReactMarkdown>
@@ -194,7 +198,7 @@ export default function TutorPage() {
                         </Button>
                     </form>
                 </div>
-            </Card>
+            </div>
         </div>
     );
 }

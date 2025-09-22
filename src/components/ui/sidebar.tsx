@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -11,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetHeader } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetHeader, SheetTrigger } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
@@ -768,4 +769,7 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  Sheet,
+  SheetContent,
+  SheetTrigger
 }

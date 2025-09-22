@@ -18,6 +18,9 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarInput,
+  Sheet,
+  SheetContent,
+  SheetTrigger
 } from "@/components/ui/sidebar";
 import {
   Home,
@@ -53,6 +56,7 @@ import React, { useEffect, useState } from "react";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import TutorPage from "./tutor/page";
 
 function AppLogo() {
   const { settings, loading } = useUser();
@@ -90,7 +94,6 @@ function MainSidebar() {
     { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
     { href: "/dashboard/grades", label: "Notes", icon: ClipboardList },
     { href: "/dashboard/schedule", label: "Emploi du temps", icon: CalendarDays },
-    { href: "/dashboard/tutor", label: "Tuteur IA", icon: Bot },
     { href: "/dashboard/promotion", label: "Ma Promotion", icon: Users },
     { href: "/dashboard/documents", label: "Documents", icon: FileText },
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
@@ -193,6 +196,21 @@ function MainSidebar() {
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
+            {user?.role === 'student' && (
+                <Sheet>
+                    <SheetTrigger asChild>
+                        <SidebarMenuItem>
+                        <SidebarMenuButton tooltip={"Tuteur IA"}>
+                            <Bot />
+                            <span>Tuteur IA</span>
+                        </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SheetTrigger>
+                    <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
+                        <TutorPage />
+                    </SheetContent>
+                </Sheet>
+            )}
             <SidebarMenuItem>
               <SidebarMenuButton
                   asChild
