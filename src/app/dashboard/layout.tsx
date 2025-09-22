@@ -49,6 +49,7 @@ import {
   Loader2,
   BookUser,
   UserCheck,
+  ArrowRightLeft,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect, useState } from "react";
@@ -129,6 +130,7 @@ function MainSidebar() {
              { href: "/dashboard/users", label: "Personnel", icon: UserCog, permission: 'manage_users' },
              { href: "/dashboard/roles", label: "Rôles & Permissions", icon: ShieldCheck, permission: 'manage_roles' },
              { href: "/dashboard/admin-management", label: "Administration", icon: Building, permission: 'manage_admin_settings' },
+             { href: "/dashboard/annual-transition", label: "Transition Annuelle", icon: ArrowRightLeft, permission: 'manage_admin_settings' },
         ]
     }
   ];
