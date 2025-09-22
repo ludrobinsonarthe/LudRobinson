@@ -38,6 +38,7 @@ const studentFormSchema = z.object({
   lastName: z.string().min(2, "Le nom est requis."),
   email: z.string().email("Adresse e-mail invalide.").optional().or(z.literal('')),
   phone: z.string().optional(),
+  address: z.string().optional(),
   dob: z.string().optional(),
   pob: z.string().optional(),
   gender: z.enum(['M', 'F']).optional(),
@@ -106,6 +107,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         lastName: '',
         email: '',
         phone: '',
+        address: '',
         dob: '',
         pob: '',
         nationality: '',
@@ -155,6 +157,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 lastName: student.lastName || '',
                 email: student.email || '',
                 phone: student.phone || '',
+                address: student.address || '',
                 dob: student.dob || '',
                 pob: student.pob || '',
                 gender: student.gender,
@@ -181,6 +184,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             lastName: '',
             email: '',
             phone: '',
+            address: '',
             dob: '',
             pob: '',
             nationality: '',
@@ -233,6 +237,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         lastName: data.lastName,
         email: data.email,
         phone: data.phone,
+        address: data.address,
         dob: data.dob,
         pob: data.pob,
         gender: data.gender,
@@ -299,10 +304,10 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 </FormItem>
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="lastName" render={({ field }) => (
-                        <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="Dupont" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Nom</FormLabel><FormControl><Input placeholder="Dupont" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="firstName" render={({ field }) => (
-                        <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Prénom</FormLabel><FormControl><Input placeholder="Jean" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
                  <div className="grid grid-cols-2 gap-4">
@@ -341,17 +346,21 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                     )}/>
                 </div>
 
+                 <FormField control={form.control} name="address" render={({ field }) => (
+                    <FormItem><FormLabel>Adresse</FormLabel><FormControl><Input placeholder="123 Rue de la République, Centre-ville" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                )}/>
+
                 <Separator className="my-4"/>
                 <h3 className="text-lg font-semibold text-foreground">Informations Académiques</h3>
 
 
                 <div className="grid grid-cols-2 gap-4">
                      <FormField control={form.control} name="matricule" render={({ field }) => (
-                        <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input {...field} readOnly /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Matricule</FormLabel><FormControl><Input {...field} readOnly value={field.value || ''}/></FormControl><FormMessage /></FormItem>
                     )}/>
                      <FormField control={form.control} name="level" render={({ field }) => (
                         <FormItem><FormLabel>Niveau</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un niveau..." /></SelectTrigger></FormControl>
                             <SelectContent>{settings?.levels.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}</SelectContent>
                         </Select>
@@ -405,7 +414,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                  <div className="grid grid-cols-2 gap-4">
                      <FormField control={form.control} name="cycle" render={({ field }) => (
                         <FormItem><FormLabel>Cycle</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || 'local'}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un cycle..." /></SelectTrigger></FormControl>
                             <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
@@ -427,7 +436,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
                 <FormField control={form.control} name="parentSelection" render={({ field }) => (
                     <FormItem>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || 'existing'}>
                         <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
                         <SelectContent>
                             <SelectItem value="existing">Sélectionner un tuteur existant</SelectItem>
@@ -490,5 +499,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
+
 
     
