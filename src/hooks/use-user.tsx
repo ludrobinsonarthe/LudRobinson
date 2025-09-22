@@ -7,7 +7,8 @@ import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course 
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
-import { mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
+// Mock data is no longer used for seeding, but kept for reference if needed.
+// import { mockUsers, mockSectors, mockFields } from '@/lib/mock-data';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
 
@@ -59,20 +60,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       if (!isMounted) return;
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        if (snapshot.empty) {
-            console.log("Users collection is empty. Seeding mock users.");
-            const batch = writeBatch(db);
-            mockUsers.forEach(user => {
-                const userRef = doc(db, 'users', user.uid);
-                batch.set(userRef, user);
-            });
-            batch.commit().then(() => {
-                if(isMounted) setAllUsers(mockUsers);
-                 console.log("Mock users seeded successfully.");
-            }).catch(e => console.error("Error seeding mock users: ", e));
-        } else {
-            if(isMounted) setAllUsers(usersData);
-        }
+        if(isMounted) setAllUsers(usersData);
     }, (error) => {
         console.error("Error fetching users:", error);
     });
@@ -98,40 +86,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const unsubSectors = onSnapshot(collection(db, "sectors"), (snapshot) => {
         if (!isMounted) return;
-        if (snapshot.empty) {
-            console.log("Sectors collection is empty. Seeding initial sectors.");
-            const batch = writeBatch(db);
-            mockSectors.forEach(sector => {
-                const sectorRef = doc(db, 'sectors', sector.id);
-                batch.set(sectorRef, sector);
-            });
-            batch.commit().then(() => {
-                if (isMounted) setSectors(mockSectors);
-                console.log("Initial sectors seeded successfully.");
-            }).catch(e => console.error("Error seeding sectors:", e));
-        } else {
-            const sectorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sector));
-            if (isMounted) setSectors(sectorsData);
-        }
+        const sectorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sector));
+        if (isMounted) setSectors(sectorsData);
     });
     
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
         if (!isMounted) return;
-         if (snapshot.empty) {
-            console.log("Fields collection is empty. Seeding initial fields.");
-            const batch = writeBatch(db);
-            mockFields.forEach(field => {
-                const fieldRef = doc(db, 'fields', field.id);
-                batch.set(fieldRef, field);
-            });
-            batch.commit().then(() => {
-                if (isMounted) setFields(mockFields);
-                console.log("Initial fields seeded successfully.");
-            }).catch(e => console.error("Error seeding fields:", e));
-        } else {
-             const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
-             if (isMounted) setFields(fieldsData);
-        }
+         const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
+         if (isMounted) setFields(fieldsData);
     }, (error) => {
         console.error("Error fetching fields:", error);
     });

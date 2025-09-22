@@ -3,6 +3,8 @@
 import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
 
 // Mock data is now being used as the primary source until Firestore rules are configured.
+// THIS FILE IS NOW DEPRECATED as of the implementation of Firestore rules.
+// It is kept for reference but should not be used for seeding in production.
 
 export const mockUsers: User[] = [
     {

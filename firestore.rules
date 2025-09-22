@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function userRole() {
+      return getUserData(request.auth.uid).role;
+    }
+
+    function isRole(role) {
+      return isSignedIn() && userRole() == role;
+    }
+    
+    function getAdminRole() {
+        return get(/databases/$(database)/documents/adminRoles/$(getUserData(request.auth.uid).admin.roleId)).data;
+    }
+
+    function hasPermission(permission) {
+        let user = getUserData(request.auth.uid);
+        // Super Admin Case
+        if (user.admin.position == 'Super-Administrateur' || user.email == 'sem.bourangon@isgi.com' || user.email == 'admin@isgi.com') {
+          return true;
+        }
+        return isRole('admin') && permission in getAdminRole().permissions;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      // Any signed-in user can read any other user's profile (for contact lists etc.)
+      allow read: if isSignedIn();
+      // Only the user themselves or an admin with permission can update their own profile
+      allow update: if isUser(userId) || hasPermission('manage_users') || hasPermission('manage_students');
+       // Only an admin with permission can create or delete users
+      allow create, delete: if hasPermission('manage_users') || hasPermission('manage_students');
+    }
+
+    // Settings, Sectors, Fields, Roles are readable by all authenticated users
+    match /{collectionName}/{docId} where collectionName in ['settings', 'sectors', 'fields', 'adminRoles', 'courses'] {
+      allow read: if isSignedIn();
+      allow write: if hasPermission('manage_admin_settings') || hasPermission('manage_course') || hasPermission('manage_roles');
+    }
+    
+    // Fee Structures can be read by all, but only written by admins with fee management permission
+    match /feeStructures/{feeId} {
+        allow read: if isSignedIn();
+        allow write: if hasPermission('manage_fees');
+    }
+
+    // Grades: complex rules
+    match /grades/{gradeId} {
+      allow read: if isSignedIn() && 
+                    (isUser(resource.data.studentId) // Student can read their own grades
+                    || get(/databases/$(database)/documents/users/$(resource.data.studentId)).data.student.parentUid == request.auth.uid // Parent can read their child's grades
+                    || hasPermission('manage_grades') // Admin can read all grades
+                    || (isRole('teacher') && resource.data.courseId in getUserData(request.auth.uid).teacher.assignedCourses)); // Teacher can read grades for their courses
+      allow create, update, delete: if hasPermission('manage_grades');
+    }
+
+    // Payments:
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && (isUser(resource.data.studentId) || get(/databases/$(database)/documents/users/$(resource.data.studentId)).data.student.parentUid == request.auth.uid || hasPermission('manage_tuition'));
+      allow create: if isUser(resource.data.studentId) || hasPermission('manage_tuition');
+      allow update, delete: if hasPermission('manage_tuition');
+    }
+    
+    // Messages (Announcements & Private)
+    match /messages/{messageId} {
+        allow read: if isSignedIn() &&
+                    (resource.data.type == 'announcement' && resource.data.receiverId in ['all', userRole(), (getUserData(request.auth.uid).admin.roleId || '')]) || // Announcements
+                    (resource.data.type == 'private' && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid)); // Private messages
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn() && (hasPermission('manage_admin_settings') || request.auth.uid == resource.data.senderId);
+    }
+    
+    // Official Documents
+    match /officialDocuments/{docId} {
+        allow read: if isSignedIn() && (isUser(resource.data.studentId) || get(/databases/$(database)/documents/users/$(resource.data.studentId)).data.student.parentUid == request.auth.uid || hasPermission('manage_students'));
+        allow write: if hasPermission('manage_students');
+    }
+    
+    // Attendances
+    match /attendances/{attendanceId} {
+        allow read: if isSignedIn();
+        allow write: if hasPermission('manage_attendance');
+    }
+
+    // Teacher Salaries
+    match /teacherSalaries/{salaryId} {
+        allow read: if hasPermission('manage_salaries') || (isRole('teacher') && resource.data.teacherId == request.auth.uid);
+        allow write: if hasPermission('manage_salaries');
+    }
+
+    // Cash Transactions
+    match /cashTransactions/{transactionId} {
+        allow read: if hasPermission('manage_cash_flow');
+        allow write: if hasPermission('manage_cash_flow');
+    }
+    
+    // QR Sessions for login (if re-enabled) should be restricted
+    match /qr_sessions/{sessionId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}
