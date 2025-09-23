@@ -113,35 +113,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   
   useEffect(() => {
     setLoading(true);
-    if (!authLoading) {
-      if (authUser) {
-        const userDoc = allUsers.find(u => u.uid === authUser.uid);
-        if (userDoc) {
-          setCurrentUser(userDoc);
-        } else {
-          // This case can happen if the user exists in Auth but not in Firestore yet.
-          // We wait for the `allUsers` snapshot to potentially resolve this.
-          // If after a delay it's still not found, we sign out.
-          const timer = setTimeout(() => {
-            const freshUserDoc = allUsers.find(u => u.uid === authUser.uid);
-            if (!freshUserDoc) {
-               toast({
-                variant: "destructive",
-                title: "Profil non trouvé",
-                description: "Votre compte n'est pas enregistré dans la base de données. Déconnexion.",
-              });
-              signOut();
-            }
-          }, 2000); // 2 seconds delay to allow Firestore to catch up
-          return () => clearTimeout(timer);
-        }
-      } else {
-        setCurrentUser(null);
-      }
+    if (authLoading) {
+      // Wait for auth state to be determined
+      return;
     }
-     // The loading state depends on both Auth and the initial fetch of all users
-    setLoading(authLoading || (authUser && !currentUser));
-  }, [authUser, allUsers, authLoading, signOut, toast, currentUser]);
+
+    if (authUser) {
+      // Auth user exists, fetch their specific Firestore document
+      const userDocRef = doc(db, 'users', authUser.uid);
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setCurrentUser(docSnap.data() as User);
+          setLoading(false);
+        } else {
+          // User exists in Auth, but not in Firestore. This is an invalid state.
+          toast({
+            variant: "destructive",
+            title: "Profil non trouvé",
+            description: "Votre compte n'est pas enregistré dans la base de données. Déconnexion.",
+          });
+          signOut();
+          setLoading(false);
+        }
+      }, (error) => {
+         console.error("Error fetching user document:", error);
+         toast({ variant: 'destructive', title: "Erreur de profil", description: "Impossible de charger votre profil." });
+         signOut();
+         setLoading(false);
+      });
+      return () => unsubscribe();
+
+    } else {
+      // No auth user, not loading
+      setCurrentUser(null);
+      setLoading(false);
+    }
+  }, [authUser, authLoading, signOut, toast]);
 
   
   const userPermissions = useMemo((): AdminPermission[] => {
@@ -174,14 +181,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setSettings(newSettings);
   };
   
-  const finalLoadingState = loading || (!!authUser && !currentUser);
-
   const value: UserContextType = { 
       user: currentUser, 
       setUser, 
       users: allUsers, 
       setUsers: setAllUsers, 
-      loading: finalLoadingState,
+      loading,
       roles,
       userPermissions,
       hasPermission,
