@@ -53,8 +53,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    setLoading(true);
-
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
         setAllUsers(usersData);
@@ -99,8 +97,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
     });
 
-    setLoading(false);
-    
     // Combine all unsubscribers
     return () => {
       unsubUsers();
@@ -115,29 +111,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || allUsers.length === 0) {
+        setLoading(true);
+        return;
+    };
 
     if (authUser) {
-      if (allUsers.length > 0) {
-        const matchedUser = allUsers.find(u => u.uid === authUser.uid);
-
-        if (matchedUser) {
-          if (currentUser?.uid !== matchedUser.uid) {
-            setCurrentUser(matchedUser);
-          }
-        } else {
-            // User authenticated but not in our DB
-            toast({
-              variant: "destructive",
-              title: "Accès non autorisé",
-              description: "Votre compte n'est pas enregistré dans la base de données. Contactez l'administration.",
-            });
-            signOut();
+      const matchedUser = allUsers.find(u => u.uid === authUser.uid);
+      if (matchedUser) {
+        if (currentUser?.uid !== matchedUser.uid) {
+           setCurrentUser(matchedUser);
         }
+      } else {
+          // User authenticated but not in our DB
+          toast({
+            variant: "destructive",
+            title: "Accès non autorisé",
+            description: "Votre compte n'est pas enregistré dans la base de données. Contactez l'administration.",
+          });
+          signOut();
       }
     } else { // No authenticated user
       setCurrentUser(null);
     }
+    setLoading(authLoading);
   }, [authUser, allUsers, authLoading, currentUser, signOut, toast]);
 
   
@@ -145,9 +142,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (currentUser?.role !== 'admin') return [];
       
       const isSuperAdminByPosition = currentUser.admin?.position === 'Super-Administrateur';
-      const isSuperAdminByEmail = currentUser.email === "semfranslinbourangon@gmail.com";
       
-      if (isSuperAdminByPosition || isSuperAdminByEmail) {
+      if (isSuperAdminByPosition) {
           return Object.keys(adminPermissions) as AdminPermission[];
       }
 
@@ -172,7 +168,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setSettings(newSettings);
   };
   
-  const finalLoadingState = authLoading || loading || (!!authUser && !currentUser);
+  const finalLoadingState = loading || (!!authUser && !currentUser);
 
   const value: UserContextType = { 
       user: currentUser, 
