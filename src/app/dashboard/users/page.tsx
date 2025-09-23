@@ -105,79 +105,61 @@ export default function UsersPage() {
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
         if (!userData.email) {
-            toast({ variant: "destructive", title: "Erreur", description: "L'e-mail est requis pour créer ou mettre à jour un utilisateur." });
+            toast({ variant: "destructive", title: "Erreur", description: "L'e-mail est requis." });
             return;
         }
     
         try {
-            // Check if user with this email already exists in Firestore
+            // Find if a user with this email already exists in Firestore
             const usersRef = collection(db, "users");
             const q = query(usersRef, where("email", "==", userData.email));
             const querySnapshot = await getDocs(q);
     
-            const existingUser = querySnapshot.docs.length > 0 ? querySnapshot.docs[0].data() as User : null;
-            const existingUserId = querySnapshot.docs.length > 0 ? querySnapshot.docs[0].id : null;
+            let userToSave: User;
+            let docRef;
     
-            const isNewUser = !existingUser;
-    
-            if (isNewUser) {
-                // --- CREATE NEW USER ---
-                const defaultPassword = "password";
-                const userCredential = await createUserWithEmailAndPassword(auth, userData.email, defaultPassword);
-                const uid = userCredential.user.uid;
-    
-                let photoUrl = userData.photoUrl;
-                if (photoFile) {
-                    const photoRef = ref(storage, `avatars/${uid}`);
-                    const snapshot = await uploadBytes(photoRef, photoFile);
-                    photoUrl = await getDownloadURL(snapshot.ref);
-                }
-    
-                const finalUserData: User = {
+            if (querySnapshot.empty) {
+                // If user does not exist in Firestore, create a new one.
+                // IMPORTANT: Assumes Firebase Auth user has been created manually in the console.
+                const newUid = doc(collection(db, 'users')).id; // Placeholder, real UID comes from Auth
+                userToSave = {
+                    uid: newUid, // This will be overwritten if an auth user is found, otherwise it's a new doc.
                     ...userData,
-                    uid: uid,
                     role: userData.role as UserRole,
-                    photoUrl: photoUrl || `https://picsum.photos/seed/${uid}/100/100`,
                     createdAt: new Date().toISOString(),
                     status: 'active',
+                    photoUrl: `https://picsum.photos/seed/${newUid}/100/100`,
                 } as User;
-    
-                await setDoc(doc(db, 'users', uid), finalUserData);
-    
-                toast({
-                    title: "Personnel ajouté",
-                    description: `Le compte a été créé avec le mot de passe par défaut : password`
-                });
-    
+                docRef = doc(db, 'users', userToSave.uid);
+                toast({ title: "Profil créé", description: "Le profil a été ajouté à la base de données." });
             } else {
-                // --- UPDATE EXISTING USER ---
-                if (!existingUserId) return;
-    
-                let photoUrl = existingUser.photoUrl;
-                if (photoFile) {
-                    const photoRef = ref(storage, `avatars/${existingUserId}`);
-                    const snapshot = await uploadBytes(photoRef, photoFile);
-                    photoUrl = await getDownloadURL(snapshot.ref);
-                }
-    
-                const finalUserData: Partial<User> = {
+                // If user exists, update them.
+                const existingDoc = querySnapshot.docs[0];
+                const existingUser = existingDoc.data() as User;
+                userToSave = { 
+                    ...existingUser,
                     ...userData,
-                    photoUrl: photoUrl,
-                };
-    
-                await setDoc(doc(db, 'users', existingUserId), finalUserData, { merge: true });
-    
-                toast({ title: "Personnel mis à jour" });
+                    // Ensure critical fields aren't overwritten by partial data
+                    uid: existingUser.uid,
+                    createdAt: existingUser.createdAt,
+                 } as User;
+                docRef = existingDoc.ref;
+                toast({ title: "Profil mis à jour" });
             }
+
+            // Handle photo upload
+            if (photoFile) {
+                const photoRef = ref(storage, `avatars/${userToSave.uid}`);
+                const snapshot = await uploadBytes(photoRef, photoFile);
+                userToSave.photoUrl = await getDownloadURL(snapshot.ref);
+            }
+            
+            // Save to Firestore
+            await setDoc(docRef, userToSave, { merge: true });
+    
         } catch (error: any) {
             console.error("Error saving user:", error);
-            let errorMessage = "Impossible de sauvegarder l'utilisateur.";
-            if (error.code === 'auth/email-already-in-use') {
-                errorMessage = "Cette adresse e-mail a déjà un compte d'authentification. L'opération a été annulée pour éviter les conflits.";
-            } else if (error.code === 'auth/invalid-email') {
-                errorMessage = "L'adresse e-mail n'est pas valide.";
-            }
-            toast({ variant: "destructive", title: "Erreur de sauvegarde", description: errorMessage });
+            toast({ variant: "destructive", title: "Erreur de sauvegarde", description: "Impossible de sauvegarder le profil dans Firestore." });
         }
     }
     
