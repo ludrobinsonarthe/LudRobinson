@@ -115,23 +115,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-    if (authLoading) return; // Wait until auth state is confirmed
-  
+    if (authLoading) return;
+
     if (authUser) {
-      if (allUsers.length > 0) { // Ensure users list is populated
+      if (allUsers.length > 0) {
         const matchedUser = allUsers.find(u => u.uid === authUser.uid);
+
         if (matchedUser) {
           if (currentUser?.uid !== matchedUser.uid) {
             setCurrentUser(matchedUser);
           }
         } else {
+          // If no user is found in Firestore, check if it's a designated super admin email
           const isSuperAdminEmail = authUser.email === "admin@isgi.com" || authUser.email === "semfranslinbourangon@gmail.com";
           if (isSuperAdminEmail) {
             const newUserProfile: User = {
               uid: authUser.uid,
               email: authUser.email || '',
-              firstName: "Admin",
-              lastName: "ISGI",
+              firstName: authUser.displayName?.split(' ')[0] || "Super",
+              lastName: authUser.displayName?.split(' ')[1] || "Admin",
               photoUrl: authUser.photoURL || "/logo.png",
               role: 'admin',
               status: 'active',
@@ -143,7 +145,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             };
             const userDocRef = doc(db, 'users', authUser.uid);
             setDoc(userDocRef, newUserProfile).then(() => {
-              // The onSnapshot listener for users will pick this up automatically.
+              setCurrentUser(newUserProfile);
             });
           } else {
             toast({
