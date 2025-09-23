@@ -26,7 +26,8 @@ import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, addDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
-import { db, storage } from "@/lib/firebase";
+import { db, storage, auth } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -104,34 +105,81 @@ export default function UsersPage() {
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
         const isNewUser = !selectedUser;
-        const uid = selectedUser?.uid || doc(collection(db, "users")).id;
-        let photoUrl = userData.photoUrl || selectedUser?.photoUrl;
         
-        try {
-            if (photoFile) {
-                const photoRef = ref(storage, `avatars/${uid}`);
-                const snapshot = await uploadBytes(photoRef, photoFile);
-                photoUrl = await getDownloadURL(snapshot.ref);
+        // For new users, create auth user first to get a UID
+        if (isNewUser) {
+            if (!userData.email) {
+                toast({ variant: "destructive", title: "Erreur", description: "L'e-mail est requis pour créer un utilisateur." });
+                return;
             }
+            try {
+                // Use a default strong password. Users should change it later.
+                const defaultPassword = "password";
+                const userCredential = await createUserWithEmailAndPassword(auth, userData.email, defaultPassword);
+                const uid = userCredential.user.uid;
 
-            const finalUserData: User = {
-                ...selectedUser,
-                ...userData,
-                uid: uid,
-                role: userData.role as UserRole,
-                photoUrl: photoUrl || `https://picsum.photos/seed/${uid}/100/100`,
-                createdAt: selectedUser?.createdAt || new Date().toISOString(),
-                status: selectedUser?.status || 'active',
-            } as User;
+                let photoUrl = userData.photoUrl;
+                if (photoFile) {
+                    const photoRef = ref(storage, `avatars/${uid}`);
+                    const snapshot = await uploadBytes(photoRef, photoFile);
+                    photoUrl = await getDownloadURL(snapshot.ref);
+                }
 
-            const userDocRef = doc(db, 'users', uid);
-            await setDoc(userDocRef, finalUserData, { merge: true });
+                const finalUserData: User = {
+                    ...userData,
+                    uid: uid,
+                    role: userData.role as UserRole,
+                    photoUrl: photoUrl || `https://picsum.photos/seed/${uid}/100/100`,
+                    createdAt: new Date().toISOString(),
+                    status: 'active',
+                } as User;
 
-            toast({ title: isNewUser ? "Personnel ajouté" : "Personnel mis à jour" });
-            
-        } catch (error) {
-             console.error("Error saving user:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'utilisateur." });
+                const userDocRef = doc(db, 'users', uid);
+                await setDoc(userDocRef, finalUserData);
+
+                toast({ 
+                    title: "Personnel ajouté", 
+                    description: `Le compte a été créé avec le mot de passe par défaut : password` 
+                });
+
+            } catch (error: any) {
+                console.error("Error creating auth user:", error);
+                let errorMessage = "Impossible de créer l'utilisateur.";
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMessage = "Cette adresse e-mail est déjà utilisée par un autre compte.";
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = "L'adresse e-mail n'est pas valide.";
+                }
+                toast({ variant: "destructive", title: "Erreur de création", description: errorMessage });
+            }
+        } else { // For existing users, just update Firestore
+            if (!selectedUser) return;
+            const uid = selectedUser.uid;
+            let photoUrl = userData.photoUrl || selectedUser.photoUrl;
+
+            try {
+                 if (photoFile) {
+                    const photoRef = ref(storage, `avatars/${uid}`);
+                    const snapshot = await uploadBytes(photoRef, photoFile);
+                    photoUrl = await getDownloadURL(snapshot.ref);
+                }
+
+                const finalUserData: Partial<User> = {
+                    ...userData,
+                    photoUrl: photoUrl,
+                };
+                
+                // We don't update email in Auth here, as it's a sensitive operation
+                // We only update the Firestore document
+                const userDocRef = doc(db, 'users', uid);
+                await setDoc(userDocRef, finalUserData, { merge: true });
+
+                toast({ title: "Personnel mis à jour" });
+
+            } catch (error) {
+                console.error("Error updating user:", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour l'utilisateur." });
+            }
         }
     }
     
@@ -142,7 +190,12 @@ export default function UsersPage() {
         const batch = writeBatch(db);
         
         try {
-            // 1. Delete user document
+            // This part is tricky because deleting a Firebase Auth user requires re-authentication.
+            // For an admin panel, the common practice is to disable the user or delete them
+            // via a backend function (Admin SDK). We will just delete the Firestore record for now.
+            // A more robust solution would use Firebase Functions.
+
+            // 1. Delete user document from Firestore
             batch.delete(doc(db, "users", userId));
 
             // 2. Query and delete related data if they are a teacher
@@ -151,10 +204,9 @@ export default function UsersPage() {
                 const salariesSnapshot = await getDocs(qSalaries);
                 salariesSnapshot.forEach(doc => batch.delete(doc.ref));
                 
-                // Also remove teacher from attendances
                 const qAttendances = query(collection(db, "attendances"), where("teacherId", "==", userId));
                 const attendancesSnapshot = await getDocs(qAttendances);
-                attendancesSnapshot.forEach(doc => batch.delete(doc.ref)); // Or update, depending on desired logic
+                attendancesSnapshot.forEach(doc => batch.delete(doc.ref));
             }
             
             // 3. Delete avatar from storage
@@ -170,7 +222,7 @@ export default function UsersPage() {
             }
 
             await batch.commit();
-            toast({ title: "Utilisateur supprimé" });
+            toast({ title: "Utilisateur supprimé de Firestore", description: "Pour supprimer complètement le compte, une action manuelle est requise dans la console Firebase Authentication." });
 
         } catch(error) {
             console.error("Error deleting user:", error);
@@ -382,5 +434,3 @@ export default function UsersPage() {
         </div>
     );
 }
-
-    
