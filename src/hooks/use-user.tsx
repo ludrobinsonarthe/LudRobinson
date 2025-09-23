@@ -5,7 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
@@ -54,54 +54,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    // These listeners fetch general app data, not user-specific.
-    const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
-        const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
-        setRoles(rolesData);
-    }, (error) => console.error("Error fetching roles:", error));
-
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (docSnap) => {
-        if(docSnap.exists()){
-            setSettings(docSnap.data() as Settings);
-        } else {
-             setDoc(doc(db, "settings", "system"), defaultSettings, { merge: true });
-             setSettings(defaultSettings);
-        }
-    });
-
-    const unsubSectors = onSnapshot(collection(db, "sectors"), (snapshot) => {
-        setSectors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sector)));
-    });
-    
-    const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
-         setFields(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field)));
-    });
-    
-    const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
-        setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
-    });
-
-    const unsubGrades = onSnapshot(collection(db, "grades"), (snapshot) => {
-        setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
-    });
-    
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        setAllUsers(snapshot.docs.map(doc => doc.data() as User));
-    });
-
-    return () => {
-      unsubRoles();
-      unsubSettings();
-      unsubSectors();
-      unsubFields();
-      unsubCourses();
-      unsubGrades();
-      unsubUsers();
-    };
-   
-  }, []);
-  
-  useEffect(() => {
     // This effect's job is ONLY to determine the currentUser based on auth state.
     if (authLoading) {
       setLoading(true);
@@ -123,7 +75,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           });
           signOut();
         }
-        setLoading(false); // Only stop loading after we have a definitive answer.
+        // We will set loading to false in the next useEffect, after data is fetched.
       }, (error) => {
          console.error("Error fetching user document:", error);
          toast({ variant: 'destructive', title: "Erreur de profil", description: "Impossible de charger votre profil." });
@@ -139,6 +91,72 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authUser, authLoading, signOut, toast]);
 
+  useEffect(() => {
+    if (!currentUser) {
+        // If there's no user, there's no data to fetch.
+        if (!authLoading) setLoading(false);
+        return;
+    }
+
+    setLoading(true);
+    const unsubs: (() => void)[] = [];
+
+    // General data that everyone needs
+    unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => d.data() as AdminRole))));
+    unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings)));
+    unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => d.data() as Sector))));
+    unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => d.data() as Field))));
+    
+    // Role-based data fetching
+    if (currentUser.role === 'admin') {
+        // Admin needs (almost) everything
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => d.data() as Course))));
+        unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+    } else {
+        // Other roles only get what they need
+        const neededUserIds: string[] = [currentUser.uid];
+        if(currentUser.role === 'parent' && currentUser.parent?.childrenUids) {
+            neededUserIds.push(...currentUser.parent.childrenUids);
+        }
+        
+        unsubs.push(onSnapshot(query(collection(db, 'users'), where('uid', 'in', neededUserIds)), snap => {
+             const specificUsers = snap.docs.map(d => d.data() as User);
+             // We still need all teachers for course display, and admins for messaging
+             onSnapshot(query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin'])), teacherAdminSnap => {
+                 setAllUsers([...specificUsers, ...teacherAdminSnap.docs.map(d => d.data() as User)]);
+             });
+        }));
+
+        if (currentUser.role === 'student' && currentUser.student) {
+            unsubs.push(onSnapshot(query(collection(db, 'courses'), where('fieldId', '==', currentUser.student.fieldId), where('level', '==', currentUser.student.level)), snap => setCourses(snap.docs.map(d => d.data() as Course))));
+            unsubs.push(onSnapshot(query(collection(db, 'grades'), where('studentId', '==', currentUser.uid)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+        } else if (currentUser.role === 'teacher') {
+            unsubs.push(onSnapshot(query(collection(db, 'courses'), where('teacherId', '==', currentUser.uid)), snap => setCourses(snap.docs.map(d => d.data() as Course))));
+            // A teacher needs grades for the courses they teach
+            const courseIds = courses.map(c => c.id);
+            if (courseIds.length > 0) {
+                 unsubs.push(onSnapshot(query(collection(db, 'grades'), where('courseId', 'in', courseIds)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+            }
+        } else if (currentUser.role === 'parent' && currentUser.parent?.childrenUids.length) {
+            const childrenIds = currentUser.parent.childrenUids;
+            unsubs.push(onSnapshot(query(collection(db, 'grades'), where('studentId', 'in', childrenIds)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+            
+             // Fetch courses for all children
+            getDocs(query(collection(db, 'users'), where('uid', 'in', childrenIds))).then(childrenDocs => {
+                const childrenData = childrenDocs.docs.map(d => d.data() as User);
+                const fieldIds = [...new Set(childrenData.map(c => c.student?.fieldId).filter(Boolean))];
+                if (fieldIds.length > 0) {
+                     unsubs.push(onSnapshot(query(collection(db, 'courses'), where('fieldId', 'in', fieldIds)), snap => setCourses(snap.docs.map(d => d.data() as Course))));
+                }
+            });
+        }
+    }
+
+    setLoading(false);
+    return () => unsubs.forEach(unsub => unsub());
+
+  }, [currentUser, authLoading]);
   
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
