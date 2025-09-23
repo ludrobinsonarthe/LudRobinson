@@ -96,8 +96,8 @@ export default function AcademicHistoryPage() {
                     <Table>
                         <TableHeader><TableRow><TableHead>Étudiant</TableHead><TableHead>Montant</TableHead><TableHead>Mois</TableHead><TableHead>Date</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {(data as Payment[]).map(item => (
-                                <TableRow key={item.id}><TableCell>{usersById[item.studentId]?.lastName || 'N/A'}</TableCell><TableCell>{item.amountPaid}</TableCell><TableCell>{item.month}</TableCell><TableCell>{format(new Date(item.createdAt), 'dd/MM/yyyy')}</TableCell></TableRow>
+                            {(data as Payment[]).map((item, index) => (
+                                <TableRow key={`${item.id}-${index}`}><TableCell>{usersById[item.studentId]?.lastName || 'N/A'}</TableCell><TableCell>{item.amountPaid}</TableCell><TableCell>{item.month}</TableCell><TableCell>{format(new Date(item.createdAt), 'dd/MM/yyyy')}</TableCell></TableRow>
                             ))}
                         </TableBody>
                     </Table>
@@ -107,8 +107,8 @@ export default function AcademicHistoryPage() {
                      <Table>
                         <TableHeader><TableRow><TableHead>Étudiant</TableHead><TableHead>Cours</TableHead><TableHead>Note</TableHead><TableHead>Type</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {(data as Grade[]).map(item => (
-                                <TableRow key={item.id}><TableCell>{usersById[item.studentId]?.lastName || 'N/A'}</TableCell><TableCell>{coursesById[item.courseId]?.name || 'N/A'}</TableCell><TableCell>{item.score}/{item.total}</TableCell><TableCell>{item.type}</TableCell></TableRow>
+                            {(data as Grade[]).map((item, index) => (
+                                <TableRow key={`${item.id}-${index}`}><TableCell>{usersById[item.studentId]?.lastName || 'N/A'}</TableCell><TableCell>{coursesById[item.courseId]?.name || 'N/A'}</TableCell><TableCell>{item.score}/{item.total}</TableCell><TableCell>{item.type}</TableCell></TableRow>
                             ))}
                         </TableBody>
                     </Table>
@@ -118,8 +118,8 @@ export default function AcademicHistoryPage() {
                      <Table>
                         <TableHeader><TableRow><TableHead>Professeur</TableHead><TableHead>Montant</TableHead><TableHead>Mois</TableHead><TableHead>Statut</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {(data as TeacherSalary[]).map(item => (
-                                <TableRow key={item.id}><TableCell>{usersById[item.teacherId]?.lastName || 'N/A'}</TableCell><TableCell>{item.totalSalary}</TableCell><TableCell>{item.month}</TableCell><TableCell>{item.status}</TableCell></TableRow>
+                            {(data as TeacherSalary[]).map((item, index) => (
+                                <TableRow key={`${item.id}-${index}`}><TableCell>{usersById[item.teacherId]?.lastName || 'N/A'}</TableCell><TableCell>{item.totalSalary}</TableCell><TableCell>{item.month}</TableCell><TableCell>{item.status}</TableCell></TableRow>
                             ))}
                         </TableBody>
                     </Table>
@@ -129,8 +129,8 @@ export default function AcademicHistoryPage() {
                      <Table>
                         <TableHeader><TableRow><TableHead>Étudiant</TableHead><TableHead>Type</TableHead><TableHead>Date</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {(data as OfficialDocument[]).map(item => (
-                                <TableRow key={item.id}>
+                            {(data as OfficialDocument[]).map((item, index) => (
+                                <TableRow key={`${item.id}-${index}`}>
                                     <TableCell>{usersById[item.studentId]?.lastName || 'N/A'}</TableCell>
                                     <TableCell>{item.type}</TableCell>
                                     <TableCell>{format(new Date(item.issuedAt), 'dd/MM/yyyy')}</TableCell>
@@ -145,8 +145,8 @@ export default function AcademicHistoryPage() {
                      <Table>
                         <TableHeader><TableRow><TableHead>Description</TableHead><TableHead>Montant</TableHead><TableHead>Type</TableHead><TableHead>Date</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {(data as CashTransaction[]).map(item => (
-                                <TableRow key={item.id} className={item.type === 'expense' ? 'text-red-600' : 'text-green-600'}>
+                            {(data as CashTransaction[]).map((item, index) => (
+                                <TableRow key={`${item.id}-${index}`} className={item.type === 'expense' ? 'text-red-600' : 'text-green-600'}>
                                     <TableCell>{item.description}</TableCell>
                                     <TableCell>{item.amount}</TableCell>
                                     <TableCell>{item.type}</TableCell>
@@ -208,3 +208,5 @@ export default function AcademicHistoryPage() {
         </div>
     )
 }
+
+    
