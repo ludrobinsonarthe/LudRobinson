@@ -103,7 +103,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubs = [unsubUsers, unsubRoles, unsubSettings, unsubSectors, unsubFields, unsubCourses, unsubGrades];
 
     // Set loading to false once initial data from users and settings is likely available
-    if (allUsers.length > 0 && settings) {
+    if (settings) { // Check for settings as a proxy for initial load
         setLoading(false);
     }
     
@@ -111,7 +111,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       unsubs.forEach(unsub => unsub());
     };
    
-  }, [allUsers.length, settings]);
+  }, [settings]);
   
   useEffect(() => {
     if (authLoading) return; // Wait until auth state is confirmed
