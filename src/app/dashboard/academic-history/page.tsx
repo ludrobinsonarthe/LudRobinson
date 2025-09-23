@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser } from '@/hooks/use-user';
-import { Payment, Grade, TeacherSalary, CashTransaction, OfficialDocument, User } from '@/lib/types';
+import { Payment, Grade, TeacherSalary, CashTransaction, OfficialDocument, User, Course } from '@/lib/types';
 import { FileText, Receipt, Banknote, Landmark, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -42,16 +42,22 @@ export default function AcademicHistoryPage() {
         if(settings?.academicYear) years.add(settings.academicYear);
         allData.payments.forEach(p => years.add(p.year));
         allData.salaries.forEach(s => years.add(s.year));
+        allData.grades.forEach(g => years.add(g.academicYear));
         return Array.from(years).sort((a,b) => b.localeCompare(a));
     }, [allData, settings]);
 
     useEffect(() => {
-        setLoading(true);
-        const q = (coll: string) => query(collection(db, coll), where("year", "==", selectedYear));
+        if (!selectedYear) return;
 
-        const unsubPayments = onSnapshot(q('payments'), snap => setAllData(d => ({...d, payments: snap.docs.map(doc => doc.data() as Payment)})));
-        const unsubGrades = onSnapshot(query(collection(db, 'grades'), where("academicYear", "==", selectedYear)), snap => setAllData(d => ({...d, grades: snap.docs.map(doc => doc.data() as Grade)})));
-        const unsubSalaries = onSnapshot(q('teacherSalaries'), snap => setAllData(d => ({...d, salaries: snap.docs.map(doc => doc.data() as TeacherSalary)})));
+        setLoading(true);
+        const qPayments = query(collection(db, 'payments'), where("year", "==", selectedYear));
+        const qGrades = query(collection(db, 'grades'), where("academicYear", "==", selectedYear));
+        const qSalaries = query(collection(db, 'teacherSalaries'), where("year", "==", selectedYear));
+       
+        const unsubPayments = onSnapshot(qPayments, snap => setAllData(d => ({...d, payments: snap.docs.map(doc => doc.data() as Payment)})));
+        const unsubGrades = onSnapshot(qGrades, snap => setAllData(d => ({...d, grades: snap.docs.map(doc => doc.data() as Grade)})));
+        const unsubSalaries = onSnapshot(qSalaries, snap => setAllData(d => ({...d, salaries: snap.docs.map(doc => doc.data() as TeacherSalary)})));
+        
         const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snap => {
             const filteredDocs = snap.docs.map(doc => doc.data() as OfficialDocument).filter(d => new Date(d.issuedAt).getFullYear() === parseInt(selectedYear.split('-')[0]));
             setAllData(d => ({...d, documents: filteredDocs}));
@@ -74,7 +80,7 @@ export default function AcademicHistoryPage() {
     }, [selectedYear]);
     
     const usersById = useMemo(() => users.reduce((acc, u) => ({...acc, [u.uid]: u}), {} as Record<string, User>), [users]);
-    const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, any>), [courses]);
+    const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
 
     const renderContent = () => {
