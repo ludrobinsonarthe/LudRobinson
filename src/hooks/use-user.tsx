@@ -126,35 +126,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             setCurrentUser(matchedUser);
           }
         } else {
-          // If no user is found in Firestore, check if it's a designated super admin email
-          const isSuperAdminEmail = authUser.email === "admin@isgi.com" || authUser.email === "semfranslinbourangon@gmail.com";
-          if (isSuperAdminEmail) {
-            const newUserProfile: User = {
-              uid: authUser.uid,
-              email: authUser.email || '',
-              firstName: authUser.displayName?.split(' ')[0] || "Super",
-              lastName: authUser.displayName?.split(' ')[1] || "Admin",
-              photoUrl: authUser.photoURL || "/logo.png",
-              role: 'admin',
-              status: 'active',
-              createdAt: new Date().toISOString(),
-              admin: {
-                roleId: 'super_admin',
-                position: 'Super-Administrateur'
-              }
-            };
-            const userDocRef = doc(db, 'users', authUser.uid);
-            setDoc(userDocRef, newUserProfile).then(() => {
-              setCurrentUser(newUserProfile);
-            });
-          } else {
+            // User authenticated but not in our DB
             toast({
               variant: "destructive",
               title: "Accès non autorisé",
-              description: "Votre compte n'est pas enregistré. Contactez l'administration.",
+              description: "Votre compte n'est pas enregistré dans la base de données. Contactez l'administration.",
             });
             signOut();
-          }
         }
       }
     } else { // No authenticated user
@@ -167,7 +145,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (currentUser?.role !== 'admin') return [];
       
       const isSuperAdminByPosition = currentUser.admin?.position === 'Super-Administrateur';
-      const isSuperAdminByEmail = currentUser.email === "admin@isgi.com" || currentUser.email === "semfranslinbourangon@gmail.com";
+      const isSuperAdminByEmail = currentUser.email === "semfranslinbourangon@gmail.com";
       
       if (isSuperAdminByPosition || isSuperAdminByEmail) {
           return Object.keys(adminPermissions) as AdminPermission[];
