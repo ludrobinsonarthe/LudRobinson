@@ -110,7 +110,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     if (authUser) {
       // An auth user is present. Fetch their specific Firestore profile.
-      // The `loading` state will remain true until this fetch is complete.
       const userDocRef = doc(db, 'users', authUser.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -144,12 +143,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
       
-      const isSuperAdminByEmail = currentUser.email === 'sem.bourangon@isgi.com';
-      
-      if (isSuperAdminByEmail) {
+      // A user is super admin if their roleId is 'super_admin'
+      if (currentUser.admin?.roleId === 'super_admin') {
           return Object.keys(adminPermissions) as AdminPermission[];
       }
 
+      // Otherwise, get permissions from their assigned role
       if (currentUser.admin?.roleId) {
           const userRole = roles.find(r => r.id === currentUser.admin.roleId);
           return userRole?.permissions || [];

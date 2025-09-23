@@ -1,5 +1,11 @@
 
 
+// ===================================================================================
+// IMPORTANT: THIS FILE IS DEPRECATED AND NO LONGER USED BY THE APPLICATION.
+// It is kept for historical reference purposes only.
+// The application now relies exclusively on the secure Firestore database.
+// ===================================================================================
+
 import type { User, Class, Message, OfficialDocument, Program, Course, Sector, Field, Payment, Attendance, TeacherSalary, CashTransaction, AdminRole, Grade, FeeStructure } from './types';
 
 // Mock data is now being used as the primary source until Firestore rules are configured.
@@ -183,6 +189,7 @@ export const mockCourses: Course[] = [
         fieldId: "gl",
         level: "Licence 1",
         cycle: "local",
+        credit: 5
     },
     {
         id: "phys01",
@@ -192,6 +199,7 @@ export const mockCourses: Course[] = [
         fieldId: "gl",
         level: "Licence 1",
         cycle: "local",
+        credit: 4
     }
 ]
 
@@ -274,7 +282,7 @@ export const mockGrades: Grade[] = [
         id: "grade01",
         studentId: "student01",
         courseId: "math01",
-        type: 'devoir',
+        type: 'devoir de classe',
         score: 15,
         total: 20,
         coefficient: 1,
