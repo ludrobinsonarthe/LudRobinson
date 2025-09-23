@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { imageToDataUrl } from "@/lib/utils";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -961,3 +962,4 @@ export default function StudentsPage() {
 }
 
     
+
