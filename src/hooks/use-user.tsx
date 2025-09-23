@@ -99,19 +99,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
     });
 
-    // Combine all unsubscribers
-    const unsubs = [unsubUsers, unsubRoles, unsubSettings, unsubSectors, unsubFields, unsubCourses, unsubGrades];
-
-    // Set loading to false once initial data from users and settings is likely available
-    if (settings) { // Check for settings as a proxy for initial load
-        setLoading(false);
-    }
+    setLoading(false);
     
+    // Combine all unsubscribers
     return () => {
-      unsubs.forEach(unsub => unsub());
+      unsubUsers();
+      unsubRoles();
+      unsubSettings();
+      unsubSectors();
+      unsubFields();
+      unsubCourses();
+      unsubGrades();
     };
    
-  }, [settings]);
+  }, []);
   
   useEffect(() => {
     if (authLoading) return; // Wait until auth state is confirmed
@@ -191,7 +192,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setSettings(newSettings);
   };
   
-  const finalLoadingState = authLoading || (!!authUser && !currentUser);
+  const finalLoadingState = authLoading || loading || (!!authUser && !currentUser);
 
   const value: UserContextType = { 
       user: currentUser, 
