@@ -52,7 +52,7 @@ const studentFormSchema = z.object({
   parentalLink: z.string().optional(),
   
   // Parent/Tutor Info
-  parentSelection: z.enum(['existing', 'new']).default('existing'),
+  parentSelection: z.enum(['existing', 'new', 'none']).default('none'),
   parentUid: z.string().optional(),
   parentFirstName: z.string().optional(),
   parentLastName: z.string().optional(),
@@ -116,7 +116,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         fieldId: '',
         cycle: 'local',
         lastDiploma: '',
-        parentSelection: 'existing',
+        parentSelection: 'none',
         parentUid: '',
         parentFirstName: '',
         parentLastName: '',
@@ -152,6 +152,10 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
   useEffect(() => {
     if (isOpen) {
         if (student) {
+             let selection: 'existing' | 'new' | 'none' = 'none';
+            if (student.student?.parentUid) {
+                selection = 'existing';
+            }
             form.reset({
                 firstName: student.firstName || '',
                 lastName: student.lastName || '',
@@ -167,9 +171,9 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
                 fieldId: student.student?.fieldId || '',
                 cycle: student.student?.cycle || 'local',
                 lastDiploma: student.student?.lastDiploma || '',
-                parentUid: student.student?.parentUid || '',
                 parentalLink: student.student?.parentalLink || '',
-                parentSelection: student.student?.parentUid ? 'existing' : 'new',
+                parentSelection: selection,
+                parentUid: student.student?.parentUid || '',
                 parentFirstName: '',
                 parentLastName: '',
                 parentEmail: '',
@@ -193,7 +197,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             fieldId: '',
             cycle: 'local',
             lastDiploma: '',
-            parentSelection: 'existing',
+            parentSelection: 'none',
             parentUid: '',
             parentFirstName: '',
             parentLastName: '',
@@ -268,7 +272,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             phone: data.parentPhone,
             address: data.parentAddress,
         }
-    } else {
+    } else { // 'none'
         if (studentData.student) {
           delete (studentData.student as any).parentUid;
         }
@@ -436,9 +440,10 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
                 <FormField control={form.control} name="parentSelection" render={({ field }) => (
                     <FormItem>
-                    <Select onValueChange={field.onChange} value={field.value || 'existing'}>
+                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
                         <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
                         <SelectContent>
+                            <SelectItem value="none">Aucun tuteur</SelectItem>
                             <SelectItem value="existing">Sélectionner un tuteur existant</SelectItem>
                             <SelectItem value="new">Créer un nouveau tuteur</SelectItem>
                         </SelectContent>
