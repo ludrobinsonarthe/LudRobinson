@@ -2,7 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+  
     // Helper functions
     function isSignedIn() {
       return request.auth != null;
@@ -11,107 +11,107 @@ service cloud.firestore {
     function isUser(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
+    
     function getUserData(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
-    function userRole() {
-      return getUserData(request.auth.uid).role;
-    }
-
     function isRole(role) {
-      return isSignedIn() && userRole() == role;
+      let userRole = getUserData(request.auth.uid).role;
+      return isSignedIn() && userRole == role;
     }
     
-    function getAdminRole() {
-        return get(/databases/$(database)/documents/adminRoles/$(getUserData(request.auth.uid).admin.roleId)).data;
+    // Admins can be identified by their role in their own user document.
+    function isAdmin() {
+      return isRole('admin');
     }
 
-    function hasPermission(permission) {
-        let user = getUserData(request.auth.uid);
-        // Super Admin Case
-        if (user.admin.position == 'Super-Administrateur' || user.email == 'sem.bourangon@isgi.com' || user.email == 'admin@isgi.com') {
-          return true;
-        }
-        return isRole('admin') && permission in getAdminRole().permissions;
-    }
-
-    // Users Collection
+    // Rules for 'users' collection
     match /users/{userId} {
-      // Any signed-in user can read any other user's profile (for contact lists etc.)
-      allow read: if isSignedIn();
-      // Only the user themselves or an admin with permission can update their own profile
-      allow update: if isUser(userId) || hasPermission('manage_users') || hasPermission('manage_students');
-       // Only an admin with permission can create or delete users
-      allow create, delete: if hasPermission('manage_users') || hasPermission('manage_students');
-    }
+      // Any authenticated user can create their own user document (e.g. on first sign-up)
+      // Admins can create any user document
+      allow create: if isSignedIn();
+      
+      // Users can read their own document.
+      // Admins can read any user document.
+      allow get: if isUser(userId) || isAdmin();
+      
+      // Users can update their own document.
+      // Admins can update any user document.
+      allow update: if isUser(userId) || isAdmin();
 
-    // Settings, Sectors, Fields, Roles are readable by all authenticated users
-    match /{collectionName}/{docId} where collectionName in ['settings', 'sectors', 'fields', 'adminRoles', 'courses'] {
-      allow read: if isSignedIn();
-      allow write: if hasPermission('manage_admin_settings') || hasPermission('manage_course') || hasPermission('manage_roles');
+      // Only admins can delete users.
+      allow delete: if isAdmin();
+      
+      allow list: if isAdmin();
     }
     
-    // Fee Structures can be read by all, but only written by admins with fee management permission
-    match /feeStructures/{feeId} {
-        allow read: if isSignedIn();
-        allow write: if hasPermission('manage_fees');
-    }
-
-    // Grades: complex rules
-    match /grades/{gradeId} {
-      allow read: if isSignedIn() && 
-                    (isUser(resource.data.studentId) // Student can read their own grades
-                    || get(/databases/$(database)/documents/users/$(resource.data.studentId)).data.student.parentUid == request.auth.uid // Parent can read their child's grades
-                    || hasPermission('manage_grades') // Admin can read all grades
-                    || (isRole('teacher') && resource.data.courseId in getUserData(request.auth.uid).teacher.assignedCourses)); // Teacher can read grades for their courses
-      allow create, update, delete: if hasPermission('manage_grades');
-    }
-
-    // Payments:
-    match /payments/{paymentId} {
-      allow read: if isSignedIn() && (isUser(resource.data.studentId) || get(/databases/$(database)/documents/users/$(resource.data.studentId)).data.student.parentUid == request.auth.uid || hasPermission('manage_tuition'));
-      allow create: if isUser(resource.data.studentId) || hasPermission('manage_tuition');
-      allow update, delete: if hasPermission('manage_tuition');
+    // Rules for collections that admins manage fully
+    match /{collection}/{docId} where collection in ['adminRoles', 'cashTransactions', 'teacherSalaries', 'feeStructures'] {
+      allow read, write: if isAdmin();
     }
     
-    // Messages (Announcements & Private)
+    // Rules for public-readable data
+     match /{collection}/{docId} where collection in ['settings', 'sectors', 'fields', 'courses'] {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Announcements (messages collection, type announcement)
     match /messages/{messageId} {
-        allow read: if isSignedIn() &&
-                    (resource.data.type == 'announcement' && resource.data.receiverId in ['all', userRole(), (getUserData(request.auth.uid).admin.roleId || '')]) || // Announcements
-                    (resource.data.type == 'private' && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid)); // Private messages
-        allow create: if isSignedIn();
-        allow update, delete: if isSignedIn() && (hasPermission('manage_admin_settings') || request.auth.uid == resource.data.senderId);
+        // Any signed-in user can read announcements
+        allow get: if isSignedIn() && resource.data.type == 'announcement';
+        allow list: if isSignedIn() && resource.data.type == 'announcement';
+
+        // Private messages
+        allow read, write: if isSignedIn() 
+                        && resource.data.type == 'private'
+                        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+        
+        // Admins can create/update/delete any message
+        allow write: if isAdmin();
+    }
+
+    // Students, parents, teachers, and admins can access grades
+    match /grades/{gradeId} {
+        allow read: if isSignedIn() && 
+                    (isUser(resource.data.studentId) // student can see their own grade
+                    || getUserData(request.auth.uid).parent.childrenUids.hasAny([resource.data.studentId]) // parent can see child's grade
+                    || isUser(get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.teacherId) // teacher of the course can see it
+                    || isAdmin()); // admin can see all
+        allow write: if isAdmin() || isUser(get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.teacherId);
     }
     
+    // Payments
+    match /payments/{paymentId} {
+       allow read: if isSignedIn() && 
+                    (isUser(resource.data.studentId) 
+                    || getUserData(request.auth.uid).parent.childrenUids.hasAny([resource.data.studentId])
+                    || isAdmin());
+        allow create: if isSignedIn(); // Students can create payment records
+        allow update, delete: if isAdmin();
+    }
+
     // Official Documents
     match /officialDocuments/{docId} {
-        allow read: if isSignedIn() && (isUser(resource.data.studentId) || get(/databases/$(database)/documents/users/$(resource.data.studentId)).data.student.parentUid == request.auth.uid || hasPermission('manage_students'));
-        allow write: if hasPermission('manage_students');
+        allow read: if isSignedIn() && 
+                    (isUser(resource.data.studentId)
+                    || getUserData(request.auth.uid).parent.childrenUids.hasAny([resource.data.studentId])
+                    || isAdmin());
+        allow write: if isAdmin();
     }
     
     // Attendances
     match /attendances/{attendanceId} {
-        allow read: if isSignedIn();
-        allow write: if hasPermission('manage_attendance');
-    }
-
-    // Teacher Salaries
-    match /teacherSalaries/{salaryId} {
-        allow read: if hasPermission('manage_salaries') || (isRole('teacher') && resource.data.teacherId == request.auth.uid);
-        allow write: if hasPermission('manage_salaries');
-    }
-
-    // Cash Transactions
-    match /cashTransactions/{transactionId} {
-        allow read: if hasPermission('manage_cash_flow');
-        allow write: if hasPermission('manage_cash_flow');
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isRole('teacher');
     }
     
-    // QR Sessions for login (if re-enabled) should be restricted
+    // Session sharing for QR code login
     match /qr_sessions/{sessionId} {
-      allow read, write: if isSignedIn();
+      allow read, create;
+      allow update: if isSignedIn();
     }
   }
 }
