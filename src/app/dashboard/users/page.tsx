@@ -104,27 +104,35 @@ export default function UsersPage() {
     }
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
-        const isNewUser = !selectedUser;
-        
-        // For new users, create auth user first to get a UID
-        if (isNewUser) {
-            if (!userData.email) {
-                toast({ variant: "destructive", title: "Erreur", description: "L'e-mail est requis pour créer un utilisateur." });
-                return;
-            }
-            try {
-                // Use a default strong password. Users should change it later.
+        if (!userData.email) {
+            toast({ variant: "destructive", title: "Erreur", description: "L'e-mail est requis pour créer ou mettre à jour un utilisateur." });
+            return;
+        }
+    
+        try {
+            // Check if user with this email already exists in Firestore
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("email", "==", userData.email));
+            const querySnapshot = await getDocs(q);
+    
+            const existingUser = querySnapshot.docs.length > 0 ? querySnapshot.docs[0].data() as User : null;
+            const existingUserId = querySnapshot.docs.length > 0 ? querySnapshot.docs[0].id : null;
+    
+            const isNewUser = !existingUser;
+    
+            if (isNewUser) {
+                // --- CREATE NEW USER ---
                 const defaultPassword = "password";
                 const userCredential = await createUserWithEmailAndPassword(auth, userData.email, defaultPassword);
                 const uid = userCredential.user.uid;
-
+    
                 let photoUrl = userData.photoUrl;
                 if (photoFile) {
                     const photoRef = ref(storage, `avatars/${uid}`);
                     const snapshot = await uploadBytes(photoRef, photoFile);
                     photoUrl = await getDownloadURL(snapshot.ref);
                 }
-
+    
                 const finalUserData: User = {
                     ...userData,
                     uid: uid,
@@ -133,53 +141,43 @@ export default function UsersPage() {
                     createdAt: new Date().toISOString(),
                     status: 'active',
                 } as User;
-
-                const userDocRef = doc(db, 'users', uid);
-                await setDoc(userDocRef, finalUserData);
-
-                toast({ 
-                    title: "Personnel ajouté", 
-                    description: `Le compte a été créé avec le mot de passe par défaut : password` 
+    
+                await setDoc(doc(db, 'users', uid), finalUserData);
+    
+                toast({
+                    title: "Personnel ajouté",
+                    description: `Le compte a été créé avec le mot de passe par défaut : password`
                 });
-
-            } catch (error: any) {
-                console.error("Error creating auth user:", error);
-                let errorMessage = "Impossible de créer l'utilisateur.";
-                if (error.code === 'auth/email-already-in-use') {
-                    errorMessage = "Cette adresse e-mail est déjà utilisée par un autre compte.";
-                } else if (error.code === 'auth/invalid-email') {
-                    errorMessage = "L'adresse e-mail n'est pas valide.";
-                }
-                toast({ variant: "destructive", title: "Erreur de création", description: errorMessage });
-            }
-        } else { // For existing users, just update Firestore
-            if (!selectedUser) return;
-            const uid = selectedUser.uid;
-            let photoUrl = userData.photoUrl || selectedUser.photoUrl;
-
-            try {
-                 if (photoFile) {
-                    const photoRef = ref(storage, `avatars/${uid}`);
+    
+            } else {
+                // --- UPDATE EXISTING USER ---
+                if (!existingUserId) return;
+    
+                let photoUrl = existingUser.photoUrl;
+                if (photoFile) {
+                    const photoRef = ref(storage, `avatars/${existingUserId}`);
                     const snapshot = await uploadBytes(photoRef, photoFile);
                     photoUrl = await getDownloadURL(snapshot.ref);
                 }
-
+    
                 const finalUserData: Partial<User> = {
                     ...userData,
                     photoUrl: photoUrl,
                 };
-                
-                // We don't update email in Auth here, as it's a sensitive operation
-                // We only update the Firestore document
-                const userDocRef = doc(db, 'users', uid);
-                await setDoc(userDocRef, finalUserData, { merge: true });
-
+    
+                await setDoc(doc(db, 'users', existingUserId), finalUserData, { merge: true });
+    
                 toast({ title: "Personnel mis à jour" });
-
-            } catch (error) {
-                console.error("Error updating user:", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour l'utilisateur." });
             }
+        } catch (error: any) {
+            console.error("Error saving user:", error);
+            let errorMessage = "Impossible de sauvegarder l'utilisateur.";
+            if (error.code === 'auth/email-already-in-use') {
+                errorMessage = "Cette adresse e-mail a déjà un compte d'authentification. L'opération a été annulée pour éviter les conflits.";
+            } else if (error.code === 'auth/invalid-email') {
+                errorMessage = "L'adresse e-mail n'est pas valide.";
+            }
+            toast({ variant: "destructive", title: "Erreur de sauvegarde", description: errorMessage });
         }
     }
     
