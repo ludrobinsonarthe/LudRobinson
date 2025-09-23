@@ -154,9 +154,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
       
-      const isSuperAdminByPosition = currentUser.admin?.position === 'Super-Administrateur';
+      const isSuperAdminByEmail = currentUser.email === 'admin@isgi.com';
       
-      if (isSuperAdminByPosition) {
+      if (isSuperAdminByEmail) {
           return Object.keys(adminPermissions) as AdminPermission[];
       }
 
