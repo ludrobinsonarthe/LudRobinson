@@ -132,8 +132,8 @@ export interface Grade {
   courseId: string;
   type: 'devoir de classe' | 'devoir de recherche' | 'examen';
   score: number;
+  coefficient: number;
   total: number;
-  credit: number;
   academicYear: string;
   createdAt: string;
   comment?: string;

@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
@@ -43,7 +44,7 @@ type EvaluationColumn = {
     name: string;
     type: Grade['type'];
     total: number;
-    credit: number;
+    coefficient: number;
     grades: Grade[];
 }
 
@@ -64,7 +65,7 @@ function GradeManagementContent() {
     const [isEvalDialogOpen, setIsEvalDialogOpen] = useState(false);
     const [newEvalType, setNewEvalType] = useState<Grade['type']>('devoir de classe');
     const [newEvalTotal, setNewEvalTotal] = useState<number>(20);
-    const [newEvalCredit, setNewEvalCredit] = useState<number>(1);
+    const [newEvalCoefficient, setNewEvalCoefficient] = useState<number>(1);
     const [newEvalCourseId, setNewEvalCourseId] = useState(courseId || '');
 
     // State for deleting an evaluation
@@ -108,13 +109,13 @@ function GradeManagementContent() {
     const evaluationColumns: EvaluationColumn[] = useMemo(() => {
         if (!course) return [];
         const courseGrades = grades.filter(g => g.courseId === course.id);
-        const evalMap = new Map<string, {type: Grade['type'], total: number, credit: number, grades: Grade[]}>();
+        const evalMap = new Map<string, {type: Grade['type'], total: number, coefficient: number, grades: Grade[]}>();
 
         courseGrades.forEach(grade => {
             // Unique key to group identical evaluation types
-            const uniqueKey = `${grade.type}-${grade.total}-${grade.credit}`; 
+            const uniqueKey = `${grade.type}-${grade.total}-${grade.coefficient}`; 
             if (!evalMap.has(uniqueKey)) {
-                evalMap.set(uniqueKey, {type: grade.type, total: grade.total, credit: grade.credit, grades: []});
+                evalMap.set(uniqueKey, {type: grade.type, total: grade.total, coefficient: grade.coefficient, grades: []});
             }
             evalMap.get(uniqueKey)!.grades.push(grade);
         });
@@ -210,7 +211,7 @@ function GradeManagementContent() {
                 type: newEvalType,
                 score: 0, // Default score
                 total: newEvalTotal,
-                credit: newEvalCredit,
+                coefficient: newEvalCoefficient,
                 academicYear: settings?.academicYear || "2024-2025",
                 createdAt: new Date().toISOString(),
             };
@@ -391,8 +392,8 @@ function GradeManagementContent() {
                                             <Input type="number" value={newEvalTotal} onChange={e => setNewEvalTotal(Number(e.target.value))} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Crédit (pour le calcul)</Label>
-                                            <Input type="number" value={newEvalCredit} onChange={e => setNewEvalCredit(Number(e.target.value))} />
+                                            <Label>Coefficient</Label>
+                                            <Input type="number" value={newEvalCoefficient} onChange={e => setNewEvalCoefficient(Number(e.target.value))} />
                                         </div>
                                     </div>
                                 </div>
@@ -471,8 +472,8 @@ function GradeManagementContent() {
                                                 <Input type="number" value={newEvalTotal} onChange={e => setNewEvalTotal(Number(e.target.value))} />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>Crédit (pour le calcul)</Label>
-                                                <Input type="number" value={newEvalCredit} onChange={e => setNewEvalCredit(Number(e.target.value))} />
+                                                <Label>Coefficient</Label>
+                                                <Input type="number" value={newEvalCoefficient} onChange={e => setNewEvalCoefficient(Number(e.target.value))} />
                                             </div>
                                         </div>
                                     </div>
