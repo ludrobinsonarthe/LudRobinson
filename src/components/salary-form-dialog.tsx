@@ -58,15 +58,6 @@ const years = Array.from({ length: 5 }, (_, i) => `${currentYear - i}`);
 export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, salary, initialTeacherId, calculateHours }: SalaryFormDialogProps) {
   const form = useForm<SalaryFormValues>({
     resolver: zodResolver(salaryFormSchema),
-    defaultValues: {
-      teacherId: '',
-      hourlyRate: 0,
-      hoursWorked: 0,
-      totalSalary: 0,
-      month: months[new Date().getMonth()],
-      year: `${currentYear}`,
-      currency: 'XAF',
-    }
   });
 
   const hourlyRate = form.watch('hourlyRate');
@@ -198,5 +189,3 @@ export default function SalaryFormDialog({ isOpen, setIsOpen, onSave, teachers, 
     </Dialog>
   );
 }
-
-    

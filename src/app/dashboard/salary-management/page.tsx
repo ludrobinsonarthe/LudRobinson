@@ -246,10 +246,14 @@ function SalaryManagementContent() {
 
         const doc = new jsPDF();
         
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        if (logoDataUrl) {
-            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-            doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if (logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Error loading logo for PDF", error);
         }
 
         doc.setFont("helvetica", "bold");
@@ -502,9 +506,3 @@ export default function SalaryManagementPage() {
         </Suspense>
     );
 }
-
-    
-
-    
-
-    

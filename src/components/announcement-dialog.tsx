@@ -52,11 +52,6 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
   
   const form = useForm<AnnouncementFormValues>({
     resolver: zodResolver(announcementSchema),
-    defaultValues: {
-      receiverId: 'all',
-      title: '',
-      content: '',
-    },
   });
 
   useEffect(() => {
@@ -183,5 +178,3 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     </Dialog>
   );
 }
-
-    

@@ -63,16 +63,6 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
   
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
-    defaultValues: {
-      studentId: '',
-      amountExpected: 0,
-      amountPaid: 0,
-      month: '',
-      year: settings?.academicYear || years[0],
-      currency: 'XAF',
-      method: 'cash',
-      proofUrl: '',
-    }
   });
   
   const selectedStudentId = form.watch("studentId");
@@ -218,5 +208,3 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
     </Dialog>
   );
 }
-
-    

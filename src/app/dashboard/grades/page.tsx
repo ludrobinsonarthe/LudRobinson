@@ -153,11 +153,16 @@ export default function GradesPage() {
         const academicYear = settings.academicYear;
         const studentName = `${studentToView.lastName} ${studentToView.firstName}`;
         
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        if (logoDataUrl) {
-            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if (logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Error loading logo for PDF", error);
         }
+
 
         // Header
         doc.setFont("helvetica", "bold");
@@ -338,7 +343,3 @@ export default function GradesPage() {
         </div>
     );
 }
-
-    
-
-    

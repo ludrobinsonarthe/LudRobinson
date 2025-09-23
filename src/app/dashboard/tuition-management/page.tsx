@@ -99,9 +99,11 @@ function TuitionManagementContent() {
     
     const handleUpdateStatus = async (payment: Payment, status: 'validated' | 'rejected') => {
         const paymentRef = doc(db, 'payments', payment.id);
+        const adminUser = users.find(u => u.role === 'admin');
+
         try {
             const batch = writeBatch(db);
-            batch.update(paymentRef, { status });
+            batch.update(paymentRef, { status, validatedBy: adminUser?.uid || 'system' });
 
             if (status === 'validated') {
                 const transactionRef = doc(collection(db, 'cashTransactions'));
@@ -112,7 +114,7 @@ function TuitionManagementContent() {
                     currency: payment.currency,
                     description: `Scolarité ${payment.month} - ${getStudentName(payment.studentId)}`,
                     date: new Date().toISOString(),
-                    createdBy: 'system', // or current admin ID
+                    createdBy: adminUser?.uid || 'system',
                     relatedDocId: payment.id,
                 });
             }
@@ -152,10 +154,14 @@ function TuitionManagementContent() {
         const doc = new jsPDF();
         const schoolName = settings.schoolName;
         
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        if (logoDataUrl) {
-            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-            doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if (logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Error loading logo for PDF", error);
         }
 
         doc.setFont("helvetica", "bold");
@@ -406,7 +412,3 @@ export default function TuitionManagementPage() {
         </Suspense>
     );
 }
-
-    
-
-    
