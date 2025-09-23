@@ -20,6 +20,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Settings } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -27,17 +28,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
     // Fetch settings to display school name
+    setSettingsLoading(true);
     const unsub = onSnapshot(doc(db, "settings", "system"), (settingsDoc) => {
         if (settingsDoc.exists()) {
             setSettings(settingsDoc.data() as Settings);
         }
+        setSettingsLoading(false);
     }, (error) => {
         console.error("Could not fetch school settings for login page", error);
+        setSettingsLoading(false);
     });
 
     return () => unsub();
@@ -79,11 +84,13 @@ export default function LoginPage() {
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-card text-card-foreground">
-                    <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={48} height={48} className="object-contain"/>
+                    {settingsLoading ? <Skeleton className="h-12 w-12 rounded-lg" /> : <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={48} height={48} className="object-contain"/>}
                 </div>
-                <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
-                    {settings?.schoolName || "ISGI"}
-                </h1>
+                {settingsLoading ? <Skeleton className="h-9 w-40" /> : 
+                  <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
+                      {settings?.schoolName || "ISGI"}
+                  </h1>
+                }
             </div>
           <CardTitle className="text-2xl font-bold">Connexion au portail</CardTitle>
           <CardDescription>

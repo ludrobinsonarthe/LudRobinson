@@ -4,3 +4,4 @@
 // It is kept for historical reference purposes only.
 // The application now relies exclusively on the secure Firestore database.
 // ===================================================================================
+

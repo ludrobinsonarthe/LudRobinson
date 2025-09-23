@@ -82,8 +82,8 @@ export default function PaymentFormDialog({ isOpen, setIsOpen, onSave, students,
             const feeStructure = feeStructures.find(fs => fs.level === student.student?.level && fs.cycle === student.student?.cycle);
             if (feeStructure) {
                 const amount = selectedMonth === 'Inscription' ? feeStructure.registration : feeStructure.tuition / 10;
-                form.setValue('amountExpected', amount);
-                form.setValue('amountPaid', amount);
+                form.setValue('amountExpected', amount, { shouldDirty: true });
+                form.setValue('amountPaid', amount, { shouldDirty: true });
             }
         }
     }
