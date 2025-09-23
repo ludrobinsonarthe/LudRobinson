@@ -49,8 +49,8 @@ export default function LoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "admin@isgi.com",
-      password: "password",
+      email: "",
+      password: "",
     },
   });
 
