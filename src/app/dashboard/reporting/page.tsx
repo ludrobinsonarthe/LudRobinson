@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useUser } from '@/hooks/use-user';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -80,46 +81,54 @@ export default function ReportingPage() {
                     </>
                ) : (
                 <>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Étudiants Inscrits</CardTitle>
-                            <Users className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.studentCount}</div>
-                            <p className="text-xs text-muted-foreground">Total des étudiants actifs</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Professeurs</CardTitle>
-                            <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.teacherCount}</div>
-                            <p className="text-xs text-muted-foreground">Total des enseignants</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Personnel Admin</CardTitle>
-                            <UserCog className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.adminCount}</div>
-                            <p className="text-xs text-muted-foreground">Total des administrateurs</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Cours Disponibles</CardTitle>
-                            <BookOpen className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.courseCount}</div>
-                            <p className="text-xs text-muted-foreground">Total des cours créés</p>
-                        </CardContent>
-                    </Card>
+                    <Link href="/dashboard/students">
+                        <Card className="hover:bg-muted/50 transition-colors">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Étudiants Inscrits</CardTitle>
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stats.studentCount}</div>
+                                <p className="text-xs text-muted-foreground">Total des étudiants actifs</p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                    <Link href="/dashboard/users">
+                        <Card className="hover:bg-muted/50 transition-colors">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Professeurs</CardTitle>
+                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stats.teacherCount}</div>
+                                <p className="text-xs text-muted-foreground">Total des enseignants</p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                    <Link href="/dashboard/users">
+                        <Card className="hover:bg-muted/50 transition-colors">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Personnel Admin</CardTitle>
+                                <UserCog className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stats.adminCount}</div>
+                                <p className="text-xs text-muted-foreground">Total des administrateurs</p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                    <Link href="/dashboard/course-management">
+                        <Card className="hover:bg-muted/50 transition-colors">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Cours Disponibles</CardTitle>
+                                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stats.courseCount}</div>
+                                <p className="text-xs text-muted-foreground">Total des cours créés</p>
+                            </CardContent>
+                        </Card>
+                    </Link>
                 </>
                )}
             </div>
@@ -133,36 +142,42 @@ export default function ReportingPage() {
                     </>
                  ) : (
                 <>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Solde de Caisse</CardTitle>
-                        <Scale className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(stats.balance)}</div>
-                        <p className="text-xs text-muted-foreground">Balance des entrées et sorties</p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total des Entrées</CardTitle>
-                        <ArrowUpCircle className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(stats.totalIncome)}</div>
-                        <p className="text-xs text-muted-foreground">Total des fonds reçus</p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total des Sorties</CardTitle>
-                        <ArrowDownCircle className="h-4 w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(stats.totalExpense)}</div>
-                        <p className="text-xs text-muted-foreground">Total des dépenses effectuées</p>
-                    </CardContent>
-                </Card>
+                <Link href="/dashboard/cash-flow">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Solde de Caisse</CardTitle>
+                            <Scale className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(stats.balance)}</div>
+                            <p className="text-xs text-muted-foreground">Balance des entrées et sorties</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+                 <Link href="/dashboard/cash-flow">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total des Entrées</CardTitle>
+                            <ArrowUpCircle className="h-4 w-4 text-green-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(stats.totalIncome)}</div>
+                            <p className="text-xs text-muted-foreground">Total des fonds reçus</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+                 <Link href="/dashboard/cash-flow">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total des Sorties</CardTitle>
+                            <ArrowDownCircle className="h-4 w-4 text-red-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(stats.totalExpense)}</div>
+                            <p className="text-xs text-muted-foreground">Total des dépenses effectuées</p>
+                        </CardContent>
+                    </Card>
+                </Link>
                 </>
                  )}
             </div>
@@ -193,5 +208,3 @@ export default function ReportingPage() {
         </div>
     );
 }
-
-    
