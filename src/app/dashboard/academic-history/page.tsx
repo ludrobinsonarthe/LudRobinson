@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useUser } from '@/hooks/use-user';
 import { Payment, Grade, TeacherSalary, CashTransaction, OfficialDocument, User, Course } from '@/lib/types';
-import { FileText, Receipt, Banknote, Landmark, Loader2 } from 'lucide-react';
+import { FileText, Receipt, Banknote, Landmark, Loader2, FileDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -20,11 +20,24 @@ import {
 } from "@/components/ui/table";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { useToast } from '@/hooks/use-toast';
+import { imageToDataUrl } from '@/lib/utils';
 
 type DataType = 'payments' | 'grades' | 'salaries' | 'transactions' | 'documents';
 
+const categoryTitles: Record<DataType, string> = {
+    payments: 'Scolarité',
+    grades: 'Notes',
+    salaries: 'Salaires',
+    transactions: 'Transactions de Caisse',
+    documents: 'Documents Officiels',
+};
+
 export default function AcademicHistoryPage() {
     const { settings, users, courses } = useUser();
+    const { toast } = useToast();
     const [allData, setAllData] = useState<{
         payments: Payment[],
         grades: Grade[],
@@ -59,11 +72,11 @@ export default function AcademicHistoryPage() {
         const unsubSalaries = onSnapshot(qSalaries, snap => setAllData(d => ({...d, salaries: snap.docs.map(doc => doc.data() as TeacherSalary)})));
         
         const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snap => {
-            const filteredDocs = snap.docs.map(doc => doc.data() as OfficialDocument).filter(d => new Date(d.issuedAt).getFullYear() === parseInt(selectedYear.split('-')[0]));
+            const filteredDocs = snap.docs.map(doc => doc.data() as OfficialDocument).filter(d => new Date(d.issuedAt).getFullYear().toString() === selectedYear.split('-')[0]);
             setAllData(d => ({...d, documents: filteredDocs}));
         });
         const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snap => {
-            const filteredTransac = snap.docs.map(doc => doc.data() as CashTransaction).filter(t => new Date(t.date).getFullYear() === parseInt(selectedYear.split('-')[0]));
+            const filteredTransac = snap.docs.map(doc => doc.data() as CashTransaction).filter(t => new Date(t.date).getFullYear().toString() === selectedYear.split('-')[0]);
             setAllData(d => ({...d, transactions: filteredTransac}));
         });
 
@@ -82,6 +95,96 @@ export default function AcademicHistoryPage() {
     const usersById = useMemo(() => users.reduce((acc, u) => ({...acc, [u.uid]: u}), {} as Record<string, User>), [users]);
     const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
+    const handleExportPDF = async () => {
+        if (!activeView || !settings || allData[activeView].length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Exportation impossible',
+                description: 'Veuillez sélectionner une catégorie avec des données à exporter.',
+            });
+            return;
+        }
+
+        const doc = new jsPDF();
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if(logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Could not add logo to PDF, proceeding without it.", error);
+        }
+        
+        const title = `Historique: ${categoryTitles[activeView]} - ${selectedYear}`;
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text(title, 40, 25);
+
+        let tableColumn: string[] = [];
+        let tableRows: any[][] = [];
+
+        switch(activeView) {
+            case 'payments':
+                tableColumn = ["Étudiant", "Montant", "Mois", "Date"];
+                tableRows = (allData.payments as Payment[]).map(item => [
+                    usersById[item.studentId]?.lastName || 'N/A',
+                    item.amountPaid,
+                    item.month,
+                    format(new Date(item.createdAt), 'dd/MM/yyyy')
+                ]);
+                break;
+            case 'grades':
+                tableColumn = ["Étudiant", "Cours", "Note", "Type"];
+                tableRows = (allData.grades as Grade[]).map(item => [
+                    usersById[item.studentId]?.lastName || 'N/A',
+                    coursesById[item.courseId]?.name || 'N/A',
+                    `${item.score}/${item.total}`,
+                    item.type
+                ]);
+                break;
+            case 'salaries':
+                tableColumn = ["Professeur", "Montant", "Mois", "Statut"];
+                tableRows = (allData.salaries as TeacherSalary[]).map(item => [
+                    usersById[item.teacherId]?.lastName || 'N/A',
+                    item.totalSalary,
+                    item.month,
+                    item.status
+                ]);
+                break;
+            case 'documents':
+                tableColumn = ["Étudiant", "Type", "Date"];
+                tableRows = (allData.documents as OfficialDocument[]).map(item => [
+                    usersById[item.studentId]?.lastName || 'N/A',
+                    item.type,
+                    format(new Date(item.issuedAt), 'dd/MM/yyyy')
+                ]);
+                break;
+            case 'transactions':
+                tableColumn = ["Description", "Montant", "Type", "Date"];
+                tableRows = (allData.transactions as CashTransaction[]).map(item => [
+                    item.description,
+                    item.amount,
+                    item.type,
+                    format(new Date(item.date), 'dd/MM/yyyy')
+                ]);
+                break;
+        }
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+        });
+
+        const fileName = `historique_${activeView}_${selectedYear}.pdf`;
+        doc.save(fileName);
+        toast({ title: 'Téléchargement réussi', description: `Le fichier ${fileName} a été généré.` });
+    };
 
     const renderContent = () => {
         if (loading) return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin"/></div>;
@@ -174,16 +277,22 @@ export default function AcademicHistoryPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Archives de l'année</CardTitle>
-                        <Select value={selectedYear} onValueChange={setSelectedYear}>
-                            <SelectTrigger className="w-[200px]">
-                                <SelectValue placeholder="Sélectionner une année..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {academicYears.map(year => (
-                                    <SelectItem key={year} value={year}>{year}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                             <Button variant="outline" onClick={handleExportPDF} disabled={!activeView}>
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Exporter en PDF
+                            </Button>
+                            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                <SelectTrigger className="w-[200px]">
+                                    <SelectValue placeholder="Sélectionner une année..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {academicYears.map(year => (
+                                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <CardDescription>
                         Sélectionnez une année et une catégorie pour afficher les données archivées correspondantes.
@@ -208,5 +317,3 @@ export default function AcademicHistoryPage() {
         </div>
     )
 }
-
-    
