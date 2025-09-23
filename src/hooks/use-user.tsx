@@ -147,7 +147,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 const childrenData = childrenDocs.docs.map(d => d.data() as User);
                 const fieldIds = [...new Set(childrenData.map(c => c.student?.fieldId).filter(Boolean))];
                 if (fieldIds.length > 0) {
-                     unsubs.push(onSnapshot(query(collection(db, 'courses'), where('fieldId', 'in', fieldIds)), snap => setCourses(snap.docs.map(d => d.data() as Course))));
+                     unsubs.push(onSnapshot(query(collection(db, 'courses'), where('fieldId', 'in', fieldIds as string[])), snap => setCourses(snap.docs.map(d => d.data() as Course))));
                 }
             });
         }
