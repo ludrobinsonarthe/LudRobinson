@@ -112,6 +112,7 @@ export default function UsersPage() {
         try {
             if (selectedUser) {
                 // --- UPDATE EXISTING USER ---
+                // For updates, we don't touch auth. We just update Firestore.
                 let photoUrl = selectedUser.photoUrl;
                 if (photoFile) {
                     const photoRef = ref(storage, `avatars/${selectedUser.uid}`);
@@ -131,8 +132,9 @@ export default function UsersPage() {
 
             } else {
                 // --- CREATE NEW USER ---
-                // This will fail if the email is already in use in Firebase Auth
-                const userCredential = await createUserWithEmailAndPassword(auth, userData.email, "password");
+                // This is where we create both the Auth user and the Firestore user.
+                const defaultPassword = "password";
+                const userCredential = await createUserWithEmailAndPassword(auth, userData.email, defaultPassword);
                 const uid = userCredential.user.uid;
     
                 let photoUrl = `https://picsum.photos/seed/${uid}/100/100`;
@@ -152,7 +154,7 @@ export default function UsersPage() {
                 } as User;
     
                 await setDoc(doc(db, "users", uid), newUser);
-                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut." });
+                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut 'password'." });
             }
         } catch (error: any) {
             console.error("Error saving user:", error);
@@ -160,7 +162,7 @@ export default function UsersPage() {
                 toast({
                     variant: "destructive",
                     title: "Erreur : E-mail déjà utilisé",
-                    description: "Cette adresse e-mail est déjà associée à un compte. Veuillez en utiliser une autre.",
+                    description: "Cette adresse e-mail est déjà associée à un compte d'authentification. Veuillez en utiliser une autre ou modifier l'utilisateur existant.",
                 });
             } else {
                 toast({
@@ -179,10 +181,9 @@ export default function UsersPage() {
         const batch = writeBatch(db);
         
         try {
-            // This part is tricky because deleting a Firebase Auth user requires re-authentication.
-            // For an admin panel, the common practice is to disable the user or delete them
-            // via a backend function (Admin SDK). We will just delete the Firestore record for now.
-            // A more robust solution would use Firebase Functions.
+            // Note: Deleting from Auth should be done in a secure backend environment (Firebase Function)
+            // For this client-side app, we will only delete the Firestore data.
+            // The auth account will remain but will lose its link to the app data.
 
             // 1. Delete user document from Firestore
             batch.delete(doc(db, "users", userId));
@@ -211,7 +212,7 @@ export default function UsersPage() {
             }
 
             await batch.commit();
-            toast({ title: "Utilisateur supprimé de Firestore", description: "Pour supprimer complètement le compte, une action manuelle est requise dans la console Firebase Authentication." });
+            toast({ title: "Utilisateur supprimé de la base de données", description: "Le compte de connexion doit être supprimé manuellement via la console Firebase." });
 
         } catch(error) {
             console.error("Error deleting user:", error);

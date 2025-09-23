@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -54,7 +55,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const usersData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
+        const usersData = snapshot.docs.map(doc => doc.data() as User);
         setAllUsers(usersData);
     }, (error) => {
         console.error("Error fetching users:", error);
@@ -111,31 +112,36 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-    if (authLoading || allUsers.length === 0) {
-        setLoading(true);
-        return;
-    };
-
-    if (authUser) {
-      const matchedUser = allUsers.find(u => u.uid === authUser.uid);
-      if (matchedUser) {
-        if (currentUser?.uid !== matchedUser.uid) {
-           setCurrentUser(matchedUser);
+    setLoading(true);
+    if (!authLoading) {
+      if (authUser) {
+        const userDoc = allUsers.find(u => u.uid === authUser.uid);
+        if (userDoc) {
+          setCurrentUser(userDoc);
+        } else {
+          // This case can happen if the user exists in Auth but not in Firestore yet.
+          // We wait for the `allUsers` snapshot to potentially resolve this.
+          // If after a delay it's still not found, we sign out.
+          const timer = setTimeout(() => {
+            const freshUserDoc = allUsers.find(u => u.uid === authUser.uid);
+            if (!freshUserDoc) {
+               toast({
+                variant: "destructive",
+                title: "Profil non trouvé",
+                description: "Votre compte n'est pas enregistré dans la base de données. Déconnexion.",
+              });
+              signOut();
+            }
+          }, 2000); // 2 seconds delay to allow Firestore to catch up
+          return () => clearTimeout(timer);
         }
       } else {
-          // User authenticated but not in our DB
-          toast({
-            variant: "destructive",
-            title: "Accès non autorisé",
-            description: "Votre compte n'est pas enregistré dans la base de données. Contactez l'administration.",
-          });
-          signOut();
+        setCurrentUser(null);
       }
-    } else { // No authenticated user
-      setCurrentUser(null);
     }
-    setLoading(authLoading);
-  }, [authUser, allUsers, authLoading, currentUser, signOut, toast]);
+     // The loading state depends on both Auth and the initial fetch of all users
+    setLoading(authLoading || (authUser && !currentUser));
+  }, [authUser, allUsers, authLoading, signOut, toast, currentUser]);
 
   
   const userPermissions = useMemo((): AdminPermission[] => {
