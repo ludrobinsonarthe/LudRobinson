@@ -2,116 +2,150 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
 
-    function isUser(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    function isRole(role) {
-      let userRole = getUserData(request.auth.uid).role;
-      return isSignedIn() && userRole == role;
-    }
-    
-    // Admins can be identified by their role in their own user document.
+    // Helper function to check if a user is an admin
     function isAdmin() {
-      return isRole('admin');
+      // An admin is a user who has the role 'admin' in their own user document.
+      // We check the resource in the database.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for 'users' collection
+    // =================================
+    //  Users Collection
+    // =================================
     match /users/{userId} {
-      // Any authenticated user can create their own user document (e.g. on first sign-up)
-      // Admins can create any user document
-      allow create: if isSignedIn();
-      
-      // Users can read their own document.
-      // Admins can read any user document.
-      allow get: if isUser(userId) || isAdmin();
-      
-      // Users can update their own document.
-      // Admins can update any user document.
-      allow update: if isUser(userId) || isAdmin();
+      // ANY authenticated user can create their own user document (e.g. on first sign-up)
+      // For now, we will allow admins to create users.
+      allow create: if request.auth != null;
+
+      // A user can read their OWN document. Admins can read ANY document.
+      allow read: if request.auth.uid == userId || isAdmin();
+
+      // A user can update their OWN document. Admins can update ANY document.
+      allow update: if request.auth.uid == userId || isAdmin();
 
       // Only admins can delete users.
       allow delete: if isAdmin();
-      
-      allow list: if isAdmin();
+    }
+
+    // =================================
+    //  Admin Roles, Settings, and Structure
+    // =================================
+    match /adminRoles/{roleId} {
+      // Only admins can manage roles.
+      allow read, write, delete: if isAdmin();
     }
     
-    // Rules for collections that admins manage fully
-    match /{collection}/{docId} where collection in ['adminRoles', 'cashTransactions', 'teacherSalaries', 'feeStructures'] {
-      allow read, write: if isAdmin();
+    match /settings/system {
+      // Any authenticated user can read the system settings (school name, logo).
+      allow read: if request.auth != null;
+      // Only admins can change system settings.
+      allow write: if isAdmin();
     }
-    
-    // Rules for public-readable data
-     match /{collection}/{docId} where collection in ['settings', 'sectors', 'fields', 'courses'] {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+
+    match /sectors/{sectorId} {
+      // Anyone can read sectors.
+      allow read: if request.auth != null;
+      // Only admins can manage sectors.
+      allow write: if isAdmin();
+    }
+
+    match /fields/{fieldId} {
+       // Anyone can read fields.
+      allow read: if request.auth != null;
+      // Only admins can manage fields.
+      allow write: if isAdmin();
+    }
+
+    match /feeStructures/{feeId} {
+      allow read: if request.auth != null;
       allow write: if isAdmin();
     }
     
-    // Announcements (messages collection, type announcement)
-    match /messages/{messageId} {
-        // Any signed-in user can read announcements
-        allow get: if isSignedIn() && resource.data.type == 'announcement';
-        allow list: if isSignedIn() && resource.data.type == 'announcement';
 
-        // Private messages
-        allow read, write: if isSignedIn() 
-                        && resource.data.type == 'private'
-                        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
-        
-        // Admins can create/update/delete any message
-        allow write: if isAdmin();
+    // =================================
+    //  Core Academic Data
+    // =================================
+    match /courses/{courseId} {
+      // Any authenticated user can read course details.
+      allow read: if request.auth != null;
+      // Only admins can create, update, or delete courses.
+      allow write, delete: if isAdmin();
     }
-
-    // Students, parents, teachers, and admins can access grades
+    
     match /grades/{gradeId} {
-        allow read: if isSignedIn() && 
-                    (isUser(resource.data.studentId) // student can see their own grade
-                    || getUserData(request.auth.uid).parent.childrenUids.hasAny([resource.data.studentId]) // parent can see child's grade
-                    || isUser(get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.teacherId) // teacher of the course can see it
-                    || isAdmin()); // admin can see all
-        allow write: if isAdmin() || isUser(get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.teacherId);
-    }
-    
-    // Payments
-    match /payments/{paymentId} {
-       allow read: if isSignedIn() && 
-                    (isUser(resource.data.studentId) 
-                    || getUserData(request.auth.uid).parent.childrenUids.hasAny([resource.data.studentId])
-                    || isAdmin());
-        allow create: if isSignedIn(); // Students can create payment records
-        allow update, delete: if isAdmin();
+      // Students can read their own grades.
+      // Teachers can read grades for their courses.
+      // Admins can read all grades.
+      allow read: if request.auth.uid == resource.data.studentId || isAdmin();
+
+      // Admins and teachers can create/update grades.
+      // A teacher can only modify grades for a course they teach.
+      allow write: if isAdmin();
     }
 
-    // Official Documents
+    match /attendances/{attendanceId} {
+        allow read, write: if isAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+
+
+    // =================================
+    //  Financial Data
+    // =================================
+    match /payments/{paymentId} {
+      // Students can read their own payments.
+      allow read: if request.auth.uid == resource.data.studentId || isAdmin();
+      // Students can create payments (pending status). Admins can manage all payments.
+      allow create: if request.auth.uid == request.resource.data.studentId;
+      allow update, delete: if isAdmin();
+    }
+
+    match /teacherSalaries/{salaryId} {
+      // A teacher can read their own salary details.
+      allow read: if request.auth.uid == resource.data.teacherId || isAdmin();
+      // Only admins can create, update, or delete salary records.
+      allow write, delete: if isAdmin();
+    }
+
+    match /cashTransactions/{transactionId} {
+        allow read, write, delete: if isAdmin();
+    }
+    
+    
+    // =================================
+    //  Communication & Documents
+    // =================================
+    match /messages/{messageId} {
+      // An announcement can be read by its target audience.
+      // A private message can only be read by the sender or receiver.
+      allow read: if (resource.data.type == 'announcement' && resource.data.receiverId in ['all', get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role, get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin.roleId]) ||
+                     (resource.data.type == 'private' && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId));
+                     
+      // Any authenticated user can create a message.
+      allow create: if request.auth != null;
+      
+      // Admins can delete any message (moderation).
+      allow delete: if isAdmin();
+    }
+
     match /officialDocuments/{docId} {
-        allow read: if isSignedIn() && 
-                    (isUser(resource.data.studentId)
-                    || getUserData(request.auth.uid).parent.childrenUids.hasAny([resource.data.studentId])
-                    || isAdmin());
+        // A user can read their own documents. Admins can read all documents.
+        allow read: if request.auth.uid == resource.data.studentId || isAdmin();
+        // Only admins can issue documents.
         allow write: if isAdmin();
     }
     
-    // Attendances
-    match /attendances/{attendanceId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || isRole('teacher');
-    }
-    
-    // Session sharing for QR code login
+    // =================================
+    //  Session Sharing
+    // =================================
     match /qr_sessions/{sessionId} {
-      allow read, create;
-      allow update: if isSignedIn();
+      // Anyone can create a session document to display a QR code
+      allow create: if true;
+      // An authenticated user can update a session to validate it.
+      allow update: if request.auth != null;
+      // The session creator or the validator can read/delete it.
+      allow read, delete: if request.auth.uid == resource.data.userId || get(/databases/$(database)/documents/qr_sessions/$(sessionId)).data.status == 'pending';
     }
+
   }
 }

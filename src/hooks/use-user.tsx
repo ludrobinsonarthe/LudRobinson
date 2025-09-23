@@ -54,24 +54,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const usersData = snapshot.docs.map(doc => doc.data() as User);
-        setAllUsers(usersData);
-    }, (error) => {
-        console.error("Error fetching users:", error);
-    });
-
+    // These listeners fetch general app data, not user-specific.
     const unsubRoles = onSnapshot(collection(db, 'adminRoles'), (snapshot) => {
         const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdminRole));
         setRoles(rolesData);
-    }, (error) => {
-        console.error("Error fetching roles:", error);
-    });
+    }, (error) => console.error("Error fetching roles:", error));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), (docSnap) => {
         if(docSnap.exists()){
-            const settingsData = docSnap.data() as Settings;
-            setSettings(settingsData);
+            setSettings(docSnap.data() as Settings);
         } else {
              setDoc(doc(db, "settings", "system"), defaultSettings, { merge: true });
              setSettings(defaultSettings);
@@ -79,15 +70,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubSectors = onSnapshot(collection(db, "sectors"), (snapshot) => {
-        const sectorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sector));
-        setSectors(sectorsData);
+        setSectors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sector)));
     });
     
     const unsubFields = onSnapshot(collection(db, "fields"), (snapshot) => {
-         const fieldsData = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field));
-         setFields(fieldsData);
-    }, (error) => {
-        console.error("Error fetching fields:", error);
+         setFields(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field)));
     });
     
     const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
@@ -97,34 +84,37 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubGrades = onSnapshot(collection(db, "grades"), (snapshot) => {
         setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
     });
+    
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+        setAllUsers(snapshot.docs.map(doc => doc.data() as User));
+    });
 
-    // Combine all unsubscribers
     return () => {
-      unsubUsers();
       unsubRoles();
       unsubSettings();
       unsubSectors();
       unsubFields();
       unsubCourses();
       unsubGrades();
+      unsubUsers();
     };
    
   }, []);
   
   useEffect(() => {
-    setLoading(true);
+    // This effect's job is ONLY to determine the currentUser based on auth state.
     if (authLoading) {
-      // Wait for auth state to be determined
+      setLoading(true);
       return;
     }
 
     if (authUser) {
-      // Auth user exists, fetch their specific Firestore document
+      // An auth user is present. Fetch their specific Firestore profile.
+      // The `loading` state will remain true until this fetch is complete.
       const userDocRef = doc(db, 'users', authUser.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
           setCurrentUser(docSnap.data() as User);
-          setLoading(false);
         } else {
           // User exists in Auth, but not in Firestore. This is an invalid state.
           toast({
@@ -133,8 +123,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             description: "Votre compte n'est pas enregistré dans la base de données. Déconnexion.",
           });
           signOut();
-          setLoading(false);
         }
+        setLoading(false); // Only stop loading after we have a definitive answer.
       }, (error) => {
          console.error("Error fetching user document:", error);
          toast({ variant: 'destructive', title: "Erreur de profil", description: "Impossible de charger votre profil." });
@@ -144,7 +134,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return () => unsubscribe();
 
     } else {
-      // No auth user, not loading
+      // No auth user, so no current user. Stop loading.
       setCurrentUser(null);
       setLoading(false);
     }
@@ -154,7 +144,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
       
-      const isSuperAdminByEmail = currentUser.email === 'admin@isgi.com';
+      const isSuperAdminByEmail = currentUser.email === 'sem.bourangon@isgi.com';
       
       if (isSuperAdminByEmail) {
           return Object.keys(adminPermissions) as AdminPermission[];
