@@ -19,18 +19,28 @@ import { LogOut, User, LifeBuoy, Settings, Loader2 } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 
 const roleTranslation: { [key: string]: string } = {
-  admin: "Administrateur",
   teacher: "Enseignant",
   student: "Étudiant",
   parent: "Parent",
 };
 
 export default function DashboardHeader() {
-  const { user, loading } = useUser();
+  const { user, loading, roles } = useUser();
   const { signOut } = useAuth();
   const router = useRouter();
+
+
+  const userRoleDisplay = useMemo(() => {
+    if (!user) return "";
+    if (user.role === 'admin') {
+        const adminRole = roles.find(r => r.id === user.admin?.roleId);
+        return adminRole?.name || "Administrateur";
+    }
+    return roleTranslation[user.role];
+  }, [user, roles]);
 
 
   if (!user || loading) {
@@ -65,7 +75,7 @@ export default function DashboardHeader() {
         <div className="text-right hidden sm:block">
           <p className="font-semibold">{`${user.lastName} ${user.firstName}`}</p>
           <Badge variant="outline" className="text-xs">
-            {roleTranslation[user.role]}
+            {userRoleDisplay}
           </Badge>
         </div>
         <DropdownMenu>
