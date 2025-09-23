@@ -645,7 +645,7 @@ export default function StudentsPage() {
             const studentGrades = grades.filter(g => g.studentId === student.uid);
             const coursesById = courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
             
-            const tableColumn = ["Matière", "Crédit", "Devoirs", "Examen", "Moyenne /20"];
+            const tableColumn = ["Matière", "Crédit", "Devoir Classe", "Devoir Recherche", "Examen", "Moyenne /20"];
             const tableRows: (string | number)[][] = [];
 
             const gradesByCourse: Record<string, Grade[]> = {};
@@ -687,12 +687,11 @@ export default function StudentsPage() {
                 totalWeightedAverage += finalScoreOutOf20 * course.credit;
                 totalCredits += course.credit;
 
-                const devoirsFormatted = [dc, dr].filter(Boolean).map(g => `${g!.score}/${g!.total}`).join(', ') || 'N/A';
-
                 tableRows.push([
                     course.name, 
                     course.credit, 
-                    devoirsFormatted, 
+                    dc ? `${dc.score}/${dc.total}` : 'N/A', 
+                    dr ? `${dr.score}/${dr.total}` : 'N/A',
                     exam ? `${exam.score}/${exam.total}` : 'N/A', 
                     finalScoreOutOf20.toFixed(2)
                 ]);
