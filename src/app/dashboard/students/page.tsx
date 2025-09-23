@@ -456,6 +456,12 @@ export default function StudentsPage() {
                     const studentId = doc(collection(db, 'users')).id;
                     const fieldId = fields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
                     const studentLevel = studentRow['Niveau'];
+
+                    if (!fieldId || !studentLevel || !settings?.levels.some(l => l.value === studentLevel)) {
+                        console.warn(`Skipping student due to invalid field or level: ${studentRow['Nom']}`);
+                        continue;
+                    }
+
                     const studentCycle = cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value || 'local';
 
                     const newUser: User = {
@@ -960,6 +966,3 @@ export default function StudentsPage() {
         </div>
     );
 }
-
-    
-

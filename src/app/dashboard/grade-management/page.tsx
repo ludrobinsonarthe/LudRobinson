@@ -34,6 +34,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { imageToDataUrl } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
@@ -59,7 +60,7 @@ function GradeManagementContent() {
     const [course, setCourse] = useState<Course | null>(null);
     const [students, setStudents] = useState<User[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingData, setLoadingData] = useState(true);
     
     // States for the new evaluation dialog
     const [isEvalDialogOpen, setIsEvalDialogOpen] = useState(false);
@@ -76,11 +77,11 @@ function GradeManagementContent() {
 
 
     useEffect(() => {
-        setLoading(true);
+        setLoadingData(true);
         const qGrades = query(collection(db, "grades"));
         const unsubGrades = onSnapshot(qGrades, (snapshot) => {
             setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
-            setLoading(false);
+            setLoadingData(false);
         });
         
         if (courseId) {
@@ -259,7 +260,7 @@ function GradeManagementContent() {
     };
 
     const confirmDeleteEvaluation = async () => {
-        if (!evalToDelete) return;
+        if (!evalToDelete || !evalToDelete.grades) return;
 
         const batch = writeBatch(db);
         evalToDelete.grades.forEach(grade => {
@@ -341,8 +342,18 @@ function GradeManagementContent() {
     };
 
 
-    if (loading || usersLoading) {
-        return <div className="text-center">Chargement...</div>;
+    if (usersLoading || loadingData) {
+        return (
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-48 w-full" />
+                </CardContent>
+            </Card>
+        );
     }
 
     if (!courseId) {
@@ -564,7 +575,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-
-    
-
-    

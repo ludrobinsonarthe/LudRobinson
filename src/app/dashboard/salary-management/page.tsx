@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -29,6 +30,7 @@ import SalaryFormDialog from '@/components/salary-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { imageToDataUrl } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function SalaryManagementContent() {
     const { users, loading: usersLoading, settings } = useUser();
@@ -58,12 +60,13 @@ function SalaryManagementContent() {
             setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Course)));
         });
         
-        setLoadingData(false);
+        const timer = setTimeout(() => setLoadingData(false), 300);
 
         return () => {
             unsubSalaries();
             unsubAttendances();
             unsubCourses();
+            clearTimeout(timer);
         };
     }, []);
 
@@ -132,7 +135,7 @@ function SalaryManagementContent() {
         setIsFormOpen(true);
     }
     
-    const calculateHours = (teacherId: string, month: number, year: number): number => {
+    const calculateHours = useCallback((teacherId: string, month: number, year: number): number => {
         const teacherAttendances = attendances.filter(a => 
             a.teacherId === teacherId &&
             a.teacherStatus === 'present' &&
@@ -160,7 +163,7 @@ function SalaryManagementContent() {
             }
         });
         return totalHours;
-    }
+    }, [attendances, courses]);
 
 
     const handleSave = async (salaryData: Omit<TeacherSalary, 'id' | 'createdAt' | 'status'>) => {
@@ -186,8 +189,8 @@ function SalaryManagementContent() {
         }
 
         const salaryRef = doc(db, 'teacherSalaries', salary.id);
-        const user = users.find(u => u.role === 'admin');
-        const updatedSalaryData = { status, paidAt: new Date().toISOString(), paidBy: user?.uid };
+        const adminUser = users.find(u => u.role === 'admin');
+        const updatedSalaryData = { status, paidAt: new Date().toISOString(), paidBy: adminUser?.uid };
         
         try {
             const batch = writeBatch(db);
@@ -201,7 +204,7 @@ function SalaryManagementContent() {
                 currency: salary.currency,
                 description: `Paie ${salary.month} - ${getUserName(salary.userId)}`,
                 date: new Date().toISOString(),
-                createdBy: user?.uid || 'system',
+                createdBy: adminUser?.uid || 'system',
                 relatedDocId: salary.id,
             });
 
@@ -423,11 +426,16 @@ function SalaryManagementContent() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
-                                        Chargement...
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({length: 5}).map((_,i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-5 w-32"/></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-24"/></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-24"/></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-28"/></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-20"/></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto"/></TableCell>
+                                    </TableRow>
+                                ))
                             ) : filteredSalaries.length > 0 ? filteredSalaries.map(salary => (
                                 <TableRow key={salary.id}>
                                     <TableCell className="font-medium">{salary.userName}</TableCell>
