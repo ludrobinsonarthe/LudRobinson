@@ -3,7 +3,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Announcement } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where, or } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -105,6 +105,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings)));
     unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => d.data() as Sector))));
     unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => d.data() as Field))));
+    unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => d.data() as AdminRole))));
     
     // Role-based data fetching
     if (currentUser.role === 'admin') {
@@ -112,28 +113,31 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
         unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => d.data() as Course))));
         unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
-        unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => d.data() as AdminRole))));
     } else {
-        // For non-admins, fetch only necessary users (teachers and admins)
-        const staffQuery = query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin']));
-        unsubs.push(onSnapshot(staffQuery, async (staffSnap) => {
-            const staffUsers = staffSnap.docs.map(d => d.data() as User);
-            
-            // Add the current user to the list
-            let usersList = [currentUser, ...staffUsers];
-            
-            // If the user is a parent, fetch their children
-            if (currentUser.role === 'parent' && currentUser.parent?.childrenUids?.length) {
-                const childrenQuery = query(collection(db, 'users'), where('uid', 'in', currentUser.parent.childrenUids));
-                const childrenDocs = await getDocs(childrenQuery);
-                const childrenData = childrenDocs.docs.map(d => d.data() as User);
-                usersList = [...usersList, ...childrenData];
-            }
-            
-            // Remove duplicates
-            const uniqueUsers = Array.from(new Map(usersList.map(u => [u.uid, u])).values());
-            setAllUsers(uniqueUsers);
-        }));
+        // For non-admins, we only fetch the current user initially.
+        // Other users (like teachers of a course) will be fetched on-demand or derived from other collections.
+        setAllUsers([currentUser]);
+        
+        // This is a more complex scenario. We need to derive the list of relevant users.
+        // For now, let's just add teachers from the announcements to avoid a direct user query.
+        const addUsersFromData = async () => {
+          const announcementsQuery = query(collection(db, "announcements"));
+          const announcementsSnap = await getDocs(announcementsQuery);
+          const announcements = announcementsSnap.docs.map(d => d.data() as Announcement);
+          const senderIds = [...new Set(announcements.map(a => a.senderId))];
+          
+          if(senderIds.length > 0) {
+            const usersQuery = query(collection(db, "users"), where('uid', 'in', senderIds));
+            const usersSnap = await getDocs(usersQuery);
+            const senders = usersSnap.docs.map(d => d.data() as User);
+             setAllUsers(current => {
+               const userMap = new Map(current.map(u => [u.uid, u]));
+               senders.forEach(s => userMap.set(s.uid, s));
+               return Array.from(userMap.values());
+            });
+          }
+        }
+        addUsersFromData();
 
         if (currentUser.role === 'student' && currentUser.student) {
             const studentClauses = [];

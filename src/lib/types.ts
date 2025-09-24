@@ -1,6 +1,7 @@
 
 
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -192,6 +193,17 @@ export interface Message {
   title?: string;
   content: string;
   type: 'announcement' | 'private';
+  attachments?: string[];
+  createdAt: string;
+}
+
+export interface Announcement {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  title?: string;
+  content: string;
+  type: 'announcement';
   attachments?: string[];
   createdAt: string;
 }
