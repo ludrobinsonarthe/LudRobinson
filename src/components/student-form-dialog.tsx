@@ -283,6 +283,13 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         }
     }
 
+    if (!studentData.student?.fieldId) {
+        delete (studentData.student as any).fieldId;
+    }
+     if (!studentData.student?.sectorId) {
+        delete (studentData.student as any).sectorId;
+    }
+
     onSave(studentData, parentData, photo);
     setIsOpen(false);
   };

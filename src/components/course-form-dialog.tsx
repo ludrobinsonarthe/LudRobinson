@@ -159,10 +159,10 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
 
     if (courseData.fieldId === 'common_core') {
         finalCourseData.sectorId = courseData.sectorId;
-        finalCourseData.fieldId = undefined; // Ensure fieldId is not set for common core
+        delete (finalCourseData as any).fieldId;
     } else {
         finalCourseData.fieldId = courseData.fieldId;
-        finalCourseData.sectorId = undefined; // Ensure sectorId is not set for specific field
+        delete (finalCourseData as any).sectorId;
     }
 
     await onSave(finalCourseData);
