@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { TeacherSalary, Attendance, Course, UnifiedSalary, User } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download, ArrowLeft, FileDown } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download, ArrowLeft, FileDown, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -33,7 +33,7 @@ import { imageToDataUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function SalaryManagementContent() {
-    const { users, loading: usersLoading, settings } = useUser();
+    const { users, loading: usersLoading, settings, user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const userIdFilter = searchParams.get('userId');
@@ -49,6 +49,11 @@ function SalaryManagementContent() {
     const { toast } = useToast();
 
     useEffect(() => {
+        if (user?.role !== 'admin') {
+            setLoadingData(false);
+            return;
+        }
+
         setLoadingData(true);
         const unsubSalaries = onSnapshot(query(collection(db, 'teacherSalaries')), snapshot => {
             setTeacherSalaries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeacherSalary)));
@@ -68,7 +73,7 @@ function SalaryManagementContent() {
             unsubCourses();
             clearTimeout(timer);
         };
-    }, []);
+    }, [user]);
 
     const teachersAndAdmins = useMemo(() => {
       const all = users.filter(u => u.role === 'teacher' || u.role === 'admin');
@@ -365,7 +370,19 @@ function SalaryManagementContent() {
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
     }
-
+    
+    if (user?.role !== 'admin') {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-destructive">Accès Refusé</CardTitle>
+                    <CardDescription>
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -509,8 +526,10 @@ function SalaryManagementContent() {
 
 export default function SalaryManagementPage() {
     return (
-        <Suspense fallback={<div>Chargement...</div>}>
+        <Suspense fallback={<div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
             <SalaryManagementContent />
         </Suspense>
     );
 }
+
+    

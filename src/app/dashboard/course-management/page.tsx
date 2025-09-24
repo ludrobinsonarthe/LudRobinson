@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Course, Field, Sector, Cycle } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays, FileDown } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays, FileDown, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc } from "firebase/firestore";
@@ -39,7 +39,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { users, settings, loading, fields, sectors } = useUser();
+    const { users, settings, loading, fields, sectors, user } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -55,13 +55,17 @@ export default function CourseManagementPage() {
     const [cycleFilter, setCycleFilter] = useState("all");
     
     useEffect(() => {
+        if (user?.role !== 'admin') {
+            setLoadingCourses(false);
+            return;
+        }
         setLoadingCourses(true);
         const unsub = onSnapshot(collection(db, 'courses'), snapshot => {
             setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
             setLoadingCourses(false);
         });
         return () => unsub();
-    }, []);
+    }, [user]);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
@@ -202,6 +206,19 @@ export default function CourseManagementPage() {
     };
 
     const pageIsLoading = loading || loadingCourses;
+
+    if (user?.role !== 'admin') {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-destructive">Accès Refusé</CardTitle>
+                    <CardDescription>
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -371,3 +388,5 @@ export default function CourseManagementPage() {
         </div>
     );
 }
+
+    

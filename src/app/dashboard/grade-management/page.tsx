@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
 import { Grade, Course, User } from "@/lib/types";
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, FileDown, ArrowLeft } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, FileDown, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -54,7 +54,7 @@ function GradeManagementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
-    const { users, loading: usersLoading, settings, courses: allCourses } = useUser();
+    const { users, loading: usersLoading, settings, courses: allCourses, user } = useUser();
     const { toast } = useToast();
 
     const [course, setCourse] = useState<Course | null>(null);
@@ -77,6 +77,11 @@ function GradeManagementContent() {
 
 
     useEffect(() => {
+        if (user?.role !== 'admin' && user?.role !== 'teacher') {
+            setLoadingData(false);
+            return;
+        }
+
         setLoadingData(true);
         const qGrades = query(collection(db, "grades"));
         const unsubGrades = onSnapshot(qGrades, (snapshot) => {
@@ -92,7 +97,7 @@ function GradeManagementContent() {
             setCourse(null);
         }
         return () => { unsubGrades(); };
-    }, [courseId, allCourses]);
+    }, [courseId, allCourses, user]);
 
     useEffect(() => {
         if (course) {
@@ -341,6 +346,18 @@ function GradeManagementContent() {
         toast({ title: "Exportation Excel réussie" });
     };
 
+    if (user?.role !== 'admin' && user?.role !== 'teacher') {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-destructive">Accès Refusé</CardTitle>
+                    <CardDescription>
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        )
+    }
 
     if (usersLoading || loadingData) {
         return (
@@ -570,8 +587,10 @@ function GradeManagementContent() {
 
 export default function GradeManagementPage() {
     return (
-        <Suspense fallback={<div>Chargement...</div>}>
+        <Suspense fallback={<div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
             <GradeManagementContent />
         </Suspense>
     );
 }
+
+    

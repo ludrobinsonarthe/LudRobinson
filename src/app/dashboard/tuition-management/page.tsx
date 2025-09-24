@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { Payment, User } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, Download, Check, X, ArrowLeft, FileDown } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Download, Check, X, ArrowLeft, FileDown, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -32,7 +32,7 @@ import { imageToDataUrl } from '@/lib/utils';
 import autoTable from 'jspdf-autotable';
 
 function TuitionManagementContent() {
-    const { users, loading: usersLoading, settings } = useUser();
+    const { users, loading: usersLoading, settings, user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const studentIdFilter = searchParams.get('studentId');
@@ -49,6 +49,11 @@ function TuitionManagementContent() {
     const [statusFilter, setStatusFilter] = useState('all');
 
     useEffect(() => {
+        if (user?.role !== 'admin') {
+            setLoadingPayments(false);
+            return;
+        };
+
         setLoadingPayments(true);
         const q = query(collection(db, "payments"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -59,7 +64,7 @@ function TuitionManagementContent() {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [user]);
     
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const getStudentName = (studentId: string) => {
@@ -259,6 +264,19 @@ function TuitionManagementContent() {
 
     const loading = usersLoading || loadingPayments;
 
+    if (user?.role !== 'admin') {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-destructive">Accès Refusé</CardTitle>
+                    <CardDescription>
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        )
+    }
+
 
     return (
         <div className="space-y-6">
@@ -332,7 +350,7 @@ function TuitionManagementContent() {
                             {loading ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
-                                        Chargement...
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                                     </TableCell>
                                 </TableRow>
                             ) : filteredPayments.length > 0 ? filteredPayments.map(payment => (
@@ -412,3 +430,5 @@ export default function TuitionManagementPage() {
         </Suspense>
     );
 }
+
+    
