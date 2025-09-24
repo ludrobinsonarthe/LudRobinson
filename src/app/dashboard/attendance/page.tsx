@@ -70,37 +70,34 @@ function CourseAttendanceContent() {
     }, [selectedSectorId, fields]);
 
      useEffect(() => {
-        setSelectedFieldId('all');
-    }, [selectedSectorId]);
+        if (!availableFields.some(f => f.id === selectedFieldId)) {
+            setSelectedFieldId('all');
+        }
+    }, [selectedSectorId, availableFields, selectedFieldId]);
 
     
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
     const filteredCourses = useMemo(() => {
         return courses.filter(course => {
-            const isTeacherMatch = selectedTeacherId === 'all' || course.teacherId === selectedTeacherId;
-            const isLevelMatch = selectedLevel === 'all' || course.level === selectedLevel;
-
-            let isSectorMatch = true;
-            let isFieldMatch = true;
-
-            const courseSectorId = course.sectorId || (course.fieldId ? fieldsById[course.fieldId]?.sectorId : undefined);
-
-            if (selectedSectorId !== 'all') {
-                isSectorMatch = courseSectorId === selectedSectorId;
-            }
-
-            if (selectedFieldId !== 'all') {
-                if (selectedFieldId === 'common_core') {
-                    // Only match courses that are common core for the selected sector
-                    isFieldMatch = !course.fieldId && course.sectorId === selectedSectorId;
-                } else {
-                    // Match the specific field
-                    isFieldMatch = course.fieldId === selectedFieldId;
-                }
-            }
+            const courseSectorId = course.sectorId || fieldsById[course.fieldId || '']?.sectorId;
             
-            return isTeacherMatch && isLevelMatch && isSectorMatch && isFieldMatch;
+            const teacherMatch = selectedTeacherId === 'all' || course.teacherId === selectedTeacherId;
+            const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
+            const sectorMatch = selectedSectorId === 'all' || courseSectorId === selectedSectorId;
+            
+            let fieldMatch = true;
+            if (selectedFieldId !== 'all') {
+                 if (selectedFieldId === 'common_core') {
+                    // Match "tronc commun" courses for the selected sector
+                    fieldMatch = course.sectorId === selectedSectorId && !course.fieldId;
+                 } else {
+                    // Match specific field
+                    fieldMatch = course.fieldId === selectedFieldId;
+                 }
+            }
+
+            return teacherMatch && levelMatch && sectorMatch && fieldMatch;
         });
     }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fieldsById]);
 
@@ -289,7 +286,7 @@ function CourseAttendanceContent() {
                                     {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
+                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId}>
                                 <SelectTrigger className="w-[240px]"><SelectValue placeholder="Filière..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Toutes les filières</SelectItem>
@@ -438,9 +435,3 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
-
-    
-
-    
-
-    
