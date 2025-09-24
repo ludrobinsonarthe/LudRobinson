@@ -25,8 +25,7 @@ function AttendanceContent() {
     const router = useRouter();
     const teacherIdFilter = searchParams.get('teacherId');
 
-    const { users, loading: usersLoading, settings, fields } = useUser();
-    const [courses, setCourses] = useState<Course[]>([]);
+    const { users, loading: usersLoading, settings, fields, courses } = useUser();
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -40,21 +39,12 @@ function AttendanceContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
-            setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
-        });
         const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
             setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance));
+            setLoadingData(false);
         });
-
-        // Combine loading states
-        Promise.all([
-            new Promise(res => unsubCourses.apply(res)),
-            new Promise(res => unsubAttendances.apply(res)),
-        ]).then(() => setLoadingData(false));
         
         return () => {
-            unsubCourses();
             unsubAttendances();
         }
     }, []);
@@ -70,6 +60,8 @@ function AttendanceContent() {
 
     const scheduleByDay = useMemo(() => {
         const schedule: { [key: string]: any[] } = {};
+        const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+        
         weekDays.forEach(day => {
             const dayName = format(day, 'EEEE', { locale: fr });
             const coursesOnDay = courses.filter(c => 
@@ -148,7 +140,7 @@ function AttendanceContent() {
                 <div className="flex items-center gap-4">
                     <div>
                         <h1 className="text-3xl font-bold font-headline tracking-tight">Suivi des Présences</h1>
-                        <p className="text-muted-foreground">Enregistrez la présence des professeurs pour chaque cours planifié.</p>
+                        <p className="text-muted-foreground">Enregistrez la présence des professeurs et étudiants pour chaque cours planifié.</p>
                     </div>
                 </div>
             </div>
@@ -166,14 +158,6 @@ function AttendanceContent() {
                                     {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            {selectedTeacher !== 'all' && (
-                                <Button variant="outline" asChild>
-                                    <Link href={`/dashboard/salary-management?userId=${selectedTeacher}`}>
-                                        <Banknote className="mr-2 h-4 w-4" />
-                                        Gérer les salaires
-                                    </Link>
-                                </Button>
-                            )}
                         </div>
                         <div className="flex items-center gap-2">
                             <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
@@ -276,5 +260,3 @@ export default function AttendancePage() {
         </Suspense>
     );
 }
-
-    
