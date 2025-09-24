@@ -42,7 +42,7 @@ service cloud.firestore {
 
     function hasPermission(permission) {
       let token = getUserData();
-      // Super admin has all permissions implicitly.
+      // Super admin has all permissions
       if (isAdmin() && token.roleId == 'super_admin') {
         return true;
       }
@@ -51,12 +51,13 @@ service cloud.firestore {
 
     function isTeacherOfCourse(courseId) {
       let token = getUserData();
+      // This rule relies on custom claims being set and kept up-to-date on the backend.
       return isTeacher() && token.assignedCourses != null && courseId in token.assignedCourses;
     }
 
     // =====================================================================
     // Users Collection
-    // Roles: Admin (manage), User (update own)
+    // Roles: All (read), Admin (write)
     // =====================================================================
     match /users/{userId} {
       allow read: if isAuth();
@@ -66,7 +67,7 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Admin & System Settings
+    // Admin & Settings Collections
     // Roles: Admin only
     // =====================================================================
     match /adminRoles/{roleId} {
@@ -80,8 +81,8 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Academic Structure (Sectors, Fields, Courses)
-    // Roles: Admin (write), Authenticated Users (read)
+    // Academic Structure Collections
+    // Roles: Admin (write), All (read)
     // =====================================================================
     match /sectors/{sectorId} {
       allow read: if isAuth();
@@ -97,40 +98,40 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if hasPermission('manage_course');
     }
-    
+
     match /feeStructures/{feeId} {
       allow read: if isAuth();
       allow write: if hasPermission('manage_fees');
     }
 
     // =====================================================================
-    // Grades
+    // Grades Collection
     // Roles: Admin, Teacher (own courses), Student (own), Parent (own children)
     // =====================================================================
     match /grades/{gradeId} {
       allow create: if hasPermission('manage_grades');
       allow read, update: if (isUser(resource.data.studentId) 
-                             || isParentOf(resource.data.studentId))
+                             || isParentOf(resource.data.studentId) 
                              || hasPermission('manage_grades') 
-                             || isTeacherOfCourse(resource.data.courseId);
+                             || isTeacherOfCourse(resource.data.courseId));
       allow delete: if hasPermission('manage_grades');
     }
 
     // =====================================================================
-    // Payments
+    // Payments Collection
     // Roles: Admin, Student (own), Parent (own children)
     // =====================================================================
     match /payments/{paymentId} {
       allow create: if (isUser(request.resource.data.studentId)) 
                      || hasPermission('manage_tuition');
       allow read, update: if (isUser(resource.data.studentId) 
-                            || isParentOf(resource.data.studentId)) 
-                            || hasPermission('manage_tuition');
+                                     || isParentOf(resource.data.studentId)) 
+                                     || hasPermission('manage_tuition');
       allow delete: if hasPermission('manage_tuition');
     }
 
     // =====================================================================
-    // Official Documents
+    // Official Documents Collection
     // Roles: Admin, Student (own), Parent (own children)
     // =====================================================================
     match /officialDocuments/{docId} {
@@ -142,8 +143,8 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Attendance
-    // Roles: Admin only
+    // Attendance Collection
+    // Roles: Admin (write), All (read)
     // =====================================================================
     match /attendances/{attendanceId} {
       allow read: if isAuth();
@@ -151,8 +152,8 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Financial (Salaries, Cash Flow)
-    // Roles: Admin only (specific permissions)
+    // Financial Collections
+    // Roles: Admin only (with specific permissions)
     // =====================================================================
     match /teacherSalaries/{salaryId} {
       allow read, write: if hasPermission('manage_salaries');
@@ -164,7 +165,7 @@ service cloud.firestore {
 
     // =====================================================================
     // Messaging & Announcements
-    // Roles: Varies
+    // Roles: All users for their own messages, Admin for announcements
     // =====================================================================
     match /private_messages/{messageId} {
       allow read: if isAuth() && (resource.data.senderId == request.auth.uid 
@@ -184,12 +185,25 @@ service cloud.firestore {
     // Roles: Any (create), Admin (validate), User (complete)
     // =====================================================================
     match /qr_sessions/{sessionId} {
+      // Create: only expected fields and 'pending' status
       allow create: if request.resource.data.keys().hasOnly(['status','createdAt','userId']) 
                     && request.resource.data.status == 'pending';
+
+      // Read: any authenticated user
       allow read: if isAuth();
-      allow update: if (isAdmin() && request.resource.data.status == 'validated' 
-                        && request.resource.data.userId == resource.data.userId) // Admin validates
-                     || (isUser(request.resource.data.userId) && request.resource.data.status == 'completed'); // User completes
+
+      // Update: admin validates, user completes
+      allow update: if (
+        // Admin validates the session without changing the userId
+        (isAdmin() && request.resource.data.status == 'validated' 
+                     && resource.data.userId == request.resource.data.userId) 
+        || 
+        // The user can only complete their own session
+        (isUser(resource.data.userId) && request.resource.data.status == 'completed' 
+                                        && request.resource.data.userId == resource.data.userId)
+      );
+
+      // Delete: admin only
       allow delete: if isAdmin();
     }
   }
