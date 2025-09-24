@@ -85,10 +85,10 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     
     try {
         if (announcement) {
-            await setDoc(doc(db, "messages", announcement.id), { ...data }, { merge: true });
+            await setDoc(doc(db, "announcements", announcement.id), { ...data }, { merge: true });
             toast({ title: "Annonce modifiée" });
         } else {
-            await addDoc(collection(db, "messages"), {
+            await addDoc(collection(db, "announcements"), {
                 ...data,
                 senderId: user.uid,
                 type: 'announcement',

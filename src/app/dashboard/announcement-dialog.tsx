@@ -91,7 +91,7 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
             await addDoc(collection(db, "announcements"), {
                 ...data,
                 senderId: user.uid,
-                type: 'announcement', // type is still useful for client-side differentiation if needed
+                type: 'announcement',
                 createdAt: new Date().toISOString(),
             });
             toast({ title: "Annonce publiée" });
