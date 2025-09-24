@@ -36,6 +36,7 @@ function ScheduleContent() {
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
     // Filters state
+    const [selectedSectorId, setSelectedSectorId] = useState('all');
     const [selectedFieldId, setSelectedFieldId] = useState('all');
     const [selectedLevel, setSelectedLevel] = useState('all');
     const [selectedTeacherId, setSelectedTeacherId] = useState('all');
@@ -45,9 +46,19 @@ function ScheduleContent() {
         if(currentUser?.role === 'student' && currentUser.student) {
             studentFieldId = currentUser.student.fieldId || null;
             setSelectedLevel(currentUser.student.level || 'all');
+            const studentField = fields.find(f => f.id === studentFieldId);
+            if (studentField) {
+                setSelectedSectorId(studentField.sectorId);
+            }
         }
-        setSelectedFieldId(fieldIdFromParams || studentFieldId || 'all');
-    }, [fieldIdFromParams, currentUser]);
+        if(fieldIdFromParams) {
+             const field = fields.find(f => f.id === fieldIdFromParams);
+             if (field) {
+                setSelectedFieldId(field.id);
+                setSelectedSectorId(field.sectorId);
+             }
+        }
+    }, [fieldIdFromParams, currentUser, fields]);
 
     useEffect(() => {
         setLoading(true);
@@ -59,24 +70,36 @@ function ScheduleContent() {
     }, []);
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const availableFields = useMemo(() => {
+        if (selectedSectorId === 'all') return fields;
+        return fields.filter(f => f.sectorId === selectedSectorId);
+    }, [selectedSectorId, fields]);
+    
+    useEffect(() => {
+        setSelectedFieldId('all');
+    }, [selectedSectorId]);
 
     const filteredCourses = useMemo(() => {
-        // If a teacher is selected, it takes priority
-        if (selectedTeacherId !== 'all') {
-            return courses.filter(course => course.teacherId === selectedTeacherId);
-        }
-
-        // Filter for students or admin/group view
         return courses.filter(course => {
-            const isLevelMatch = selectedLevel === 'all' || course.level === selectedLevel;
-            if (!isLevelMatch) return false;
-            
+            // Teacher filter takes priority
+            if (selectedTeacherId !== 'all') {
+                return course.teacherId === selectedTeacherId;
+            }
+
+            // Level filter
+            const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
+            if (!levelMatch) return false;
+
+            // Sector and Field filter
             const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
-            const isFieldMatch = selectedFieldId === 'all' || course.fieldId === selectedFieldId || courseSectorId === fields.find(f => f.id === selectedFieldId)?.sectorId;
+            const sectorMatch = selectedSectorId === 'all' || courseSectorId === selectedSectorId;
+            const fieldMatch = selectedFieldId === 'all' || course.fieldId === selectedFieldId;
             
-            return isFieldMatch;
+            // If a specific field is selected, it must match.
+            // If 'all' fields are selected within a sector, we must match courses for that sector.
+            return fieldMatch && sectorMatch;
         });
-    }, [courses, selectedFieldId, selectedLevel, selectedTeacherId, fields]);
+    }, [courses, selectedFieldId, selectedLevel, selectedTeacherId, selectedSectorId, fields]);
 
 
     const scheduleGrid = useMemo(() => {
@@ -120,16 +143,23 @@ function ScheduleContent() {
         } else if (selectedFieldId !== 'all') {
              const fieldName = fieldsById[selectedFieldId]?.name || '';
              titleName = `Emploi du temps - ${fieldName} (${levelName})`;
+        } else if (selectedSectorId !== 'all') {
+            const sectorName = sectors.find(s => s.id === selectedSectorId)?.name || '';
+            titleName = `Emploi du temps - Secteur ${sectorName} (${levelName})`;
         }
 
 
         const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
         const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
         
-        const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-        if (logoDataUrl) {
-            const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-            doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if (logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch(e) {
+            console.error(e);
         }
 
         doc.setFontSize(18);
@@ -220,13 +250,22 @@ function ScheduleContent() {
                                         {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                 <Select value={selectedFieldId} onValueChange={setSelectedFieldId}>
+                                <Select value={selectedSectorId} onValueChange={setSelectedSectorId}>
+                                    <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Filtrer par secteur" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tous les secteurs</SelectItem>
+                                        {(sectors || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                 <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
                                     <SelectTrigger className="w-[240px]">
                                         <SelectValue placeholder="Filtrer par filière" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Toutes les filières</SelectItem>
-                                        {(fields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                                        {(availableFields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                 </>
