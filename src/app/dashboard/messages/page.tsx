@@ -10,7 +10,7 @@ import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
 export default function MessagesPage() {
-  const { user, users } = useUser();
+  const { user, users, loading: userLoading } = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,8 +27,7 @@ export default function MessagesPage() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const userMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message))
-            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        const userMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
         setMessages(userMessages);
         setLoading(false);
     }, (error) => {
@@ -45,6 +44,8 @@ export default function MessagesPage() {
         createdAt: new Date().toISOString(),
     });
   }
+  
+  const pageIsLoading = userLoading || loading;
 
   return (
     <div>
@@ -54,7 +55,7 @@ export default function MessagesPage() {
           Discussions privées avec les autres utilisateurs.
         </p>
       </div>
-      {loading ? (
+      {pageIsLoading ? (
          <div className="flex items-center justify-center h-96">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="ml-4 text-muted-foreground">Chargement des messages...</p>

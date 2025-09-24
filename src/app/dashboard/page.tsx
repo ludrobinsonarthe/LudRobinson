@@ -15,7 +15,7 @@ import UserDeleteDialog from "@/components/user-delete-dialog";
 
 
 export default function DashboardPage() {
-    const { user: currentUser, userPermissions } = useUser();
+    const { user: currentUser, userPermissions, loading: userLoading } = useUser();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<Message | null>(null);
@@ -79,6 +79,8 @@ export default function DashboardPage() {
             setIsDeleteDialogOpen(false);
         }
     }
+    
+    const pageIsLoading = loading || userLoading;
 
     return (
         <div className="space-y-6">
@@ -98,7 +100,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-4">
-                {loading ? (
+                {pageIsLoading ? (
                     <div className="flex items-center justify-center h-48">
                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>

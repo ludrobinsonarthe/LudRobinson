@@ -256,7 +256,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             cycle: data.cycle,
             level: data.level,
             fieldId: data.fieldId,
-            sectorId: field?.sectorId, // Add sectorId
+            sectorId: field?.sectorId,
             lastDiploma: data.lastDiploma,
             parentalLink: data.parentalLink,
             programId: student?.student?.programId || 'prog01', // Keep existing or default
@@ -281,13 +281,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         if (studentData.student) {
           delete studentData.student.parentUid;
         }
-    }
-
-    if (!studentData.student?.fieldId) {
-        delete studentData.student.fieldId;
-    }
-     if (!studentData.student?.sectorId) {
-        delete studentData.student.sectorId;
     }
 
     onSave(studentData, parentData, photo);
