@@ -5,7 +5,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where, or } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
@@ -120,27 +120,40 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             neededUserIds.push(...currentUser.parent.childrenUids);
         }
         
-        unsubs.push(onSnapshot(query(collection(db, 'users'), where('uid', 'in', neededUserIds)), snap => {
-             const specificUsers = snap.docs.map(d => d.data() as User);
-             // We still need all teachers for course display, and admins for messaging
-             onSnapshot(query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin'])), teacherAdminSnap => {
-                 setAllUsers([...specificUsers, ...teacherAdminSnap.docs.map(d => d.data() as User)]);
-             });
+        unsubs.push(onSnapshot(query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin'])), teacherAdminSnap => {
+                 setAllUsers(teacherAdminSnap.docs.map(d => d.data() as User));
         }));
 
         if (currentUser.role === 'student' && currentUser.student) {
-            unsubs.push(onSnapshot(query(collection(db, 'courses'), where('fieldId', '==', currentUser.student.fieldId), where('level', '==', currentUser.student.level)), snap => setCourses(snap.docs.map(d => d.data() as Course))));
-            unsubs.push(onSnapshot(query(collection(db, 'grades'), where('studentId', '==', currentUser.uid)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
-        } else if (currentUser.role === 'teacher') {
-            unsubs.push(onSnapshot(query(collection(db, 'courses'), where('teacherId', '==', currentUser.uid)), snap => setCourses(snap.docs.map(d => d.data() as Course))));
-            // A teacher needs grades for the courses they teach
-            const courseIds = courses.map(c => c.id);
-            if (courseIds.length > 0) {
-                 unsubs.push(onSnapshot(query(collection(db, 'grades'), where('courseId', 'in', courseIds)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+            const studentClauses = [];
+             if(currentUser.student.fieldId) {
+                studentClauses.push(where("fieldId", "==", currentUser.student.fieldId))
             }
+             if(currentUser.student.sectorId) {
+                 studentClauses.push(where("sectorId", "==", currentUser.student.sectorId))
+            }
+
+            if (studentClauses.length > 0) {
+                 unsubs.push(onSnapshot(query(collection(db, 'courses'), where('level', '==', currentUser.student.level), or(...studentClauses)), snap => setCourses(snap.docs.map(d => d.data() as Course))));
+            }
+            
+            unsubs.push(onSnapshot(query(collection(db, 'grades'), where('studentId', '==', currentUser.uid)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+        
+        } else if (currentUser.role === 'teacher') {
+            const coursesQuery = query(collection(db, 'courses'), where('teacherId', '==', currentUser.uid));
+            unsubs.push(onSnapshot(coursesQuery, async (coursesSnap) => {
+                const teacherCourses = coursesSnap.docs.map(d => d.data() as Course);
+                setCourses(teacherCourses);
+                const courseIds = teacherCourses.map(c => c.id);
+                if (courseIds.length > 0) {
+                    unsubs.push(onSnapshot(query(collection(db, 'grades'), where('courseId', 'in', courseIds)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+                } else {
+                    setGrades([]);
+                }
+            }));
         } else if (currentUser.role === 'parent' && currentUser.parent?.childrenUids.length) {
             const childrenIds = currentUser.parent.childrenUids;
-            unsubs.push(onSnapshot(query(collection(db, 'grades'), where('studentId', 'in', childrenIds)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+             unsubs.push(onSnapshot(query(collection(db, 'grades'), where('studentId', 'in', childrenIds)), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
             
              // Fetch courses for all children
             getDocs(query(collection(db, 'users'), where('uid', 'in', childrenIds))).then(childrenDocs => {
@@ -215,3 +228,4 @@ export function useUser() {
   }
   return context;
 }
+
