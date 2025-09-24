@@ -114,20 +114,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
         unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => d.data() as AdminRole))));
     } else {
-        // Other roles only get what they need.
-        const usersQuery = query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin']));
-        unsubs.push(onSnapshot(usersQuery, (usersSnap) => {
-            const staffUsers = usersSnap.docs.map(d => d.data() as User);
-            // Also add the current user and their potential children to the list
-             if (currentUser.role === 'parent' && currentUser.parent?.childrenUids?.length) {
+        // For non-admins, fetch only necessary users (teachers and admins)
+        const staffQuery = query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin']));
+        unsubs.push(onSnapshot(staffQuery, async (staffSnap) => {
+            const staffUsers = staffSnap.docs.map(d => d.data() as User);
+            
+            // Add the current user to the list
+            let usersList = [currentUser, ...staffUsers];
+            
+            // If the user is a parent, fetch their children
+            if (currentUser.role === 'parent' && currentUser.parent?.childrenUids?.length) {
                 const childrenQuery = query(collection(db, 'users'), where('uid', 'in', currentUser.parent.childrenUids));
-                getDocs(childrenQuery).then(childrenDocs => {
-                    const childrenData = childrenDocs.docs.map(d => d.data() as User);
-                    setAllUsers([currentUser, ...staffUsers, ...childrenData]);
-                });
-            } else {
-                setAllUsers([currentUser, ...staffUsers]);
+                const childrenDocs = await getDocs(childrenQuery);
+                const childrenData = childrenDocs.docs.map(d => d.data() as User);
+                usersList = [...usersList, ...childrenData];
             }
+            
+            // Remove duplicates
+            const uniqueUsers = Array.from(new Map(usersList.map(u => [u.uid, u])).values());
+            setAllUsers(uniqueUsers);
         }));
 
         if (currentUser.role === 'student' && currentUser.student) {
