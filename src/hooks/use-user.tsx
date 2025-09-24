@@ -102,7 +102,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubs: (() => void)[] = [];
 
     // General data that everyone needs
-    unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => d.data() as AdminRole))));
     unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings)));
     unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => d.data() as Sector))));
     unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => d.data() as Field))));
@@ -113,9 +112,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
         unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => d.data() as Course))));
         unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
+        unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => d.data() as AdminRole))));
     } else {
         // Other roles only get what they need.
-        // They can read their own profile (already fetched), plus all teachers and admins for display purposes.
         const usersQuery = query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin']));
         unsubs.push(onSnapshot(usersQuery, (usersSnap) => {
             const staffUsers = usersSnap.docs.map(d => d.data() as User);
