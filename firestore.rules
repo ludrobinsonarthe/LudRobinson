@@ -1,105 +1,31 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check for admin role
+    // Admins can do anything
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Users can read their own profile, admins can read any profile
-    // Any authenticated user can update their own profile
-    match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      allow update: if request.auth != null && request.auth.uid == userId;
-      // Create/Delete should be handled by admins via the app, or backend functions in a real scenario
-      allow create, delete: if isAdmin();
-    }
-
-    // Admins can manage core data collections
-    match /adminRoles/{roleId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    match /settings/system {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    match /sectors/{sectorId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-     match /fields/{fieldId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-     match /courses/{courseId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-     match /feeStructures/{feeId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-
-    // Grades: Teachers can manage grades for their courses, Admins can manage all.
-    // Students can read their own grades.
-    match /grades/{gradeId} {
-        allow read: if request.auth != null && (
-            resource.data.studentId == request.auth.uid || isAdmin()
-        );
-        allow write: if isAdmin();
-    }
-    
-    // Payments: Admins can manage all payments. Students can read their own.
-    match /payments/{paymentId} {
-       allow read: if request.auth != null && (
-         resource.data.studentId == request.auth.uid || isAdmin()
-       );
-       allow create: if request.auth != null; // Students can create payments (e.g. upload proof)
-       allow update, delete: if isAdmin();
-    }
-    
-    // Teacher Salaries: Only Admins can read or write
-    match /teacherSalaries/{salaryId} {
-        allow read, write: if isAdmin();
-    }
-    
-    // Cash Transactions: Only Admins can read or write
-    match /cashTransactions/{transactionId} {
-         allow read, write: if isAdmin();
-    }
-    
-    // Announcements: All authenticated users can read, only admins can write
-    match /announcements/{announcementId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin();
-    }
-    
-    // Private Messages: Users can only read/write messages where they are sender or receiver
-    match /private_messages/{messageId} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId
-      );
-    }
-    
-    // Official Documents: Students can read their own, Admins can manage all.
-    match /officialDocuments/{docId} {
-       allow read: if request.auth != null && (
-         resource.data.studentId == request.auth.uid || isAdmin()
-       );
-       allow write: if isAdmin();
-    }
-
-    // Attendances: Admins/Teachers can manage
-    match /attendances/{attendanceId} {
-       allow read, write: if request.auth != null && isAdmin();
-    }
-    
-    // Deny reads to QR sessions collection from clients
-    match /qr_sessions/{sessionId} {
+    // Default deny all
+    match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Allow authenticated users to read most collections
+    match /{collection}/{docId}
+    where collection in ['users', 'courses', 'settings', 'adminRoles', 'sectors', 'fields', 'payments', 'grades', 'announcements', 'private_messages', 'attendances', 'officialDocuments', 'teacherSalaries', 'cashTransactions', 'staffAttendances'] {
+        allow read: if request.auth != null;
+    }
+    
+    // Users can update their own document
+    match /users/{userId} {
+        allow update: if request.auth.uid == userId;
+    }
+
+    // Admins can write to most collections
+    match /{collection}/{docId}
+     where collection in ['users', 'courses', 'settings', 'adminRoles', 'sectors', 'fields', 'payments', 'grades', 'announcements', 'private_messages', 'attendances', 'officialDocuments', 'teacherSalaries', 'cashTransactions', 'staffAttendances'] {
+      allow write: if isAdmin();
     }
   }
 }
