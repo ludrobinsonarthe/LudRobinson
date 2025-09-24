@@ -7,11 +7,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Banknote } from "lucide-react";
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Banknote, FileDown } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance, Field, StudentAttendance } from '@/lib/types';
+import { Course, User, Attendance, StudentAttendance } from '@/lib/types';
 import { collection, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,9 @@ import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { imageToDataUrl } from '@/lib/utils';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -132,6 +135,74 @@ function AttendanceContent() {
         return getStudentsForCourse(selectedCourse);
     }, [selectedCourse, students]);
 
+    const handleExportPDF = async () => {
+        if (!settings) {
+            toast({ variant: "destructive", title: "Erreur", description: "Paramètres de l'école non chargés." });
+            return;
+        }
+
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const teacher = teachers.find(t => t.uid === selectedTeacher);
+        const title = `Rapport de Présence Hebdomadaire`;
+        const subtitle = selectedTeacher === 'all'
+            ? `Tous les professeurs`
+            : `Professeur: ${teacher?.lastName} ${teacher?.firstName}`;
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if(logoDataUrl) {
+                doc.addImage(logoDataUrl, 'PNG', 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Error adding logo to PDF", error);
+        }
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text(title, 40, 25);
+        doc.setFontSize(10);
+        doc.text(subtitle, 14, 40);
+        doc.text(`Semaine du ${format(currentWeek, 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 14, 40, { align: 'right' });
+
+        const tableData: any[] = [];
+        weekDays.forEach(day => {
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const coursesOnDay = scheduleByDay[dateStr] || [];
+            
+            if (coursesOnDay.length > 0) {
+                coursesOnDay.forEach(course => {
+                    const attendance = getAttendanceForCourse(course.id, dateStr);
+                    const studentsForCourse = getStudentsForCourse(course);
+                    const presentStudents = attendance?.studentAttendances.filter(s => s.status === 'present').length || 0;
+                    const totalStudents = studentsForCourse.length;
+
+                    tableData.push([
+                        format(day, 'EEEE dd/MM', { locale: fr }),
+                        `${course.scheduleInfo.start} - ${course.scheduleInfo.end}`,
+                        course.name,
+                        attendance?.teacherStatus === 'present' ? 'Présent' : (attendance ? 'Absent' : 'N/R'),
+                        `${presentStudents} / ${totalStudents}`
+                    ]);
+                });
+            } else {
+                 tableData.push([format(day, 'EEEE dd/MM', { locale: fr }), '-', 'Aucun cours', '-', '-']);
+            }
+        });
+
+        autoTable(doc, {
+            head: [['Jour', 'Heure', 'Cours', 'Statut Professeur', 'Présence Étudiants']],
+            body: tableData,
+            startY: 45,
+            theme: 'striped',
+        });
+
+        doc.save(`rapport_presence_${selectedTeacher}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
+        toast({ title: "Rapport PDF exporté", description: "Le rapport de présence a été téléchargé." });
+    };
+
     const loading = usersLoading || loadingData;
 
     return (
@@ -158,6 +229,10 @@ function AttendanceContent() {
                                     {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
                                 </SelectContent>
                             </Select>
+                            <Button variant="outline" onClick={handleExportPDF}>
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Exporter PDF
+                            </Button>
                         </div>
                         <div className="flex items-center gap-2">
                             <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
@@ -219,7 +294,7 @@ function AttendanceContent() {
                                                 Gérer la présence
                                             </Button>
                                              {attendanceRecord && <div className="flex justify-between w-full text-xs mt-1 gap-1">
-                                                <Badge variant={teacherStatus === 'present' ? 'default' : teacherStatus === 'absent' ? 'destructive' : 'secondary'} className={`py-1 flex-1 justify-center ${teacherStatus === 'present' ? 'bg-green-600' : ''}`}>
+                                                <Badge variant={teacherStatus === 'present' ? 'default' : teacherStatus === 'absent' ? 'destructive' : 'secondary'} className={cn('py-1 flex-1 justify-center', teacherStatus === 'present' && 'bg-green-600')}>
                                                     Prof: {teacherStatus === 'present' ? 'Présent' : 'Absent'}
                                                 </Badge>
                                                 <Badge variant="outline" className="py-1 flex-1 justify-center">

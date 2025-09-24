@@ -22,12 +22,14 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-import { User, Course, Attendance, StudentAttendance } from "@/lib/types";
+import { User, Course, Attendance, StudentAttendanceStatus } from "@/lib/types";
 import { useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ScrollArea } from "./ui/scroll-area";
-import { Badge } from "./ui/badge";
+import { cn } from "@/lib/utils";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import { Check, UserX, X } from "lucide-react";
 
 const studentAttendanceSchema = z.object({
     studentId: z.string(),
@@ -51,6 +53,13 @@ interface AttendanceDialogProps {
   existingAttendance?: Attendance;
 }
 
+const statusOptions: { value: StudentAttendanceStatus; label: string; icon: React.ElementType, className: string }[] = [
+    { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-500 hover:bg-green-600 border-green-600 text-white' },
+    { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 hover:bg-red-600 border-red-600 text-white' },
+    { value: 'justified', label: 'Justifié', icon: UserX, className: 'bg-gray-400 hover:bg-gray-500 border-gray-500 text-white' },
+];
+
+
 export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, date, students, existingAttendance }: AttendanceDialogProps) {
   const form = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceFormSchema),
@@ -60,7 +69,7 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
     }
   });
 
-  const { fields, replace } = useFieldArray({
+  const { fields } = useFieldArray({
     control: form.control,
     name: "studentAttendances",
   });
@@ -78,7 +87,7 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
         } else {
              form.reset({
                 teacherStatus: 'present',
-                studentAttendances: students.map(student => ({ studentId: student.uid, status: 'absent' }))
+                studentAttendances: students.map(student => ({ studentId: student.uid, status: 'present' })) // Default to present
              });
         }
     }
@@ -91,12 +100,12 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
   
   const setAllStudents = (status: 'present' | 'absent') => {
       const updatedAttendances = students.map(s => ({ studentId: s.uid, status }));
-      form.setValue('studentAttendances', updatedAttendances);
+      form.setValue('studentAttendances', updatedAttendances, { shouldDirty: true });
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
@@ -129,7 +138,7 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-semibold">Présence des Étudiants</h3>
+                        <h3 className="font-semibold">Présence des Étudiants ({students.length})</h3>
                         <div className="flex gap-2">
                             <Button type="button" size="sm" variant="outline" onClick={() => setAllStudents('present')}>Tous présents</Button>
                             <Button type="button" size="sm" variant="outline" onClick={() => setAllStudents('absent')}>Tous absents</Button>
@@ -137,12 +146,6 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
                     </div>
                      <ScrollArea className="h-72 w-full rounded-md border">
                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Étudiant</TableHead>
-                                    <TableHead className="text-right">Statut</TableHead>
-                                </TableRow>
-                            </TableHeader>
                              <TableBody>
                                 {fields.map((field, index) => {
                                     const student = students.find(s => s.uid === field.studentId);
@@ -150,24 +153,40 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
 
                                     return (
                                     <TableRow key={field.id}>
-                                        <TableCell>{student.lastName} {student.firstName}</TableCell>
+                                        <TableCell className="font-medium">{student.lastName} {student.firstName}</TableCell>
                                         <TableCell className="text-right">
                                             <FormField
                                                 control={form.control}
                                                 name={`studentAttendances.${index}.status`}
                                                 render={({ field }) => (
-                                                    <Select onValueChange={field.onChange} value={field.value}>
-                                                        <FormControl>
-                                                            <SelectTrigger className="w-[130px] float-right">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                            <SelectItem value="present"><Badge className="bg-green-600 hover:bg-green-700">Présent</Badge></SelectItem>
-                                                            <SelectItem value="absent"><Badge variant="destructive">Absent</Badge></SelectItem>
-                                                            <SelectItem value="justified"><Badge variant="secondary">Justifié</Badge></SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
+                                                  <FormItem>
+                                                    <FormControl>
+                                                      <RadioGroup
+                                                        onValueChange={field.onChange}
+                                                        value={field.value}
+                                                        className="flex justify-end gap-2"
+                                                      >
+                                                        {statusOptions.map(option => (
+                                                          <FormItem key={option.value}>
+                                                            <FormControl>
+                                                              <RadioGroupItem value={option.value} className="sr-only" />
+                                                            </FormControl>
+                                                            <FormLabel>
+                                                              <div className={cn(
+                                                                buttonVariants({ variant: 'outline', size: 'sm' }),
+                                                                "cursor-pointer",
+                                                                field.value !== option.value && "bg-transparent",
+                                                                field.value === option.value && option.className
+                                                              )}>
+                                                                <option.icon className="mr-2 h-4 w-4" />
+                                                                {option.label}
+                                                              </div>
+                                                            </FormLabel>
+                                                          </FormItem>
+                                                        ))}
+                                                      </RadioGroup>
+                                                    </FormControl>
+                                                  </FormItem>
                                                 )}
                                             />
                                         </TableCell>
