@@ -4,6 +4,7 @@
 
 
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -269,4 +270,17 @@ export interface UnifiedSalary {
   baseSalary?: number;
 }
 
-    
+export interface StaffMemberAttendance {
+    staffId: string;
+    status: 'present' | 'absent' | 'leave';
+    comment?: string;
+}
+
+export interface StaffAttendance {
+    id: string; // YYYY-MM-DD
+    date: string; // YYYY-MM-DD
+    staffStatus: StaffMemberAttendance[];
+    validatedBy: string; // admin_uid
+    createdAt: string;
+    updatedAt: string;
+}

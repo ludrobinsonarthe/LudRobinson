@@ -5,13 +5,13 @@
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Banknote, FileDown, Users, Briefcase } from "lucide-react";
-import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee } from "lucide-react";
+import { format, startOfWeek, addDays, eachDayOfInterval, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance, StudentAttendance, Field } from '@/lib/types';
+import { Course, User, Attendance, StudentAttendance, Field, StaffAttendance, StaffMemberAttendance } from '@/lib/types';
 import { collection, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,9 @@ import autoTable from 'jspdf-autotable';
 import { imageToDataUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 
 function CourseAttendanceContent() {
@@ -387,14 +390,148 @@ function CourseAttendanceContent() {
 }
 
 function StaffAttendanceContent() {
+    const { user: currentUser, users, loading: usersLoading } = useUser();
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
+    const { toast } = useToast();
+
+    const adminStaff = useMemo(() => {
+        return users.filter(u => u.role === 'admin').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
+    }, [users]);
+    
+    const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'staffAttendances'), snapshot => {
+            setStaffAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as StaffAttendance));
+        });
+        return () => unsub();
+    }, []);
+    
+    const todaysAttendance = useMemo(() => {
+        return staffAttendances.find(a => a.id === formattedDate);
+    }, [staffAttendances, formattedDate]);
+
+    const getStatusForStaff = (staffId: string): StaffMemberAttendance['status'] => {
+        return todaysAttendance?.staffStatus.find(s => s.staffId === staffId)?.status || 'absent';
+    }
+
+    const handleStatusChange = async (staffId: string, status: StaffMemberAttendance['status']) => {
+        const newRecord: StaffMemberAttendance = { staffId, status };
+        
+        try {
+            const docRef = doc(db, 'staffAttendances', formattedDate);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const existingData = docSnap.data() as StaffAttendance;
+                const existingIndex = existingData.staffStatus.findIndex(s => s.staffId === staffId);
+                const newStaffStatus = [...existingData.staffStatus];
+                if (existingIndex > -1) {
+                    newStaffStatus[existingIndex] = newRecord;
+                } else {
+                    newStaffStatus.push(newRecord);
+                }
+                await setDoc(docRef, { ...existingData, staffStatus: newStaffStatus, updatedAt: new Date().toISOString() }, { merge: true });
+            } else {
+                const newAttendanceRecord: StaffAttendance = {
+                    id: formattedDate,
+                    date: formattedDate,
+                    staffStatus: [newRecord],
+                    validatedBy: currentUser?.uid || 'system',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+                await setDoc(docRef, newAttendanceRecord);
+            }
+             toast({ title: 'Présence mise à jour', duration: 2000 });
+        } catch (error) {
+            console.error("Error updating staff attendance:", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la présence.' });
+        }
+    };
+    
+    const statusOptions: { value: StaffMemberAttendance['status']; label: string; icon: React.ElementType, className: string, hoverClassName: string }[] = [
+        { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-600 text-white', hoverClassName: 'hover:bg-green-700' },
+        { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 text-white', hoverClassName: 'hover:bg-red-600' },
+        { value: 'leave', label: 'Congé', icon: Coffee, className: 'bg-yellow-500 text-white', hoverClassName: 'hover:bg-yellow-600' },
+    ];
+
+
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Suivi du Personnel</CardTitle>
-                <CardDescription>Fonctionnalité en cours de développement.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Suivi du Personnel Administratif</CardTitle>
+                        <CardDescription>Enregistrez la présence journalière de l'équipe administrative.</CardDescription>
+                    </div>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            variant={"outline"}
+                            className={cn(
+                            "w-[280px] justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy', { locale: fr }) : <span>Choisir une date</span>}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(day) => setSelectedDate(day || new Date())}
+                            initialFocus
+                            locale={fr}
+                        />
+                        </PopoverContent>
+                    </Popover>
+                </div>
             </CardHeader>
-            <CardContent className="h-48 flex items-center justify-center">
-                 <p className="text-muted-foreground">Le suivi des présences du personnel administratif sera bientôt disponible ici.</p>
+            <CardContent>
+                <div className="border rounded-lg">
+                    <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                            <tr className="border-b">
+                                <th className="text-left p-4 font-medium">Personnel</th>
+                                <th className="text-center p-4 font-medium">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {usersLoading ? (
+                                <tr><td colSpan={2} className="p-4 text-center">Chargement...</td></tr>
+                            ) : adminStaff.map(staff => (
+                                <tr key={staff.uid} className="border-b">
+                                    <td className="p-4 font-medium">{staff.lastName} {staff.firstName}</td>
+                                    <td className="p-4 text-center">
+                                        <div className="flex justify-center gap-2">
+                                            {statusOptions.map(option => (
+                                                <Button 
+                                                    key={option.value}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleStatusChange(staff.uid, option.value)}
+                                                    className={cn(
+                                                        "transition-all",
+                                                        getStatusForStaff(staff.uid) === option.value ? option.className : 'text-foreground',
+                                                        getStatusForStaff(staff.uid) === option.value ? '' : option.hoverClassName.replace('hover:', 'hover:bg-opacity-20 hover:'),
+                                                        getStatusForStaff(staff.uid) === option.value ? '' : `hover:text-white`
+                                                    )}
+                                                >
+                                                    <option.icon className="mr-2 h-4 w-4" />
+                                                    {option.label}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </CardContent>
         </Card>
     );
@@ -420,7 +557,9 @@ function AttendancePage() {
                     </Suspense>
                 </TabsContent>
                  <TabsContent value="staff">
-                    <StaffAttendanceContent />
+                    <Suspense fallback={<div className="flex items-center justify-center h-96"><Skeleton className="h-8 w-8 animate-spin" /></div>}>
+                        <StaffAttendanceContent />
+                    </Suspense>
                 </TabsContent>
             </Tabs>
         </div>
