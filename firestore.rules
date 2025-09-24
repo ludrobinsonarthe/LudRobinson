@@ -37,35 +37,33 @@ service cloud.firestore {
 
     function isParentOf(studentId) {
       let token = getUserData();
-      // Defensive check: ensure parent object and childrenUids array exist
       return isParent() && token.childrenUids != null && studentId in token.childrenUids;
     }
 
     function hasPermission(permission) {
       let token = getUserData();
-      // Defensive check: ensure permissions object exists
+      // Super admin has all permissions
+      if (isAdmin() && token.roleId == 'super_admin') {
+        return true;
+      }
       return isAdmin() && token.permissions != null && permission in token.permissions;
     }
 
     function isTeacherOfCourse(courseId) {
       let token = getUserData();
-      // Defensive check: ensure assignedCourses object exists
       return isTeacher() && token.assignedCourses != null && courseId in token.assignedCourses;
     }
 
     // =====================================================================
-    // Users
+    // Users, Roles, Settings
     // =====================================================================
     match /users/{userId} {
-      allow read: if isAuth(); // All authenticated users can read profiles
+      allow read: if isAuth();
       allow create: if hasPermission('manage_users') || hasPermission('manage_students');
       allow update: if isUser(userId) || hasPermission('manage_users') || hasPermission('manage_students');
-      allow delete: if hasPermission('manage_users') || hasPermission('manage_students');
+      allow delete: if hasPermission('manage_users');
     }
 
-    // =====================================================================
-    // Admin Roles & Settings
-    // =====================================================================
     match /adminRoles/{roleId} {
       allow read: if isAuth();
       allow write: if hasPermission('manage_roles');
@@ -77,7 +75,7 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Academic Structure
+    // Academic & Financial Structure
     // =====================================================================
     match /sectors/{sectorId} {
       allow read: if isAuth();
@@ -100,50 +98,38 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Grades
+    // Core Student Data
     // =====================================================================
     match /grades/{gradeId} {
       allow create: if hasPermission('manage_grades');
-      allow read, update: if (isUser(resource.data.studentId) 
-                             || isParentOf(resource.data.studentId)) 
+      allow read, update: if (isUser(resource.data.studentId) || isParentOf(resource.data.studentId)) 
                              || hasPermission('manage_grades') 
                              || isTeacherOfCourse(resource.data.courseId);
       allow delete: if hasPermission('manage_grades');
     }
 
-    // =====================================================================
-    // Payments
-    // =====================================================================
     match /payments/{paymentId} {
-      allow create: if (isUser(request.resource.data.studentId) && request.resource.data.studentId == request.auth.uid)
+      allow create: if (isUser(request.resource.data.studentId) && request.resource.data.studentId == request.auth.uid) 
                      || hasPermission('manage_tuition');
       allow read, update: if (isUser(resource.data.studentId) || isParentOf(resource.data.studentId)) 
-                               || hasPermission('manage_tuition');
+                           || hasPermission('manage_tuition');
       allow delete: if hasPermission('manage_tuition');
     }
 
-    // =====================================================================
-    // Official Documents
-    // =====================================================================
     match /officialDocuments/{docId} {
       allow create: if hasPermission('manage_students');
-      allow read: if isUser(resource.data.studentId) 
-                   || isParentOf(resource.data.studentId) 
-                   || hasPermission('manage_students');
+      allow read: if isUser(resource.data.studentId) || isParentOf(resource.data.studentId) || hasPermission('manage_students');
       allow delete: if hasPermission('manage_students');
     }
 
     // =====================================================================
-    // Attendance
+    // Other Collections
     // =====================================================================
     match /attendances/{attendanceId} {
       allow read: if isAuth();
       allow write: if hasPermission('manage_attendance');
     }
 
-    // =====================================================================
-    // Financial
-    // =====================================================================
     match /teacherSalaries/{salaryId} {
       allow read, write: if hasPermission('manage_salaries');
     }
@@ -153,7 +139,7 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Messaging & Announcements
+    // Messaging
     // =====================================================================
     match /private_messages/{messageId} {
       allow read: if isAuth() && (resource.data.senderId == request.auth.uid 
@@ -172,10 +158,11 @@ service cloud.firestore {
     // QR Sessions (Secure)
     // =====================================================================
     match /qr_sessions/{sessionId} {
-      allow create: if request.resource.data.keys().hasOnly(['status','createdAt']) && request.resource.data.status == 'pending';
+      allow create: if request.resource.data.keys().hasOnly(['status','createdAt','userId']) 
+                    && request.resource.data.status == 'pending';
       allow read: if isAuth();
       allow update: if (isAdmin() && request.resource.data.status == 'validated')
-                     || (isUser(resource.data.userId) && request.resource.data.status == 'completed' && request.resource.data.userId == request.auth.uid);
+                     || (isUser(request.resource.data.userId) && request.resource.data.status == 'completed');
       allow delete: if isAdmin();
     }
   }
