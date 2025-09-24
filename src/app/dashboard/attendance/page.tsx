@@ -28,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 function CourseAttendanceContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { user: currentUser, users, loading: usersLoading, settings, courses, fields } = useUser();
+    const { user: currentUser, users, loading: usersLoading, settings, courses, fields, sectors } = useUser();
     
     // States
     const [attendances, setAttendances] = useState<Attendance[]>([]);
@@ -74,21 +74,38 @@ function CourseAttendanceContent() {
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
     const filteredCourses = useMemo(() => {
-        return courses.filter(course => {
-            if (selectedTeacherId !== 'all') {
-                return course.teacherId === selectedTeacherId;
+        let filtered = courses;
+
+        // Teacher filter has priority
+        if (selectedTeacherId !== 'all') {
+            return filtered.filter(course => course.teacherId === selectedTeacherId);
+        }
+
+        // If no teacher is selected, apply other filters
+        if (selectedLevel !== 'all') {
+            filtered = filtered.filter(course => course.level === selectedLevel);
+        }
+        if (selectedSectorId !== 'all') {
+            if (selectedFieldId === 'all') {
+                // All fields in a sector
+                 filtered = filtered.filter(course => {
+                    if (course.fieldId) {
+                        const field = fields.find(f => f.id === course.fieldId);
+                        return field?.sectorId === selectedSectorId;
+                    }
+                    return course.sectorId === selectedSectorId; // For common core courses
+                });
+            } else if (selectedFieldId === 'common_core') {
+                 // Only common core courses in a sector
+                filtered = filtered.filter(course => course.sectorId === selectedSectorId && !course.fieldId);
+            } else {
+                 // A specific field in a sector
+                filtered = filtered.filter(course => course.fieldId === selectedFieldId);
             }
+        }
 
-            const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
-            if (!levelMatch) return false;
-
-            const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
-            const sectorMatch = selectedSectorId === 'all' || courseSectorId === selectedSectorId;
-            const fieldMatch = selectedFieldId === 'all' || course.fieldId === selectedFieldId || (course.sectorId && selectedFieldId === 'common_core');
-            
-            return fieldMatch && sectorMatch;
-        });
-    }, [courses, selectedFieldId, selectedLevel, selectedTeacherId, selectedSectorId, fields]);
+        return filtered;
+    }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fields]);
 
     const scheduleByDay = useMemo(() => {
         const schedule: { [key: string]: any[] } = {};
@@ -262,21 +279,21 @@ function CourseAttendanceContent() {
                                     {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                            <Select value={selectedLevel} onValueChange={setSelectedLevel} disabled={selectedTeacherId !== 'all'}>
                                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Niveau..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous les Niveaux</SelectItem>
                                     {settings?.levels?.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Select value={selectedSectorId} onValueChange={setSelectedSectorId}>
+                            <Select value={selectedSectorId} onValueChange={setSelectedSectorId} disabled={selectedTeacherId !== 'all'}>
                                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Secteur..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous les Secteurs</SelectItem>
-                                    {settings?.sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
+                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedTeacherId !== 'all' || selectedSectorId === 'all'}>
                                 <SelectTrigger className="w-[240px]"><SelectValue placeholder="Filière..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Toutes les filières</SelectItem>
