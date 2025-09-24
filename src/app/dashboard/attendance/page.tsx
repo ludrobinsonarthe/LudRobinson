@@ -124,25 +124,27 @@ function CourseAttendanceContent() {
     
     const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
 
-    const getStudentsForCourse = (course: Course) => {
+    const getStudentsForCourse = useCallback((course: Course | null): User[] => {
         if (!course) return [];
-        // Handle "tronc commun" courses linked to a sector
+        // Handle common core courses linked to a sector
         if (course.sectorId && !course.fieldId) {
             const fieldsInSector = fields.filter(f => f.sectorId === course.sectorId).map(f => f.id);
             return students.filter(s => 
                 s.student?.level === course.level &&
-                s.student?.fieldId &&
-                fieldsInSector.includes(s.student.fieldId)
+                fieldsInSector.includes(s.student?.fieldId || '')
             );
         }
         // Handle courses linked to a specific field
-        return students.filter(s => s.student?.fieldId === course.fieldId && s.student.level === course.level);
-    }
+        return students.filter(s => 
+            s.student?.fieldId === course.fieldId && 
+            s.student.level === course.level
+        );
+    }, [students, fields]);
 
     const studentsForSelectedCourse = useMemo(() => {
         if(!selectedCourse) return [];
         return getStudentsForCourse(selectedCourse);
-    }, [selectedCourse, students, fields]);
+    }, [selectedCourse, getStudentsForCourse]);
 
     const handleExportPDF = async () => {
         if (!settings) {
@@ -371,5 +373,3 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
-
-    
