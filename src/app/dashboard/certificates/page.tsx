@@ -102,16 +102,24 @@ export default function CertificatesPage() {
 
         const textLines = [
             `Nous soussignés, Direction de ${schoolName}, certifions que :`,
+            ` `,
             `L'étudiant(e) ${studentName}`,
             `Né(e) le ${student.dob ? format(new Date(student.dob), 'd MMMM yyyy', { locale: fr }) : 'N/A'} à ${student.pob || 'N/A'}`,
             `Matricule: ${studentMatricule}`,
+            ` `,
             `est régulièrement inscrit(e) en ${studentLevel} de la filière ${studentField}`,
             `pour l'année académique ${academicYear}.`,
             ` `,
             `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
         ];
         
-        doc.text(textLines, 20, 130, { charSpace: 0.5, lineHeightFactor: 1.5 });
+        let y = 130;
+        const lineHeight = 7; // Adjust line height as needed
+
+        textLines.forEach(line => {
+            doc.text(line, 20, y);
+            y += lineHeight;
+        });
 
         doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 240, { align: 'right' });
         doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 260, { align: 'right' });
@@ -220,3 +228,5 @@ export default function CertificatesPage() {
         </div>
     );
 }
+
+    
