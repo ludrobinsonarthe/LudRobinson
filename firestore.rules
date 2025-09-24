@@ -42,7 +42,7 @@ service cloud.firestore {
 
     function hasPermission(permission) {
       let token = getUserData();
-      // Super admin has all permissions
+      // Super admin has all permissions implicitly.
       if (isAdmin() && token.roleId == 'super_admin') {
         return true;
       }
@@ -51,22 +51,23 @@ service cloud.firestore {
 
     function isTeacherOfCourse(courseId) {
       let token = getUserData();
-      // Check if the courseId exists as a key in the assignedCourses map from custom claims
       return isTeacher() && token.assignedCourses != null && courseId in token.assignedCourses;
     }
 
     // =====================================================================
-    // Users Collection (All Roles)
+    // Users Collection
+    // Roles: Admin (manage), User (update own)
     // =====================================================================
     match /users/{userId} {
-      allow read: if isAuth(); // All authenticated users can read profiles
+      allow read: if isAuth();
       allow create: if hasPermission('manage_users') || hasPermission('manage_students');
       allow update: if isUser(userId) || hasPermission('manage_users') || hasPermission('manage_students');
       allow delete: if hasPermission('manage_users') || hasPermission('manage_students');
     }
 
     // =====================================================================
-    // Admin & System Settings (Admin Only)
+    // Admin & System Settings
+    // Roles: Admin only
     // =====================================================================
     match /adminRoles/{roleId} {
       allow read: if isAuth();
@@ -79,7 +80,8 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Academic Structure (Admin Only)
+    // Academic Structure (Sectors, Fields, Courses)
+    // Roles: Admin (write), Authenticated Users (read)
     // =====================================================================
     match /sectors/{sectorId} {
       allow read: if isAuth();
@@ -102,31 +104,34 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Grades (Students, Parents, Teachers, Admin)
+    // Grades
+    // Roles: Admin, Teacher (own courses), Student (own), Parent (own children)
     // =====================================================================
     match /grades/{gradeId} {
       allow create: if hasPermission('manage_grades');
       allow read, update: if (isUser(resource.data.studentId) 
-                             || isParentOf(resource.data.studentId)
-                             || isTeacherOfCourse(resource.data.courseId)
-                             || hasPermission('manage_grades'));
+                             || isParentOf(resource.data.studentId))
+                             || hasPermission('manage_grades') 
+                             || isTeacherOfCourse(resource.data.courseId);
       allow delete: if hasPermission('manage_grades');
     }
 
     // =====================================================================
-    // Payments (Students, Parents, Admin)
+    // Payments
+    // Roles: Admin, Student (own), Parent (own children)
     // =====================================================================
     match /payments/{paymentId} {
-      allow create: if (isUser(request.resource.data.studentId))
+      allow create: if (isUser(request.resource.data.studentId)) 
                      || hasPermission('manage_tuition');
       allow read, update: if (isUser(resource.data.studentId) 
-                             || isParentOf(resource.data.studentId)
-                             || hasPermission('manage_tuition'));
+                            || isParentOf(resource.data.studentId)) 
+                            || hasPermission('manage_tuition');
       allow delete: if hasPermission('manage_tuition');
     }
 
     // =====================================================================
-    // Official Documents (Students, Parents, Admin)
+    // Official Documents
+    // Roles: Admin, Student (own), Parent (own children)
     // =====================================================================
     match /officialDocuments/{docId} {
       allow create: if hasPermission('manage_students');
@@ -137,7 +142,8 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Attendance (Admin Only)
+    // Attendance
+    // Roles: Admin only
     // =====================================================================
     match /attendances/{attendanceId} {
       allow read: if isAuth();
@@ -145,7 +151,8 @@ service cloud.firestore {
     }
 
     // =====================================================================
-    // Financial (Admin Only)
+    // Financial (Salaries, Cash Flow)
+    // Roles: Admin only (specific permissions)
     // =====================================================================
     match /teacherSalaries/{salaryId} {
       allow read, write: if hasPermission('manage_salaries');
@@ -157,9 +164,8 @@ service cloud.firestore {
 
     // =====================================================================
     // Messaging & Announcements
+    // Roles: Varies
     // =====================================================================
-    
-    // Private Messages (All Roles)
     match /private_messages/{messageId} {
       allow read: if isAuth() && (resource.data.senderId == request.auth.uid 
                                   || resource.data.receiverId == request.auth.uid 
@@ -168,21 +174,22 @@ service cloud.firestore {
       allow update, delete: if isAuth() && (resource.data.senderId == request.auth.uid || isAdmin());
     }
 
-    // Announcements (Admin write, All read)
     match /announcements/{announcementId} {
       allow read: if isAuth();
       allow write: if hasPermission('manage_admin_settings');
     }
 
     // =====================================================================
-    // QR Sessions for Login (Secure)
+    // QR Sessions (Secure)
+    // Roles: Any (create), Admin (validate), User (complete)
     // =====================================================================
     match /qr_sessions/{sessionId} {
       allow create: if request.resource.data.keys().hasOnly(['status','createdAt','userId']) 
                     && request.resource.data.status == 'pending';
       allow read: if isAuth();
-      allow update: if (isAdmin() && request.resource.data.status == 'validated')
-                     || (isUser(resource.data.userId) && request.resource.data.status == 'completed' && request.resource.data.userId == request.auth.uid);
+      allow update: if (isAdmin() && request.resource.data.status == 'validated' 
+                        && request.resource.data.userId == resource.data.userId) // Admin validates
+                     || (isUser(request.resource.data.userId) && request.resource.data.status == 'completed'); // User completes
       allow delete: if isAdmin();
     }
   }
