@@ -62,6 +62,7 @@ function CourseAttendanceContent() {
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
     
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
@@ -80,32 +81,28 @@ function CourseAttendanceContent() {
             const isTeacherMatch = selectedTeacherId === 'all' || course.teacherId === selectedTeacherId;
             const isLevelMatch = selectedLevel === 'all' || course.level === selectedLevel;
 
-            if (!isTeacherMatch || !isLevelMatch) {
-                return false;
+            let isSectorMatch = true;
+            let isFieldMatch = true;
+
+            const courseSectorId = course.sectorId || (course.fieldId ? fieldsById[course.fieldId]?.sectorId : undefined);
+
+            if (selectedSectorId !== 'all') {
+                isSectorMatch = courseSectorId === selectedSectorId;
             }
 
-            if (selectedSectorId === 'all') {
-                return true; // No sector/field filter, just teacher and level
-            }
-
-            const courseField = fields.find(f => f.id === course.fieldId);
-            const courseSectorId = course.sectorId || courseField?.sectorId;
-
-            if (courseSectorId !== selectedSectorId) {
-                return false;
-            }
-
-            if (selectedFieldId === 'all') {
-                return true; // All fields within the selected sector
+            if (selectedFieldId !== 'all') {
+                if (selectedFieldId === 'common_core') {
+                    // Only match courses that are common core for the selected sector
+                    isFieldMatch = !course.fieldId && course.sectorId === selectedSectorId;
+                } else {
+                    // Match the specific field
+                    isFieldMatch = course.fieldId === selectedFieldId;
+                }
             }
             
-            if (selectedFieldId === 'common_core') {
-                 return !course.fieldId; // Only common core courses for the sector
-            }
-
-            return course.fieldId === selectedFieldId; // Specific field
+            return isTeacherMatch && isLevelMatch && isSectorMatch && isFieldMatch;
         });
-    }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fields]);
+    }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fieldsById]);
 
 
     const scheduleByDay = useMemo(() => {
@@ -169,8 +166,6 @@ function CourseAttendanceContent() {
     }, [attendances]);
     
     const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
-
-    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
 
     const getStudentsForCourse = useCallback((course: Course | null): User[] => {
         if (!course) return [];
@@ -443,6 +438,8 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
+
+    
 
     
 
