@@ -30,7 +30,7 @@ function CourseAttendanceContent() {
     const router = useRouter();
     const teacherIdFilter = searchParams.get('teacherId');
 
-    const { users, loading: usersLoading, settings, courses } = useUser();
+    const { users, loading: usersLoading, settings, courses, fields } = useUser();
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -125,14 +125,24 @@ function CourseAttendanceContent() {
     const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
 
     const getStudentsForCourse = (course: Course) => {
-        if(!course) return [];
+        if (!course) return [];
+        // Handle "tronc commun" courses linked to a sector
+        if (course.sectorId && !course.fieldId) {
+            const fieldsInSector = fields.filter(f => f.sectorId === course.sectorId).map(f => f.id);
+            return students.filter(s => 
+                s.student?.level === course.level &&
+                s.student?.fieldId &&
+                fieldsInSector.includes(s.student.fieldId)
+            );
+        }
+        // Handle courses linked to a specific field
         return students.filter(s => s.student?.fieldId === course.fieldId && s.student.level === course.level);
     }
 
     const studentsForSelectedCourse = useMemo(() => {
         if(!selectedCourse) return [];
         return getStudentsForCourse(selectedCourse);
-    }, [selectedCourse, students]);
+    }, [selectedCourse, students, fields]);
 
     const handleExportPDF = async () => {
         if (!settings) {
@@ -361,3 +371,5 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
+
+    
