@@ -108,7 +108,7 @@ export default function CourseManagementPage() {
                 (levelFilter === "all" || course.level === levelFilter) &&
                 (cycleFilter === "all" || course.cycle === cycleFilter) &&
                 (sectorFilter === "all" || courseSectorId === sectorFilter) &&
-                (fieldFilter === "all" || course.fieldId === fieldFilter || (course.sectorId && fieldFilter === 'common_core'))
+                (fieldFilter === "all" || course.fieldId === fieldFilter || (course.sectorId && !course.fieldId && fieldFilter === 'common_core'))
             );
         });
     }, [courses, nameFilter, levelFilter, sectorFilter, fieldFilter, cycleFilter, fieldsById]);
@@ -288,7 +288,7 @@ export default function CourseManagementPage() {
                                 {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
+                        <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all' && fieldFilter !== 'all'}>
                             <SelectTrigger className="w-[240px]">
                                 <SelectValue placeholder="Filtrer par filière" />
                             </SelectTrigger>
@@ -388,5 +388,3 @@ export default function CourseManagementPage() {
         </div>
     );
 }
-
-    
