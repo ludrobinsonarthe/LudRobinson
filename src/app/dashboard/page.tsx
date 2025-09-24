@@ -33,8 +33,6 @@ export default function DashboardPage() {
             targetReceivers.push(currentUser.admin.roleId);
         }
         
-        // Announcements are now in their own collection
-        // The orderBy was removed to avoid needing a composite index. Sorting is now done client-side.
         const q = query(
             collection(db, "announcements"), 
             where('receiverId', 'in', targetReceivers)
