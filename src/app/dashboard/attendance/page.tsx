@@ -28,18 +28,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 function CourseAttendanceContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const teacherIdFilter = searchParams.get('teacherId');
-
-    const { users, loading: usersLoading, settings, courses, fields } = useUser();
+    const { user: currentUser, users, loading: usersLoading, settings, courses, fields } = useUser();
+    
+    // States
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-    const [selectedTeacher, setSelectedTeacher] = useState(teacherIdFilter || 'all');
     const { toast } = useToast();
-
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+    // Filters state
+    const teacherIdFilter = searchParams.get('teacherId');
+    const [selectedTeacherId, setSelectedTeacherId] = useState(teacherIdFilter || 'all');
+    const [selectedLevel, setSelectedLevel] = useState('all');
+    const [selectedSectorId, setSelectedSectorId] = useState('all');
+    const [selectedFieldId, setSelectedFieldId] = useState('all');
 
     useEffect(() => {
         setLoadingData(true);
@@ -52,23 +57,46 @@ function CourseAttendanceContent() {
     }, []);
     
     useEffect(() => {
-        setSelectedTeacher(teacherIdFilter || 'all');
+        setSelectedTeacherId(teacherIdFilter || 'all');
     }, [teacherIdFilter]);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const availableFields = useMemo(() => {
+        if (selectedSectorId === 'all') return fields;
+        return fields.filter(f => f.sectorId === selectedSectorId);
+    }, [selectedSectorId, fields]);
+     useEffect(() => {
+        setSelectedFieldId('all');
+    }, [selectedSectorId]);
+
     
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
+    const filteredCourses = useMemo(() => {
+        return courses.filter(course => {
+            if (selectedTeacherId !== 'all') {
+                return course.teacherId === selectedTeacherId;
+            }
+
+            const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
+            if (!levelMatch) return false;
+
+            const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
+            const sectorMatch = selectedSectorId === 'all' || courseSectorId === selectedSectorId;
+            const fieldMatch = selectedFieldId === 'all' || course.fieldId === selectedFieldId || (course.sectorId && selectedFieldId === 'common_core');
+            
+            return fieldMatch && sectorMatch;
+        });
+    }, [courses, selectedFieldId, selectedLevel, selectedTeacherId, selectedSectorId, fields]);
+
     const scheduleByDay = useMemo(() => {
         const schedule: { [key: string]: any[] } = {};
-        const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
         
         weekDays.forEach(day => {
             const dayName = format(day, 'EEEE', { locale: fr });
-            const coursesOnDay = courses.filter(c => 
-                c.schedule?.some(s => s.day === dayName) &&
-                (selectedTeacher === 'all' || c.teacherId === selectedTeacher)
+            const coursesOnDay = filteredCourses.filter(c => 
+                c.schedule?.some(s => s.day === dayName)
             );
             
             schedule[format(day, 'yyyy-MM-dd')] = coursesOnDay.flatMap(c => 
@@ -80,7 +108,7 @@ function CourseAttendanceContent() {
             ).sort((a,b) => a.scheduleInfo.start.localeCompare(b.scheduleInfo.start));
         });
         return schedule;
-    }, [courses, weekDays, selectedTeacher, teachers]);
+    }, [filteredCourses, weekDays, teachers]);
 
     const handleManageAttendance = (course: Course, date: string) => {
         setSelectedCourse(course);
@@ -155,9 +183,9 @@ function CourseAttendanceContent() {
         }
 
         const doc = new jsPDF({ orientation: 'landscape' });
-        const teacher = teachers.find(t => t.uid === selectedTeacher);
+        const teacher = teachers.find(t => t.uid === selectedTeacherId);
         const title = `Rapport de Présence Hebdomadaire`;
-        const subtitle = selectedTeacher === 'all'
+        const subtitle = selectedTeacherId === 'all'
             ? `Tous les professeurs`
             : `Professeur: ${teacher?.lastName} ${teacher?.firstName}`;
         
@@ -213,7 +241,7 @@ function CourseAttendanceContent() {
             theme: 'striped',
         });
 
-        doc.save(`rapport_presence_${selectedTeacher}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
+        doc.save(`rapport_presence_${selectedTeacherId}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
         toast({ title: "Rapport PDF exporté", description: "Le rapport de présence a été téléchargé." });
     };
 
@@ -223,15 +251,37 @@ function CourseAttendanceContent() {
         <div className="space-y-6">
              <Card>
                 <CardHeader>
-                   <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                            <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
+                   <div className="flex justify-between items-center flex-wrap gap-4">
+                        <div className="flex items-center gap-4 flex-wrap">
+                            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
                                 <SelectTrigger className="w-[240px]">
                                     <SelectValue placeholder="Filtrer par professeur" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous les professeurs</SelectItem>
                                     {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Niveau..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tous les Niveaux</SelectItem>
+                                    {settings?.levels?.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Select value={selectedSectorId} onValueChange={setSelectedSectorId}>
+                                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Secteur..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tous les Secteurs</SelectItem>
+                                    {settings?.sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
+                                <SelectTrigger className="w-[240px]"><SelectValue placeholder="Filière..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Toutes les filières</SelectItem>
+                                     <SelectItem value="common_core">Tronc Commun</SelectItem>
+                                    {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <Button variant="outline" onClick={handleExportPDF}>
