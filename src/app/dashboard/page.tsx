@@ -7,7 +7,7 @@ import { User, Message } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle } from "lucide-react";
-import AnnouncementDialog from "./announcement-dialog";
+import AnnouncementDialog from "@/components/announcement-dialog";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, where, orderBy, or, doc, setDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";

@@ -85,7 +85,11 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     
     try {
         if (announcement) {
-            await setDoc(doc(db, "announcements", announcement.id), { ...data }, { merge: true });
+            const updatedData = {
+                ...announcement, // astart with existing data
+                ...data, // overwrite with form data
+            };
+            await setDoc(doc(db, "announcements", announcement.id), updatedData, { merge: true });
             toast({ title: "Annonce modifiée" });
         } else {
             await addDoc(collection(db, "announcements"), {

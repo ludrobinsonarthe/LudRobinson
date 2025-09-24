@@ -251,7 +251,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         gender: data.gender,
         nationality: data.nationality,
         student: {
-            ...(student?.student || {} as any),
+            ...(student?.student || {}),
             matricule: data.matricule,
             cycle: data.cycle,
             level: data.level,
@@ -262,7 +262,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             programId: student?.student?.programId || 'prog01', // Keep existing or default
             enrollmentDate: student?.student?.enrollmentDate || new Date().toISOString(),
             endDate: student?.student?.endDate || '',
-        }
+        } as User['student']
     };
     
     let parentData : Partial<User> | undefined;
@@ -279,15 +279,15 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
         }
     } else { // 'none'
         if (studentData.student) {
-          delete (studentData.student as any).parentUid;
+          delete studentData.student.parentUid;
         }
     }
 
     if (!studentData.student?.fieldId) {
-        delete (studentData.student as any).fieldId;
+        delete studentData.student.fieldId;
     }
      if (!studentData.student?.sectorId) {
-        delete (studentData.student as any).sectorId;
+        delete studentData.student.sectorId;
     }
 
     onSave(studentData, parentData, photo);
