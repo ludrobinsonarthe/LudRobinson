@@ -19,13 +19,10 @@ export default function MessagesPage() {
     setLoading(true);
 
     const q = query(
-      collection(db, "messages"),
-      and(
-          where('type', '==', 'private'),
-          or(
-              where('senderId', '==', user.uid),
-              where('receiverId', '==', user.uid)
-          )
+      collection(db, "private_messages"),
+      or(
+          where('senderId', '==', user.uid),
+          where('receiverId', '==', user.uid)
       )
     );
 
@@ -43,7 +40,7 @@ export default function MessagesPage() {
   }, [user]);
   
   const handleNewMessage = async (newMessageData: Omit<Message, 'id' | 'createdAt'>) => {
-     await addDoc(collection(db, "messages"), {
+     await addDoc(collection(db, "private_messages"), {
         ...newMessageData,
         createdAt: new Date().toISOString(),
     });

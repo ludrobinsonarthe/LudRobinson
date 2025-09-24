@@ -33,15 +33,15 @@ export default function DashboardPage() {
             targetReceivers.push(currentUser.admin.roleId);
         }
         
+        // Announcements are now in their own collection
         const q = query(
-            collection(db, "messages"), 
-            where('type', '==', 'announcement'),
-            where('receiverId', 'in', targetReceivers)
+            collection(db, "announcements"), 
+            where('receiverId', 'in', targetReceivers),
+            orderBy('createdAt', 'desc')
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-            fetchedAnnouncements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setAnnouncements(fetchedAnnouncements);
             setLoading(false);
         }, (error) => {
@@ -71,7 +71,7 @@ export default function DashboardPage() {
     const confirmDelete = async () => {
         if (!editingAnnouncement) return;
         try {
-            await deleteDoc(doc(db, "messages", editingAnnouncement.id));
+            await deleteDoc(doc(db, "announcements", editingAnnouncement.id));
             toast({ title: "Annonce supprimée" });
         } catch (error) {
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'annonce." });
