@@ -1,150 +1,155 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // =====================================================================
+  
+    // ===============================================================
     // Helper Functions
-    // =====================================================================
+    // ===============================================================
     
     function isAuth() {
       return request.auth != null;
     }
+
+    function getUserData() {
+      // Optimized: Assumes role is in custom claims, no 'get()' call.
+      return request.auth.token;
+    }
     
+    function isAdmin() {
+      return isAuth() && getUserData().role == 'admin';
+    }
+
+    function isTeacher() {
+      return isAuth() && getUserData().role == 'teacher';
+    }
+    
+    function isStudent() {
+      return isAuth() && getUserData().role == 'student';
+    }
+
+    function isParent() {
+      return isAuth() && getUserData().role == 'parent';
+    }
+
     function isUser(userId) {
       return isAuth() && request.auth.uid == userId;
     }
     
-    function isAdmin() {
-      return isAuth() && request.auth.token.role == 'admin';
-    }
-
-    function isRole(role) {
-      return isAuth() && request.auth.token.role == role;
+    function isParentOf(studentId) {
+      // Optimized: Assumes childrenUids is in custom claims, no 'get()' call.
+      let parentToken = getUserData();
+      return isParent() && 
+             parentToken.childrenUids != null &&
+             studentId in parentToken.childrenUids;
     }
     
     function hasPermission(permission) {
-      return isAdmin() && permission in request.auth.token.permissions;
-    }
-
-    function isParentOf(studentId) {
-      return isAuth() && request.auth.token.role == 'parent' 
-             && request.auth.token.childrenUids != null
-             && studentId in request.auth.token.childrenUids;
-    }
-
-    // =====================================================================
-    // Public / Semi-Public Collections
-    // =====================================================================
-    
-    match /settings/{docId} {
-        allow read: if isAuth(); // Accessible by any logged-in user
-        allow write: if hasPermission('manage_admin_settings');
+      // Optimized: Uses 'in' operator on a list from custom claims.
+      return isAdmin() && permission in getUserData().permissions;
     }
     
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // --- Users, Roles, and Settings ---
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isAdmin(); // Only admins can create users from the backend
+      allow update: if isUser(userId) || hasPermission('manage_users') || hasPermission('manage_students');
+      allow delete: if hasPermission('manage_users') || hasPermission('manage_students');
+    }
+    
+    match /adminRoles/{roleId} {
+      allow read: if isAuth();
+      allow write: if hasPermission('manage_roles');
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuth();
+      allow write: if hasPermission('manage_admin_settings');
+    }
+    
+    // --- Academic Structure ---
     match /sectors/{sectorId} {
-        allow read: if isAuth();
-        allow write: if hasPermission('manage_admin_settings');
+      allow read: if isAuth();
+      allow write: if hasPermission('manage_admin_settings');
     }
 
     match /fields/{fieldId} {
-        allow read: if isAuth();
-        allow write: if hasPermission('manage_admin_settings');
+      allow read: if isAuth();
+      allow write: if hasPermission('manage_admin_settings');
     }
 
+    match /feeStructures/{feeId} {
+        allow read: if isAuth();
+        allow write: if hasPermission('manage_fees');
+    }
+
+    // --- Courses & Attendance ---
     match /courses/{courseId} {
         allow read: if isAuth();
         allow write: if hasPermission('manage_course');
     }
-    
-    match /feeStructures/{feeId} {
-        allow read: if hasPermission('manage_fees');
-        allow write: if hasPermission('manage_fees');
+
+    match /attendances/{attendanceId} {
+        allow read: if isAuth();
+        allow write: if hasPermission('manage_attendance');
     }
 
-    // =====================================================================
-    // User Data & Profiles
-    // =====================================================================
-
-    match /users/{userId} {
-      allow read: if isUser(userId) || hasPermission('manage_students') || hasPermission('manage_users');
-      allow create: if hasPermission('manage_students') || hasPermission('manage_users');
-      allow update: if isUser(userId) || hasPermission('manage_students') || hasPermission('manage_users');
-      allow delete: if hasPermission('manage_students') || hasPermission('manage_users');
+    // --- Messaging and Announcements ---
+    match /private_messages/{messageId} {
+      allow read: if isAuth() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid || 
+        isAdmin()
+      );
+      allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isAuth() && (
+        resource.data.senderId == request.auth.uid || isAdmin()
+      );
     }
 
-    match /adminRoles/{roleId} {
-        allow read: if hasPermission('manage_roles');
-        allow write: if hasPermission('manage_roles');
+    match /announcements/{announcementId} {
+      allow read: if isAuth();
+      allow write: if hasPermission('manage_admin_settings'); // Only users with specific permissions
     }
 
-    // =====================================================================
-    // Student & Parent Specific Data
-    // =====================================================================
-
+    // --- Grades, Payments, and Documents ---
     match /grades/{gradeId} {
-        allow create: if hasPermission('manage_grades');
-        allow read, update: if (isUser(resource.data.studentId) || isParentOf(resource.data.studentId)) 
-                               || hasPermission('manage_grades');
-        allow delete: if hasPermission('manage_grades');
+      allow create: if hasPermission('manage_grades');
+      allow read, update: if (isUser(resource.data.studentId) || isParentOf(resource.data.studentId)) || hasPermission('manage_grades') || isTeacher();
+      allow delete: if hasPermission('manage_grades');
     }
 
     match /payments/{paymentId} {
-        allow create: if isUser(request.resource.data.studentId) || hasPermission('manage_tuition');
-        allow read, update: if (isUser(resource.data.studentId) || isParentOf(resource.data.studentId)) 
-                               || hasPermission('manage_tuition');
-        allow delete: if hasPermission('manage_tuition');
+      allow create: if isUser(request.resource.data.studentId) || hasPermission('manage_tuition');
+      allow read, update: if (isUser(resource.data.studentId) || isParentOf(resource.data.studentId)) || hasPermission('manage_tuition');
+      allow delete: if hasPermission('manage_tuition');
     }
-
-    match /officialDocuments/{docId} {
-        allow create: if hasPermission('manage_students');
-        allow read: if (isUser(resource.data.studentId) || isParentOf(resource.data.studentId)) 
-                       || hasPermission('manage_students');
-        allow delete: if hasPermission('manage_students');
-    }
-
-    // =====================================================================
-    // School-wide data
-    // =====================================================================
     
-    match /attendances/{attendanceId} {
-        allow read, write: if hasPermission('manage_attendance');
+    match /officialDocuments/{docId} {
+      allow create: if hasPermission('manage_students');
+      allow read: if isUser(resource.data.studentId) || isParentOf(resource.data.studentId) || hasPermission('manage_students');
+      allow delete: if hasPermission('manage_students');
     }
 
+    // --- Financial ---
     match /teacherSalaries/{salaryId} {
-        allow read, write: if hasPermission('manage_salaries');
+      allow read, write: if hasPermission('manage_salaries');
     }
 
     match /cashTransactions/{transactionId} {
-        allow read, write: if hasPermission('manage_cash_flow');
+      allow read, write: if hasPermission('manage_cash_flow');
     }
 
-    // =====================================================================
-    // Messaging & Announcements
-    // =====================================================================
-
-    match /announcements/{annId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
-    }
-    
-    match /private_messages/{messageId} {
-      allow read, create: if isAuth() && 
-                           (request.resource.data.senderId == request.auth.uid || 
-                            request.resource.data.receiverId == request.auth.uid || 
-                            isAdmin());
-      allow update, delete: if isAuth() && 
-                              (resource.data.senderId == request.auth.uid || isAdmin());
-    }
-
-    // =====================================================================
-    // QR Code Login Sessions
-    // =====================================================================
-
+    // --- System ---
     match /qr_sessions/{sessionId} {
       allow create: if request.resource.data.keys().hasOnly(['status','createdAt']) && request.resource.data.status == 'pending';
       allow read: if isAuth();
-      allow update: if (isAuth() && request.resource.data.status == 'validated') || (isUser(request.resource.data.userId) && request.resource.data.status == 'completed');
+      allow update: if (isAdmin() && request.resource.data.status == 'validated') || (isUser(request.resource.data.userId) && request.resource.data.status == 'completed');
       allow delete: if isAdmin();
     }
   }
