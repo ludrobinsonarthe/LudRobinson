@@ -6,7 +6,6 @@ service cloud.firestore {
     // =====================================================================
     // Helper Functions
     // =====================================================================
-    
     function isAuth() {
       return request.auth != null;
     }
@@ -58,7 +57,7 @@ service cloud.firestore {
 
     // =====================================================================
     // Users Collection
-    // Roles: All (read), Admin (write)
+    // Roles: Any authenticated (read), Admin (write)
     // =====================================================================
     match /users/{userId} {
       allow read: if isAuth();
@@ -69,7 +68,7 @@ service cloud.firestore {
 
     // =====================================================================
     // Admin & Settings Collections
-    // Roles: Admin only
+    // Roles: Authenticated (read), Admin with specific permissions (write)
     // =====================================================================
     match /adminRoles/{roleId} {
       allow read: if isAuth();
@@ -83,7 +82,7 @@ service cloud.firestore {
 
     // =====================================================================
     // Academic Structure
-    // Roles: Admin only for write, all auth for read
+    // Roles: Authenticated (read), Admin with specific permissions (write)
     // =====================================================================
     match /sectors/{sectorId} {
       allow read: if isAuth();
@@ -107,32 +106,33 @@ service cloud.firestore {
 
     // =====================================================================
     // Grades Collection
-    // Roles: Admin, Teacher (own courses), Student (own), Parent (own children)
+    // Roles: Admin, Owner Student, Owner Parent, Teacher of the course
     // =====================================================================
     match /grades/{gradeId} {
       allow create: if hasPermission('manage_grades');
       allow read, update: if (isUser(resource.data.studentId) 
-                             || isParentOf(resource.data.studentId))
+                             || isParentOf(resource.data.studentId) 
                              || hasPermission('manage_grades') 
-                             || isTeacherOfCourse(resource.data.courseId);
+                             || isTeacherOfCourse(resource.data.courseId));
       allow delete: if hasPermission('manage_grades');
     }
 
     // =====================================================================
     // Payments Collection
-    // Roles: Admin, Student (own), Parent (own children)
+    // Roles: Admin, Owner Student, Owner Parent
     // =====================================================================
     match /payments/{paymentId} {
-      allow create: if (isUser(request.resource.data.studentId)) 
+      allow create: if (isUser(request.resource.data.studentId))
                      || hasPermission('manage_tuition');
-      allow read, update, delete: if (isUser(resource.data.studentId) 
-                                     || isParentOf(resource.data.studentId)) 
-                                     || hasPermission('manage_tuition');
+      allow read, update: if (isUser(resource.data.studentId) 
+                              || isParentOf(resource.data.studentId)) 
+                              || hasPermission('manage_tuition');
+      allow delete: if hasPermission('manage_tuition');
     }
 
     // =====================================================================
     // Official Documents Collection
-    // Roles: Admin, Student (own), Parent (own children)
+    // Roles: Admin, Owner Student, Owner Parent
     // =====================================================================
     match /officialDocuments/{docId} {
       allow create: if hasPermission('manage_students');
@@ -144,7 +144,7 @@ service cloud.firestore {
 
     // =====================================================================
     // Attendance Collection
-    // Roles: Admin, All auth for read
+    // Roles: Authenticated (read), Admin (write)
     // =====================================================================
     match /attendances/{attendanceId} {
       allow read: if isAuth();
@@ -165,7 +165,7 @@ service cloud.firestore {
 
     // =====================================================================
     // Messaging & Announcements
-    // Roles: Varies by message type
+    // Roles: Involved users for private, Authenticated for announcements
     // =====================================================================
     match /private_messages/{messageId} {
       allow read: if isAuth() && (resource.data.senderId == request.auth.uid 
@@ -185,25 +185,25 @@ service cloud.firestore {
     // Roles: Any (create), Admin (validate), User (complete)
     // =====================================================================
     match /qr_sessions/{sessionId} {
-      // Création: seuls les champs attendus et status 'pending'
+      // Create: only expected fields and 'pending' status
       allow create: if request.resource.data.keys().hasOnly(['status','createdAt','userId']) 
                     && request.resource.data.status == 'pending';
 
-      // Lecture: tout utilisateur authentifié
+      // Read: any authenticated user
       allow read: if isAuth();
 
-      // Update: admin valide la session, utilisateur finalise la session
+      // Update: Admin validates, user completes
       allow update: if (
-        // Admin valide uniquement sans changer l'userId
+        // Admin validates only without changing the userId
         (isAdmin() && request.resource.data.status == 'validated' 
                      && resource.data.userId == request.resource.data.userId) 
         || 
-        // L'utilisateur peut compléter sa session uniquement pour lui-même
+        // User can complete their own session
         (isUser(resource.data.userId) && request.resource.data.status == 'completed' 
                                         && request.resource.data.userId == resource.data.userId)
       );
 
-      // Suppression: uniquement admin
+      // Delete: only admin
       allow delete: if isAdmin();
     }
   }
