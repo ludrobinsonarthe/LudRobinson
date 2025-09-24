@@ -62,10 +62,12 @@ function CourseAttendanceContent() {
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
         return fields.filter(f => f.sectorId === selectedSectorId);
     }, [selectedSectorId, fields]);
+
      useEffect(() => {
         setSelectedFieldId('all');
     }, [selectedSectorId]);
@@ -74,35 +76,40 @@ function CourseAttendanceContent() {
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
     const filteredCourses = useMemo(() => {
-        let filtered = courses;
-
-        if (selectedTeacherId !== 'all') {
-            return filtered.filter(course => course.teacherId === selectedTeacherId);
-        }
-
-        if (selectedLevel !== 'all') {
-            filtered = filtered.filter(c => c.level === selectedLevel);
-        }
-        
-        if (selectedSectorId !== 'all') {
-             if (selectedFieldId !== 'all' && selectedFieldId !== 'common_core') {
-                // Specific field selected
-                filtered = filtered.filter(c => c.fieldId === selectedFieldId);
-            } else {
-                 // Sector selected, but not a specific field (or "all fields" in that sector)
-                 const fieldsInSector = fields.filter(f => f.sectorId === selectedSectorId).map(f => f.id);
-                 filtered = filtered.filter(c => 
-                    (c.sectorId === selectedSectorId && !c.fieldId) || // Common core for the sector
-                    (c.fieldId && fieldsInSector.includes(c.fieldId)) // Course in one of the sector's fields
-                 );
-                 
-                 if(selectedFieldId === 'common_core') {
-                     filtered = filtered.filter(c => !c.fieldId);
-                 }
+        return courses.filter(course => {
+            const isTeacherMatch = selectedTeacherId === 'all' || course.teacherId === selectedTeacherId;
+            const isLevelMatch = selectedLevel === 'all' || course.level === selectedLevel;
+    
+            if (!isTeacherMatch || !isLevelMatch) {
+                return false;
             }
-        }
-        
-        return filtered;
+    
+            // If a teacher is selected, other filters are secondary for their schedule view
+            if (selectedTeacherId !== 'all') {
+                return true;
+            }
+    
+            // Logic for when "Tous les professeurs" is selected
+            if (selectedSectorId === 'all') {
+                return true; // No sector filter, show all matching levels
+            }
+    
+            const courseField = fields.find(f => f.id === course.fieldId);
+            const courseSectorId = course.sectorId || courseField?.sectorId;
+    
+            if (courseSectorId !== selectedSectorId) {
+                return false;
+            }
+    
+            // At this point, we know the course belongs to the selected sector
+            if (selectedFieldId === 'all') {
+                return true; // Show all fields in sector
+            }
+            if (selectedFieldId === 'common_core') {
+                return !course.fieldId; // Show only common core courses for the sector
+            }
+            return course.fieldId === selectedFieldId; // Show specific field
+        });
     }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fields]);
 
 
