@@ -101,14 +101,18 @@ export default function CourseManagementPage() {
 
     const filteredCourses = useMemo(() => {
         return courses.filter(course => {
-            const courseSectorId = course.sectorId || (course.fieldId ? fieldsById[course.fieldId]?.sectorId : undefined);
+            const courseField = course.fieldId ? fieldsById[course.fieldId] : null;
+            const courseSectorId = courseField ? courseField.sectorId : course.sectorId;
 
             return (
                 (nameFilter === "" || course.name.toLowerCase().includes(nameFilter.toLowerCase())) &&
                 (levelFilter === "all" || course.level === levelFilter) &&
                 (cycleFilter === "all" || course.cycle === cycleFilter) &&
                 (sectorFilter === "all" || courseSectorId === sectorFilter) &&
-                (fieldFilter === "all" || course.fieldId === fieldFilter || (course.sectorId && !course.fieldId && fieldFilter === 'common_core'))
+                (fieldFilter === "all" || 
+                    (fieldFilter === "common_core" && !course.fieldId && courseSectorId === sectorFilter) ||
+                    (course.fieldId === fieldFilter)
+                )
             );
         });
     }, [courses, nameFilter, levelFilter, sectorFilter, fieldFilter, cycleFilter, fieldsById]);

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
@@ -80,22 +81,14 @@ function CourseAttendanceContent() {
 
     const filteredCourses = useMemo(() => {
         return courses.filter(course => {
-            const courseSectorId = course.sectorId || fieldsById[course.fieldId || '']?.sectorId;
-            
+            const courseSectorId = course.fieldId ? fieldsById[course.fieldId]?.sectorId : course.sectorId;
+
             const teacherMatch = selectedTeacherId === 'all' || course.teacherId === selectedTeacherId;
             const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
             const sectorMatch = selectedSectorId === 'all' || courseSectorId === selectedSectorId;
-            
-            let fieldMatch = true;
-            if (selectedFieldId !== 'all') {
-                 if (selectedFieldId === 'common_core') {
-                    // Match "tronc commun" courses for the selected sector
-                    fieldMatch = course.sectorId === selectedSectorId && !course.fieldId;
-                 } else {
-                    // Match specific field
-                    fieldMatch = course.fieldId === selectedFieldId;
-                 }
-            }
+            const fieldMatch = selectedFieldId === 'all' || 
+                             (selectedFieldId === 'common_core' && !course.fieldId && courseSectorId === selectedSectorId) ||
+                             course.fieldId === selectedFieldId;
 
             return teacherMatch && levelMatch && sectorMatch && fieldMatch;
         });
