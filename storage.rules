@@ -3,24 +3,35 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Avatars: Publicly readable, but only the owner can write.
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isUserAdmin() {
+      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isUserAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Official documents can be read by their owner or any admin.
+    // Only admins can write them.
+    match /official_documents/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isUserAdmin();
+      allow write: if isUserAdmin();
+    }
+    
+    // Avatars can be read by anyone, but only written by the owner or an admin.
     match /avatars/{userId} {
-      allow read;
-      allow write: if request.auth != null && request.auth.uid == userId;
+        allow read: if true;
+        allow write: if isOwner(userId) || isUserAdmin();
     }
-
-    // Logos: Publicly readable, admins can write.
+    
+    // Logos can be read by anyone, but only written by an admin.
     match /logos/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Official Documents: Readable by the student or any admin. Writable only by admins.
-    match /official_documents/{studentId}/{allPaths=**} {
-      allow read: if request.auth != null && 
-                   (request.auth.uid == studentId || get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin');
-      allow write: if request.auth != null && 
-                    get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        allow read: if true;
+        allow write: if isUserAdmin();
     }
   }
 }

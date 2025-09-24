@@ -2,15 +2,15 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Allow the Firebase Storage service to read user data to verify roles
+
+    // Allow the Firebase Storage service to read user roles
     match /users/{userId} {
-      allow get: if true; // Temporary rule for broad read access for other services
-      allow list, create, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow get: if request.auth.token.firebase.sign_in_provider == "firebase.storage";
+      allow read, write: if request.auth.uid == userId;
     }
 
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth.token.email.matches(".*@isgi.com$");
     }
   }
 }
