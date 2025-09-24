@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
@@ -22,6 +21,7 @@ import Link from 'next/link';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { imageToDataUrl } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 function AttendanceContent() {
     const searchParams = useSearchParams();
@@ -151,7 +151,8 @@ function AttendanceContent() {
         try {
             const logoDataUrl = await imageToDataUrl(settings.logoUrl);
             if(logoDataUrl) {
-                doc.addImage(logoDataUrl, 'PNG', 14, 10, 20, 20);
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
             }
         } catch (error) {
             console.error("Error adding logo to PDF", error);

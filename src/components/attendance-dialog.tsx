@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -175,7 +175,7 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
                                                               <div className={cn(
                                                                 buttonVariants({ variant: 'outline', size: 'sm' }),
                                                                 "cursor-pointer",
-                                                                field.value !== option.value && "bg-transparent",
+                                                                field.value !== option.value && "bg-transparent text-foreground",
                                                                 field.value === option.value && option.className
                                                               )}>
                                                                 <option.icon className="mr-2 h-4 w-4" />
