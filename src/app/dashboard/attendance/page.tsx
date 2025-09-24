@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Banknote, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Banknote, FileDown, Users, Briefcase } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
@@ -22,20 +22,21 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { imageToDataUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-function AttendanceContent() {
+
+function CourseAttendanceContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const teacherIdFilter = searchParams.get('teacherId');
 
-    const { users, loading: usersLoading, settings, fields, courses } = useUser();
+    const { users, loading: usersLoading, settings, courses } = useUser();
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [selectedTeacher, setSelectedTeacher] = useState(teacherIdFilter || 'all');
     const { toast } = useToast();
 
-    // Dialog state
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -47,9 +48,7 @@ function AttendanceContent() {
             setLoadingData(false);
         });
         
-        return () => {
-            unsubAttendances();
-        }
+        return () => unsubAttendances();
     }, []);
     
     useEffect(() => {
@@ -208,15 +207,6 @@ function AttendanceContent() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold font-headline tracking-tight">Suivi des Présences</h1>
-                        <p className="text-muted-foreground">Enregistrez la présence des professeurs et étudiants pour chaque cours planifié.</p>
-                    </div>
-                </div>
-            </div>
-
              <Card>
                 <CardHeader>
                    <div className="flex justify-between items-center">
@@ -329,10 +319,45 @@ function AttendanceContent() {
     );
 }
 
-export default function AttendancePage() {
+function StaffAttendanceContent() {
     return (
-        <Suspense fallback={<div className="flex items-center justify-center h-96"><Skeleton className="h-8 w-8 animate-spin" /></div>}>
-            <AttendanceContent />
-        </Suspense>
+        <Card>
+            <CardHeader>
+                <CardTitle>Suivi du Personnel</CardTitle>
+                <CardDescription>Fonctionnalité en cours de développement.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-48 flex items-center justify-center">
+                 <p className="text-muted-foreground">Le suivi des présences du personnel administratif sera bientôt disponible ici.</p>
+            </CardContent>
+        </Card>
     );
 }
+
+
+function AttendancePage() {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold font-headline tracking-tight">Suivi des Présences</h1>
+                <p className="text-muted-foreground">Enregistrez et consultez la présence pour les cours et le personnel.</p>
+            </div>
+            
+             <Tabs defaultValue="courses" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="courses"><Users className="mr-2 h-4 w-4"/> Cours (Étudiants/Professeurs)</TabsTrigger>
+                    <TabsTrigger value="staff"><Briefcase className="mr-2 h-4 w-4"/> Personnel Administratif</TabsTrigger>
+                </TabsList>
+                <TabsContent value="courses">
+                    <Suspense fallback={<div className="flex items-center justify-center h-96"><Skeleton className="h-8 w-8 animate-spin" /></div>}>
+                        <CourseAttendanceContent />
+                    </Suspense>
+                </TabsContent>
+                 <TabsContent value="staff">
+                    <StaffAttendanceContent />
+                </TabsContent>
+            </Tabs>
+        </div>
+    );
+}
+
+export default AttendancePage;
