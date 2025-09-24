@@ -1,24 +1,33 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow public read on logos and user avatars
-    match /logos/{allPaths=**} {
-      allow read;
+
+    // Helper function to check if the user is an admin
+    function isAdmin() {
+      // This reads from Firestore to check the user's role.
+      // Make sure Firestore rules allow this read operation for authenticated users.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+
+    // Avatars and Logos can be read by anyone to be displayed in the app
     match /avatars/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null; // Allow logged-in users to update their own avatar
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /logos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Rules for official documents
-    match /official_documents/{studentId}/{allPaths=**} {
-      // Allow read access to the student who owns the document or any admin
-      allow read: if request.auth != null &&
-                   (studentId == request.auth.uid || get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    // Students can read their own documents. Admins can read/write all documents.
+    match /official_documents/{studentId}/{fileName} {
+      allow read: if request.auth != null && (studentId == request.auth.uid || isAdmin());
+      allow write: if request.auth != null && isAdmin();
+    }
 
-      // Allow write access only to admins
-      allow write: if request.auth != null &&
-                    get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+     // Generic fallback to deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
