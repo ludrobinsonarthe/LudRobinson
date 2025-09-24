@@ -143,5 +143,3 @@ export default function AnnouncementCard({ announcement, onEdit, onDelete }: Ann
     </Card>
   );
 }
-
-    
