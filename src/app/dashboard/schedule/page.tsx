@@ -23,7 +23,7 @@ import { imageToDataUrl } from '@/lib/utils';
 
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-const timeSlots = Array.from({ length: 6 }, (_, i) => `${(8 + i * 2).toString().padStart(2, '0')}:00`); // 08:00, 10:00, ..., 18:00
+const timeSlots = Array.from({ length: 7 }, (_, i) => `${(8 + i).toString().padStart(2, '0')}:00`); // 08:00, 09:00, ..., 14:00
 
 function ScheduleContent() {
     const { user: currentUser, users, loading: userLoading, settings, fields, sectors } = useUser();
@@ -72,7 +72,8 @@ function ScheduleContent() {
                 const isForStudentLevel = course.level === student.level;
                 if (!isForStudentLevel) return false;
                 // Check for common core courses in their sector
-                const isCommonCore = course.sectorId === student.sectorId;
+                const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
+                const isCommonCore = course.sectorId === courseSectorId;
                 // Check for field-specific courses
                 const isFieldSpecific = course.fieldId === student.fieldId;
                 return isCommonCore || isFieldSpecific;
@@ -101,8 +102,7 @@ function ScheduleContent() {
         filteredCourses.forEach(course => {
             course.schedule?.forEach(slot => {
                 const startTimeHour = parseInt(slot.start.split(':')[0]);
-                // Find the closest time slot (e.g., 8:30 falls into 08:00 slot)
-                const timeSlotKey = `${(Math.floor(startTimeHour / 2) * 2).toString().padStart(2, '0')}:00`;
+                const timeSlotKey = `${startTimeHour.toString().padStart(2, '0')}:00`;
 
                 if (grid[slot.day] && grid[slot.day][timeSlotKey]) {
                     grid[slot.day][timeSlotKey].push(course);
@@ -283,7 +283,7 @@ function ScheduleContent() {
                                         {daysOfWeek.map(day => (
                                             <TableCell key={day} className="p-1 align-top border-r">
                                                 {scheduleGrid[day][slot].map(course => {
-                                                    const scheduleInfo = course.schedule?.find(s => s.day === day && s.start.startsWith(slot.slice(0,2)));
+                                                    const scheduleInfo = course.schedule?.find(s => s.day === day && s.start.startsWith(slot.slice(0, 2)));
                                                     return (
                                                      <div key={course.id} className="bg-primary/10 border border-primary/20 p-2 rounded-lg text-xs mb-1 hover:bg-primary/20 transition-colors">
                                                         <Link href={`/dashboard/course-management?courseId=${course.id}`}>
@@ -316,3 +316,5 @@ export default function SchedulePage() {
         </Suspense>
     );
 }
+
+    
