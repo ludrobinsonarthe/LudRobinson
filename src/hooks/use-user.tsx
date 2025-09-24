@@ -119,25 +119,35 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setAllUsers([currentUser]);
         
         // This is a more complex scenario. We need to derive the list of relevant users.
-        // For now, let's just add teachers from the announcements to avoid a direct user query.
-        const addUsersFromData = async () => {
-          const announcementsQuery = query(collection(db, "announcements"));
-          const announcementsSnap = await getDocs(announcementsQuery);
-          const announcements = announcementsSnap.docs.map(d => d.data() as Announcement);
-          const senderIds = [...new Set(announcements.map(a => a.senderId))];
-          
-          if(senderIds.length > 0) {
-            const usersQuery = query(collection(db, "users"), where('uid', 'in', senderIds));
-            const usersSnap = await getDocs(usersQuery);
-            const senders = usersSnap.docs.map(d => d.data() as User);
-             setAllUsers(current => {
-               const userMap = new Map(current.map(u => [u.uid, u]));
-               senders.forEach(s => userMap.set(s.uid, s));
-               return Array.from(userMap.values());
-            });
-          }
+        const relevantUserIds = new Set<string>([currentUser.uid]);
+        if (currentUser.role === 'parent' && currentUser.parent?.childrenUids) {
+            currentUser.parent.childrenUids.forEach(uid => relevantUserIds.add(uid));
         }
-        addUsersFromData();
+
+        const fetchRelevantUsers = async () => {
+            const courseIds: string[] = [];
+            const announcementsSnap = await getDocs(query(collection(db, "announcements")));
+            announcementsSnap.forEach(doc => relevantUserIds.add(doc.data().senderId));
+            
+            const coursesSnap = await getDocs(query(collection(db, "courses")));
+            coursesSnap.forEach(doc => {
+                const course = doc.data() as Course;
+                courseIds.push(course.id);
+                relevantUserIds.add(course.teacherId);
+            });
+            
+            if (Array.from(relevantUserIds).length > 0) {
+                 unsubs.push(onSnapshot(query(collection(db, 'users'), where('uid', 'in', Array.from(relevantUserIds))), (snap) => {
+                    setAllUsers(users => {
+                        const userMap = new Map(users.map(u => [u.uid, u]));
+                        snap.docs.forEach(d => userMap.set(d.id, d.data() as User));
+                        return Array.from(userMap.values());
+                    });
+                }));
+            }
+        };
+
+        fetchRelevantUsers();
 
         if (currentUser.role === 'student' && currentUser.student) {
             const studentClauses = [];
