@@ -114,6 +114,7 @@ function MainSidebar() {
         { href: "/dashboard/course-management", label: "Gestion Cours", icon: BookMarked, permission: 'manage_course' },
         { href: "/dashboard/grade-management", label: "Évaluations et Notes", icon: ClipboardCheck, permission: 'manage_grades' },
         { href: "/dashboard/attendance", label: "Présences", icon: UserCheck, permission: 'manage_attendance' },
+        { href: "/dashboard/certificates", label: "Certificats", icon: FileText, permission: 'manage_students' },
       ],
     },
     {
