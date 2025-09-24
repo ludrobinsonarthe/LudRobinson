@@ -2,102 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    function isAuth() {
-      return request.auth != null;
-    }
-    
-    function isAdmin() {
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // REGLES GLOBALES
-    // Pour le débogage, nous autorisons la lecture sur toutes les collections pour tout utilisateur authentifié.
-    match /{path=**} {
-      allow read: if isAuth();
-    }
-
-    // SECURITE EN ECRITURE (pour éviter la corruption des données)
-    
-    // Annonces: Seuls les admins peuvent gérer.
-    match /announcements/{announcementId} {
-      allow write: if isAdmin();
-    }
-
-    // Rôles: Seuls les admins peuvent gérer.
-    match /adminRoles/{roleId} {
-      allow write: if isAdmin();
-    }
-
-    // Présences: Seuls les admins peuvent gérer.
-    match /attendances/{attendanceId} {
-      allow write: if isAdmin();
-    }
-
-    // Caisse: Seuls les admins peuvent gérer.
-    match /cashTransactions/{transactionId} {
-      allow write: if isAdmin();
-    }
-
-    // Cours: Seuls les admins peuvent gérer.
-    match /courses/{courseId} {
-      allow write: if isAdmin();
-    }
-    
-    // Filières: Seuls les admins peuvent gérer.
-    match /fields/{fieldId} {
-        allow write: if isAdmin();
-    }
-
-    // Frais: Seuls les admins peuvent gérer.
-    match /feeStructures/{feeId} {
-      allow write: if isAdmin();
-    }
-
-    // Notes: Seuls les admins et le professeur du cours peuvent écrire.
-    match /grades/{gradeId} {
-      let courseId = request.resource.data.courseId;
-      let teacherId = get(/databases/$(database)/documents/courses/$(courseId)).data.teacherId;
-      allow write: if isAdmin() || request.auth.uid == teacherId;
-    }
-    
-    // Documents officiels: Seuls les admins peuvent créer.
-    match /officialDocuments/{documentId} {
-        allow write: if isAdmin();
-    }
-    
-    // Paiements: Les admins peuvent tout faire, les étudiants peuvent en créer.
-    match /payments/{paymentId} {
-      allow write: if isAdmin() || (request.resource.data.studentId == request.auth.uid);
-    }
-    
-    // Messages privés: Seuls l'expéditeur et le destinataire peuvent écrire.
-    match /private_messages/{messageId} {
-      allow write: if isAuth() && (request.auth.uid == request.resource.data.senderId || request.auth.uid == request.resource.data.receiverId);
-    }
-
-    // Secteurs: Seuls les admins peuvent gérer.
-    match /sectors/{sectorId} {
-        allow write: if isAdmin();
-    }
-    
-    // Paramètres: Seuls les admins peuvent gérer.
-    match /settings/system {
-      allow write: if isAdmin();
-    }
-    
-    // Salaires: Seuls les admins peuvent gérer.
-    match /teacherSalaries/{salaryId} {
-      allow write: if isAdmin();
-    }
-
-    // Utilisateurs:
-    match /users/{userId} {
-      // Un utilisateur peut modifier son propre profil.
-      // Un admin peut modifier n'importe quel profil.
-      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
-      // Seuls les admins peuvent créer ou supprimer des utilisateurs.
-      allow create, delete: if isAdmin();
+    // Allow read/write access for all documents
+    // WARNING: This is insecure and for development only.
+    // You should restrict access based on user authentication in a real application.
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
