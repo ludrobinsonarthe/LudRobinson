@@ -1,187 +1,171 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // =====================================================================
+  
+    // =================================
     // Helper Functions
-    // =====================================================================
+    // =================================
+    
     function isAuth() {
       return request.auth != null;
     }
-
-    function getUserData() {
-      // In security rules, custom claims are on request.auth.token, not a function call
-      return request.auth.token;
-    }
     
-    function getUserDoc(userId) {
-        return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    function isAdmin() {
-      return isAuth() && getUserData().role == 'admin';
-    }
-
-    function isTeacher() {
-      return isAuth() && getUserData().role == 'teacher';
-    }
-
-    function isStudent() {
-      return isAuth() && getUserData().role == 'student';
-    }
-
-    function isParent() {
-      return isAuth() && getUserData().role == 'parent';
-    }
-
     function isUser(userId) {
       return isAuth() && request.auth.uid == userId;
     }
-
-    function isParentOf(studentId) {
-      let token = getUserData();
-      return isParent() 
-             && token.childrenUids is list
-             && studentId in token.childrenUids;
+    
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
     
+    function isSuperAdmin() {
+      return request.auth.token.role == 'super_admin';
+    }
+
+    function isAdmin() {
+        return request.auth.token.role == 'admin' || request.auth.token.role == 'super_admin';
+    }
+
     function hasPermission(permission) {
-      let token = getUserData();
-      // Super admin has all permissions
-      if (isAdmin() && token.roleId == 'super_admin') {
-        return true;
+      if (!isAuth() || !request.auth.token.roleId) {
+        return false;
       }
-      return isAdmin() && token.permissions is list && permission in token.permissions;
+      let userRole = get(/databases/$(database)/documents/adminRoles/$(request.auth.token.roleId)).data;
+      return userRole.permissions.hasAny([permission]) || isSuperAdmin();
+    }
+    
+    function isTeacher() {
+      return request.auth.token.role == 'teacher';
+    }
+    
+    function isStudent() {
+      return request.auth.token.role == 'student';
+    }
+    
+    function isParent() {
+      return request.auth.token.role == 'parent';
     }
 
-    function isTeacherOfCourse(courseId) {
-      let token = getUserData();
-      return isTeacher() && token.assignedCourses is list && courseId in token.assignedCourses;
+    function isReadingPublicRole(resource) {
+      return resource.data.role == 'admin' || resource.data.role == 'teacher';
     }
 
-    // =====================================================================
-    // Global Collections (Readable by all authenticated users)
-    // =====================================================================
-     match /settings/{settingId} {
+
+    // =================================
+    // Collection Rules
+    // =================================
+    
+    // Settings, Sectors, and Fields are public read for any authenticated user
+    match /settings/system {
       allow read: if isAuth();
       allow write: if hasPermission('manage_admin_settings');
     }
-
+    
     match /sectors/{sectorId} {
       allow read: if isAuth();
       allow write: if hasPermission('manage_admin_settings');
     }
-    
+
     match /fields/{fieldId} {
       allow read: if isAuth();
       allow write: if hasPermission('manage_admin_settings');
+      allow delete: if hasPermission('manage_admin_settings');
     }
 
-    // =====================================================================
-    // Users Collection
-    // =====================================================================
+    // Users can only be created by admins. Users can update their own data.
+    // Admins can manage all users.
     match /users/{userId} {
-      // Admins can read any user profile.
-      // Non-admins can only read profiles of teachers and other admins.
-      // Any user can read their own profile.
-      allow get: if hasPermission('manage_users') 
-                  || (isAuth() && (getUserDoc(userId).role == 'admin' || getUserDoc(userId).role == 'teacher'))
-                  || isUser(userId);
-      
-      // Only admins can list users, but this is implicitly handled by hasPermission on client queries
+      allow read: if isAdmin() || (isAuth() && isReadingPublicRole(resource.data));
       allow list: if hasPermission('manage_users');
-
-      // Admins can create users.
       allow create: if hasPermission('manage_users') || hasPermission('manage_students');
-      
-      // A user can update their own profile, or an admin can update any profile.
       allow update: if isUser(userId) || hasPermission('manage_users') || hasPermission('manage_students');
-      
-      // Admins can delete users.
-      allow delete: if hasPermission('manage_users') || hasPermission('manage_students');
+      allow delete: if hasPermission('manage_users');
+    }
+    
+    // Announcements can be created by admins and read by specific roles
+    match /announcements/{announcementId} {
+        allow read: if isAuth() && (
+            resource.data.receiverId == 'all' ||
+            resource.data.receiverId == request.auth.token.role ||
+            (request.auth.token.roleId != null && resource.data.receiverId == request.auth.token.roleId)
+        );
+        allow create, update, delete: if hasPermission('manage_admin_settings');
     }
 
-    // =====================================================================
-    // Admin & Structure Collections
-    // =====================================================================
+    // Private messages can only be read/written by participants
+    match /private_messages/{messageId} {
+        allow read, write: if isAuth() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+    }
+    
+    // Admin roles are managed by specific permission
     match /adminRoles/{roleId} {
-      allow read, write: if hasPermission('manage_roles');
-    }
-
-    match /feeStructures/{feeId} {
-      allow read: if isAuth();
-      allow write: if hasPermission('manage_fees');
+      allow read, list: if isAuth();
+      allow create, update, delete: if hasPermission('manage_roles');
     }
 
     match /courses/{courseId} {
-      allow read: if isAuth();
-      allow write: if hasPermission('manage_course');
-    }
-
-    // =====================================================================
-    // Grades Collection
-    // =====================================================================
-    match /grades/{gradeId} {
-      allow read: if isStudent() && resource.data.studentId == request.auth.uid
-                     || isParentOf(resource.data.studentId)
-                     || isTeacherOfCourse(resource.data.courseId)
-                     || hasPermission('manage_grades');
-      allow create, update, delete: if hasPermission('manage_grades') || isTeacherOfCourse(request.resource.data.courseId);
+      allow create, update, delete: if hasPermission('manage_course');
+      allow read: if (isStudent() && resource.data.level == getUserData(request.auth.uid).student.level && (resource.data.fieldId == getUserData(request.auth.uid).student.fieldId || resource.data.sectorId == getUserData(request.auth.uid).student.sectorId)) || 
+                   (isTeacher() && request.auth.uid == resource.data.teacherId) ||
+                   (isParent() && getUserData(request.auth.uid).parent.childrenUids.size() > 0) || // Parents need to see course names for grades
+                   isAdmin();
+      allow list: if isAdmin();
     }
     
-    // =====================================================================
-    // Payments & Finance Collections
-    // =====================================================================
+    match /grades/{gradeId} {
+      allow read: if isStudent() && resource.data.studentId == request.auth.uid ||
+                     isParent() && resource.data.studentId in getUserData(request.auth.uid).parent.childrenUids ||
+                     isTeacher() && resource.data.courseId in getUserData(request.auth.uid).teacher.assignedCourses ||
+                     isAdmin();
+      allow create, update, delete: if hasPermission('manage_grades');
+      allow list: if isAdmin();
+    }
+    
     match /payments/{paymentId} {
-        allow read: if (isStudent() && resource.data.studentId == request.auth.uid)
-                       || isParentOf(resource.data.studentId)
-                       || hasPermission('manage_tuition');
-        allow create: if (isStudent() && request.resource.data.studentId == request.auth.uid) 
-                         || isParentOf(request.resource.data.studentId)
-                         || hasPermission('manage_tuition');
-        allow update, delete: if hasPermission('manage_tuition');
+      allow read: if (isStudent() || isParent()) && resource.data.studentId == request.auth.uid ||
+                     (isParent() && resource.data.studentId in getUserData(request.auth.uid).parent.childrenUids) ||
+                     hasPermission('manage_tuition');
+      allow create, update, delete: if hasPermission('manage_tuition');
+      allow list: if hasPermission('manage_tuition');
     }
 
     match /teacherSalaries/{salaryId} {
-        allow read, create, update, delete: if hasPermission('manage_salaries');
+      allow read, list, create, update, delete: if hasPermission('manage_salaries');
     }
 
     match /cashTransactions/{transactionId} {
-        allow read, create, update, delete: if hasPermission('manage_cash_flow');
-    }
-
-    // =====================================================================
-    // Communication & Documents
-    // =====================================================================
-    match /announcements/{announcementId} {
-        // Any authenticated user can read announcements matching their role/group.
-        allow read: if isAuth();
-        // Only admins can create, update or delete announcements.
-        allow write: if hasPermission('manage_admin_settings');
-    }
-    
-    match /private_messages/{messageId} {
-        // A user can read a message if they are the sender or the receiver.
-        allow read: if isAuth() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-        // A user can create a message if they are the sender.
-        allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
-        // Messages are immutable once sent.
-        allow update, delete: if false;
+        allow read, list, create, update, delete: if hasPermission('manage_cash_flow');
     }
 
     match /officialDocuments/{docId} {
-      allow read: if (isStudent() && resource.data.studentId == request.auth.uid) 
-                     || isParentOf(resource.data.studentId)
-                     || hasPermission('manage_students');
-      allow create, delete: if hasPermission('manage_students');
+        allow read: if (isStudent() || isParent()) && resource.data.studentId == request.auth.uid ||
+                     (isParent() && resource.data.studentId in getUserData(request.auth.uid).parent.childrenUids) ||
+                     hasPermission('manage_students');
+        allow create, delete: if hasPermission('manage_students');
+        allow list: if hasPermission('manage_students');
+    }
+
+    match /attendances/{attendanceId} {
+        allow read, list, create, update, delete: if hasPermission('manage_attendance');
     }
     
-    // =====================================================================
-    // Attendance Collection
-    // =====================================================================
-    match /attendances/{attendanceId} {
-        allow read, write: if hasPermission('manage_attendance');
+    match /feeStructures/{feeId} {
+        allow read, list, create, update, delete: if hasPermission('manage_fees');
     }
+
+    // QR sessions for temporary login
+    match /qr_sessions/{sessionId} {
+      // Anyone can create a pending session doc
+      allow create: if request.resource.data.status == 'pending';
+      // Anyone can read a pending session to listen for changes
+      allow read: if resource.data.status == 'pending';
+      // Only an authenticated user can validate a session and add a token
+      allow update: if isAuth() && request.resource.data.status == 'validated' && request.resource.data.keys().hasAll(['status', 'token', 'userId', 'createdAt']);
+    }
+    
   }
 }
+
+    
