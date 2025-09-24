@@ -1,119 +1,160 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    function isAuth() {
+
+    // =================================
+    // Helper Functions
+    // =================================
+    function isSignedIn() {
       return request.auth != null;
     }
-    
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    function isRole(role) {
+      return isSignedIn() && getUserData(request.auth.uid).role == role;
+    }
+
     function isAdmin() {
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
-    }
-    
-    function isParentOf(studentId) {
-        let parentData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-        return isAuth() && parentData.role == 'parent' && studentId in parentData.parent.childrenUids;
+      return isRole('admin');
     }
     
     function isTeacher() {
-        return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      return isRole('teacher');
     }
 
-    // Settings, Roles, Sectors, Fields, Courses are public read
-    match /{path=**}/settings/system {
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isParentOf(studentId) {
+      let parentUid = getUserData(studentId).student.parentUid;
+      return parentUid != null && isOwner(parentUid);
+    }
+    
+    function isTeacherOfCourse(courseId) {
+      return isTeacher() && get(/databases/$(database)/documents/courses/$(courseId)).data.teacherId == request.auth.uid;
+    }
+
+    // =================================
+    // Collection Rules
+    // =================================
+
+    // Publicly readable data, but only writable by admins
+    match /{path=**}/settings/{docId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    match /adminRoles/{roleId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
-    }
-     match /sectors/{sectorId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
+    match /sectors/{sectorId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
      match /fields/{fieldId} {
-        allow read: if isAuth();
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+     match /adminRoles/{roleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+     match /feeStructures/{fsId} {
+        allow read: if true;
         allow write: if isAdmin();
     }
-     match /courses/{courseId} {
-      allow read: if isAuth();
-      allow write: if isAdmin();
-    }
-    match /feeStructures/{fsId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+
+    // Courses are readable by any signed-in user, but only writable by admins
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
     }
 
-    // Users can read their own profile, admins can read/write all.
+    // Users Collection
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin() || (isParentOf(userId) && get(/databases/$(database)/documents/users/$(userId)).data.role == 'student') || isTeacher();
-      allow update: if isOwner(userId) || isAdmin();
-      allow create, delete: if isAdmin();
+      // Admins can manage all users.
+      allow read, write: if isAdmin();
+      
+      // Users can read/update their own profile.
+      allow get, update: if isOwner(userId);
+      
+      // A parent can read their child's data.
+      allow get: if isParentOf(userId);
+      
+      // Students can read their classmates' basic info.
+      allow read: if isRole('student') && getUserData(userId).role == 'student';
+      
+      // Teachers can read their students' info.
+      allow read: if isTeacher();
     }
 
-    // Grades can be read by owner, parent or admin. Can be written by admin or assigned teacher.
+    // Grades Collection
     match /grades/{gradeId} {
-        let studentId = resource.data.studentId;
-        let courseId = resource.data.courseId;
-        let teacherId = get(/databases/$(database)/documents/courses/$(courseId)).data.teacherId;
+        // Admins can do anything with grades.
+        allow read, write: if isAdmin();
 
-        allow read: if isOwner(studentId) || isParentOf(studentId) || isAdmin() || isOwner(teacherId);
-        allow create, update, delete: if isAdmin() || isOwner(teacherId);
+        // Students can read their own grades. Parents can read their children's grades.
+        allow read: if isOwner(resource.data.studentId) || isParentOf(resource.data.studentId);
+        
+        // Teachers can create/update grades for their own courses.
+        allow create, update: if isTeacherOfCourse(request.resource.data.courseId);
     }
-    
-    // Payments can be read by owner/parent, managed by admin
+
+    // Payments Collection
     match /payments/{paymentId} {
-        let studentId = resource.data.studentId;
-        allow read: if isOwner(studentId) || isParentOf(studentId) || isAdmin();
-        allow create, update, delete: if isAdmin();
+        // Admins manage all payments.
+        allow read, write: if isAdmin();
+
+        // Students can read their own payments. Parents can read their children's payments.
+        allow read: if isOwner(resource.data.studentId) || isParentOf(resource.data.studentId);
     }
     
-    // Messages (private) can be read by sender or receiver
+    // Messages (Announcements & Private)
     match /messages/{messageId} {
-        allow read, create: if isAuth() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
-        // Announcements can be read by anyone authed and targetted, but only created/deleted by admin
-        allow read: if isAuth() && resource.data.type == 'announcement';
-        allow create, delete, update: if isAdmin();
+        // Admins can manage all messages.
+        allow read, write: if isAdmin();
+
+        // Users can read announcements targeted to them.
+        allow read: if resource.data.type == 'announcement';
+
+        // Users can read private messages where they are the sender or receiver.
+        allow read: if resource.data.type == 'private' && (isOwner(resource.data.senderId) || isOwner(resource.data.receiverId));
+
+        // Any signed-in user can send a private message.
+        allow create: if isSignedIn() && request.resource.data.type == 'private';
     }
     
-    // Official documents can be read by owner/parent, created by admin
+    // Official Documents
     match /officialDocuments/{docId} {
-        let studentId = resource.data.studentId;
-        allow read: if isOwner(studentId) || isParentOf(studentId) || isAdmin();
-        allow create, delete: if isAdmin();
+      // Admins manage all official documents.
+      allow read, write: if isAdmin();
+      
+      // Students can read their own documents. Parents can read their children's.
+      allow read: if isOwner(resource.data.studentId) || isParentOf(resource.data.studentId);
     }
     
-    // Salaries can only be handled by admins
+    // Attendance records
+    match /attendances/{attId} {
+      // Only admins can read/write attendance records.
+      allow read, write: if isAdmin();
+    }
+
+    // Teacher Salaries
     match /teacherSalaries/{salaryId} {
-        allow read, create, update, delete: if isAdmin();
+      // Only admins can manage salaries.
+      allow read, write: if isAdmin();
     }
     
-    // Cash flow can only be handled by admins
-    match /cashTransactions/{transactionId} {
-        allow read, create, delete: if isAdmin();
+    // Cash Transactions
+    match /cashTransactions/{transacId} {
+      // Only admins can manage cash flow.
+      allow read, write: if isAdmin();
     }
     
-    // Attendance can be read by involved teacher/student/parent, managed by admin
-    match /attendances/{attendanceId} {
-        let teacherId = resource.data.teacherId;
-        let studentIds = resource.data.studentAttendances.map(sa => sa.studentId);
-        allow read: if isAdmin() || isOwner(teacherId) || request.auth.uid in studentIds;
-        allow create, update, delete: if isAdmin();
-    }
-
-    // QR Sessions for mobile login
+    // QR Sessions for login
     match /qr_sessions/{sessionId} {
-      allow read, create: if true; // Open for requester to listen
-      allow update: if isAuth();   // Only an authenticated user can validate
-      allow delete: if true; // Allows cleanup
+      allow read, write: if true; // Open for the login flow to work
     }
-
   }
 }
