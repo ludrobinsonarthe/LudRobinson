@@ -23,7 +23,7 @@ import { imageToDataUrl } from '@/lib/utils';
 
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-const timeSlots = Array.from({ length: 7 }, (_, i) => `${(8 + i).toString().padStart(2, '0')}:00`); // 08:00, 09:00, ..., 14:00
+const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
 
 function ScheduleContent() {
     const { user: currentUser, users, loading: userLoading, settings, fields, sectors } = useUser();
@@ -38,22 +38,16 @@ function ScheduleContent() {
     // Filters state
     const [selectedFieldId, setSelectedFieldId] = useState('all');
     const [selectedLevel, setSelectedLevel] = useState('all');
-    const [selectedSectorId, setSelectedSectorId] = useState('all');
+    const [selectedTeacherId, setSelectedTeacherId] = useState('all');
     
     useEffect(() => {
         let studentFieldId: string | null = null;
-        let studentSectorId: string | null = null;
         if(currentUser?.role === 'student' && currentUser.student) {
             studentFieldId = currentUser.student.fieldId || null;
-            const field = fields.find(f => f.id === studentFieldId);
-            if (field) {
-                studentSectorId = field.sectorId;
-                setSelectedSectorId(studentSectorId);
-            }
             setSelectedLevel(currentUser.student.level || 'all');
         }
         setSelectedFieldId(fieldIdFromParams || studentFieldId || 'all');
-    }, [fieldIdFromParams, currentUser, fields]);
+    }, [fieldIdFromParams, currentUser]);
 
     useEffect(() => {
         setLoading(true);
@@ -63,31 +57,26 @@ function ScheduleContent() {
         });
         return () => unsub();
     }, []);
+    
+    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
 
     const filteredCourses = useMemo(() => {
-        const student = currentUser?.student;
-        return courses.filter(course => {
-            // Student view logic
-            if (student) {
-                const isForStudentLevel = course.level === student.level;
-                if (!isForStudentLevel) return false;
-                // Check for common core courses in their sector
-                const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
-                const isCommonCore = course.sectorId === courseSectorId;
-                // Check for field-specific courses
-                const isFieldSpecific = course.fieldId === student.fieldId;
-                return isCommonCore || isFieldSpecific;
-            }
+        // If a teacher is selected, it takes priority
+        if (selectedTeacherId !== 'all') {
+            return courses.filter(course => course.teacherId === selectedTeacherId);
+        }
 
-            // Admin view logic
+        // Filter for students or admin/group view
+        return courses.filter(course => {
+            const isLevelMatch = selectedLevel === 'all' || course.level === selectedLevel;
+            if (!isLevelMatch) return false;
+            
             const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
-            return (
-                (selectedSectorId === 'all' || courseSectorId === selectedSectorId) &&
-                (selectedLevel === 'all' || course.level === selectedLevel) &&
-                (selectedFieldId === 'all' || course.fieldId === selectedFieldId || (course.sectorId && course.sectorId === fields.find(f => f.id === selectedFieldId)?.sectorId))
-            );
+            const isFieldMatch = selectedFieldId === 'all' || course.fieldId === selectedFieldId || courseSectorId === fields.find(f => f.id === selectedFieldId)?.sectorId;
+            
+            return isFieldMatch;
         });
-    }, [courses, selectedFieldId, selectedLevel, selectedSectorId, currentUser, fields]);
+    }, [courses, selectedFieldId, selectedLevel, selectedTeacherId, fields]);
 
 
     const scheduleGrid = useMemo(() => {
@@ -113,7 +102,7 @@ function ScheduleContent() {
     }, [filteredCourses]);
     
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    
     const getTeacherName = (teacherId: string) => {
         const teacher = teachers.find(t => t.uid === teacherId);
         return teacher ? `${teacher.lastName[0]}. ${teacher.firstName}` : 'N/A';
@@ -122,8 +111,18 @@ function ScheduleContent() {
     const handleExportPDF = async () => {
         if (!settings) return;
         const doc = new jsPDF({ orientation: "landscape" });
-        const selectedFieldName = selectedFieldId === 'all' ? 'Toutes les filières' : fieldsById[selectedFieldId]?.name || '';
-        const levelName = selectedLevel === 'all' ? '' : ` - ${selectedLevel}`;
+        const levelName = selectedLevel === 'all' ? 'Tous les niveaux' : selectedLevel;
+        let titleName = 'Emploi du Temps Global';
+
+        if (selectedTeacherId !== 'all') {
+            const teacher = teachers.find(t => t.uid === selectedTeacherId);
+            titleName = `Emploi du temps - ${teacher?.lastName} ${teacher?.firstName}`;
+        } else if (selectedFieldId !== 'all') {
+             const fieldName = fieldsById[selectedFieldId]?.name || '';
+             titleName = `Emploi du temps - ${fieldName} (${levelName})`;
+        }
+
+
         const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
         const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
         
@@ -134,7 +133,7 @@ function ScheduleContent() {
         }
 
         doc.setFontSize(18);
-        doc.text(`Emploi du Temps - ${selectedFieldName}${levelName}`, 40, 22);
+        doc.text(titleName, 40, 22);
         doc.setFontSize(12);
         doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 40, 30);
         
@@ -169,13 +168,13 @@ function ScheduleContent() {
                 halign: 'center'
             },
             headStyles: {
-                fillColor: [25, 95, 53], // Primary color
+                fillColor: [231, 48, 48],
                 textColor: 255,
                 fontStyle: 'bold',
             },
         });
         
-        doc.save(`emploi_du_temps_${selectedFieldName.replace(/\s/g, '_')}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
+        doc.save(`emploi_du_temps_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
         toast({ title: 'Exportation PDF', description: 'Le fichier PDF de l\'emploi du temps a été généré.' });
     };
 
@@ -203,7 +202,16 @@ function ScheduleContent() {
                         <div className="flex items-center gap-4 flex-wrap">
                             {!isStudentView && (
                                 <>
-                                 <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                                <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
+                                    <SelectTrigger className="w-[200px]">
+                                        <SelectValue placeholder="Filtrer par professeur" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tous les professeurs</SelectItem>
+                                        {(teachers || []).map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={selectedLevel} onValueChange={setSelectedLevel}>
                                     <SelectTrigger className="w-[180px]">
                                         <SelectValue placeholder="Filtrer par niveau" />
                                     </SelectTrigger>
@@ -212,22 +220,13 @@ function ScheduleContent() {
                                         {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                <Select value={selectedSectorId} onValueChange={(v) => { setSelectedSectorId(v); setSelectedFieldId('all'); }}>
-                                    <SelectTrigger className="w-[240px]">
-                                        <SelectValue placeholder="Filtrer par secteur" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Tous les secteurs</SelectItem>
-                                        {(sectors || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                 <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
+                                 <Select value={selectedFieldId} onValueChange={setSelectedFieldId}>
                                     <SelectTrigger className="w-[240px]">
                                         <SelectValue placeholder="Filtrer par filière" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Toutes les filières</SelectItem>
-                                        {(fields.filter(f => f.sectorId === selectedSectorId) || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                                        {(fields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                 </>
@@ -316,5 +315,3 @@ export default function SchedulePage() {
         </Suspense>
     );
 }
-
-    

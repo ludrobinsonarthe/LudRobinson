@@ -10,7 +10,7 @@ import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Banknote, FileDown, User
 import { format, startOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance, StudentAttendance } from '@/lib/types';
+import { Course, User, Attendance, StudentAttendance, Field } from '@/lib/types';
 import { collection, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -123,6 +123,8 @@ function CourseAttendanceContent() {
     }, [attendances]);
     
     const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
+
+    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
 
     const getStudentsForCourse = useCallback((course: Course | null): User[] => {
         if (!course) return [];
