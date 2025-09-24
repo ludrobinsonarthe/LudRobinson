@@ -73,7 +73,6 @@ export default function StudentsPage() {
     useEffect(() => {
         setLoadingData(true);
         const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
-        const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snapshot => setDocuments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as OfficialDocument)));
         const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course)));
         const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
@@ -83,7 +82,6 @@ export default function StudentsPage() {
         setLoadingData(false);
         return () => {
             unsubPayments();
-            unsubDocs();
             unsubGrades();
             unsubCourses();
             unsubAttendances();
