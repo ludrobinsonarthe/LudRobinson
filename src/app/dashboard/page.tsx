@@ -34,14 +34,16 @@ export default function DashboardPage() {
         }
         
         // Announcements are now in their own collection
+        // The orderBy was removed to avoid needing a composite index. Sorting is now done client-side.
         const q = query(
             collection(db, "announcements"), 
-            where('receiverId', 'in', targetReceivers),
-            orderBy('createdAt', 'desc')
+            where('receiverId', 'in', targetReceivers)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+            // Sort client-side
+            fetchedAnnouncements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setAnnouncements(fetchedAnnouncements);
             setLoading(false);
         }, (error) => {
