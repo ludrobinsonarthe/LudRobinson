@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -54,59 +53,88 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    if (authLoading) {
-      setLoading(true);
+    if (authLoading) return;
+
+    if (!authUser) {
+      setCurrentUser(null);
+      setLoading(false);
       return;
     }
 
-    if (authUser) {
-      const userDocRef = doc(db, 'users', authUser.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setCurrentUser(docSnap.data() as User);
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Profil non trouvé",
-            description: "Votre compte n'est pas enregistré dans la base de données. Déconnexion.",
-          });
-          signOut();
-        }
-      }, (error) => {
-         console.error("Error fetching user document:", error);
-         toast({ variant: 'destructive', title: "Erreur de profil", description: "Impossible de charger votre profil." });
-         signOut();
-         setLoading(false);
-      });
-      return () => unsubscribe();
+    const userDocRef = doc(db, 'users', authUser.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setCurrentUser(docSnap.data() as User);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Profil non trouvé",
+          description: "Votre compte n'est pas enregistré. Déconnexion.",
+        });
+        signOut();
+      }
+    }, (error) => {
+      console.error("Error fetching user document:", error);
+      toast({ variant: 'destructive', title: "Erreur de profil", description: "Impossible de charger votre profil." });
+      signOut();
+    });
 
-    } else {
-      setCurrentUser(null);
-      setLoading(false);
-    }
+    return () => unsubscribeUser();
   }, [authUser, authLoading, signOut, toast]);
 
   useEffect(() => {
-    if (!currentUser) {
-        if (!authLoading) setLoading(false);
-        return;
-    }
+    if (!currentUser) return;
 
     setLoading(true);
-    const unsubs: (() => void)[] = [];
 
+    const collectionsToFetch = [
+      { name: 'users', setter: setAllUsers },
+      { name: 'adminRoles', setter: setRoles },
+      { name: 'sectors', setter: setSectors },
+      { name: 'fields', setter: setFields },
+      { name: 'courses', setter: (data: any) => setCourses(data.map((d: any) => ({ ...d.data(), id: d.id }))) },
+      { name: 'grades', setter: (data: any) => setGrades(data.map((d: any) => ({ ...d.data(), id: d.id }))) },
+    ];
+
+    const promises = collectionsToFetch.map(c => getDocs(collection(db, c.name)));
+    const settingsPromise = getDoc(doc(db, 'settings', 'system'));
+
+    Promise.all([...promises, settingsPromise]).then((results) => {
+        const snapshots = results.slice(0, -1) as any[];
+        const settingsSnap = results.slice(-1)[0] as any;
+
+        snapshots.forEach((snapshot, index) => {
+            const { setter, name } = collectionsToFetch[index];
+            const docs = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+            if (name === 'courses' || name === 'grades') {
+                setter(docs);
+            } else {
+                 (setter as React.Dispatch<React.SetStateAction<any[]>>)(docs.map(d => d));
+            }
+        });
+        
+        setSettings(settingsSnap.exists() ? settingsSnap.data() as Settings : defaultSettings);
+        setLoading(false);
+
+    }).catch(error => {
+        console.error("Error fetching initial data:", error);
+        toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger les données initiales." });
+        setLoading(false);
+    });
+
+    // Setup listeners after initial load
+    const unsubs: (() => void)[] = [];
     unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
     unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings)));
-    unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => d.data() as Sector))));
-    unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => d.data() as Field))));
+    unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()}) as Sector))));
+    unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()}) as Field))));
     unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => ({...d.data(), id: d.id}) as Course))));
     unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade))));
-    unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => d.data() as AdminRole))));
+    unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => ({id: d.id, ...d.data()}) as AdminRole))));
 
-    setLoading(false);
     return () => unsubs.forEach(unsub => unsub());
 
-  }, [currentUser, authLoading]);
+  }, [currentUser]);
   
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];

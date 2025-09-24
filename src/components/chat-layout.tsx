@@ -364,5 +364,3 @@ export default function ChatLayout({
     </>
   );
 }
-
-    
