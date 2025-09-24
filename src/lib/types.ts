@@ -1,5 +1,6 @@
 
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -55,6 +56,7 @@ export interface User {
     cycle?: Cycle;
     level?: string;
     fieldId?: string;
+    sectorId?: string; // Added for easy access
     enrollmentDate: string;
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user
@@ -113,7 +115,8 @@ export interface Course {
   name: string;
   description: string;
   teacherId: string; // teacher_uid
-  fieldId: string;
+  fieldId?: string; // Link to a specific field
+  sectorId?: string; // Link to a whole sector for "tronc commun"
   level: string;
   cycle: Cycle;
   credit: number;

@@ -132,6 +132,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
   const parentSelection = form.watch('parentSelection');
   const selectedLevel = form.watch('level');
+  const selectedFieldId = form.watch('fieldId');
 
   const groupedFields = useMemo(() => {
     return sectors.map(sector => ({
@@ -236,6 +237,9 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 
   const onSubmit = (data: StudentFormValues) => {
     const { photo, ...studentDataValues } = data;
+    
+    const field = fields.find(f => f.id === data.fieldId);
+    
     const studentData: Partial<User> = {
         firstName: data.firstName,
         lastName: data.lastName,
@@ -252,6 +256,7 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             cycle: data.cycle,
             level: data.level,
             fieldId: data.fieldId,
+            sectorId: field?.sectorId, // Add sectorId
             lastDiploma: data.lastDiploma,
             parentalLink: data.parentalLink,
             programId: student?.student?.programId || 'prog01', // Keep existing or default
@@ -504,6 +509,3 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
 });
 StudentFormDialog.displayName = 'StudentFormDialog';
 export default StudentFormDialog;
-
-
-    

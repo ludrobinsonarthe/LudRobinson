@@ -26,7 +26,7 @@ const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const timeSlots = Array.from({ length: 6 }, (_, i) => `${(8 + i * 2).toString().padStart(2, '0')}:00`); // 08:00, 10:00, ..., 18:00
 
 function ScheduleContent() {
-    const { user: currentUser, users, loading: userLoading, settings, fields } = useUser();
+    const { user: currentUser, users, loading: userLoading, settings, fields, sectors } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
     const { toast } = useToast();
@@ -38,15 +38,22 @@ function ScheduleContent() {
     // Filters state
     const [selectedFieldId, setSelectedFieldId] = useState('all');
     const [selectedLevel, setSelectedLevel] = useState('all');
+    const [selectedSectorId, setSelectedSectorId] = useState('all');
     
     useEffect(() => {
         let studentFieldId: string | null = null;
-        if(currentUser?.role === 'student' && currentUser.student?.fieldId) {
-            studentFieldId = currentUser.student.fieldId;
+        let studentSectorId: string | null = null;
+        if(currentUser?.role === 'student' && currentUser.student) {
+            studentFieldId = currentUser.student.fieldId || null;
+            const field = fields.find(f => f.id === studentFieldId);
+            if (field) {
+                studentSectorId = field.sectorId;
+                setSelectedSectorId(studentSectorId);
+            }
             setSelectedLevel(currentUser.student.level || 'all');
         }
         setSelectedFieldId(fieldIdFromParams || studentFieldId || 'all');
-    }, [fieldIdFromParams, currentUser]);
+    }, [fieldIdFromParams, currentUser, fields]);
 
     useEffect(() => {
         setLoading(true);
@@ -58,11 +65,28 @@ function ScheduleContent() {
     }, []);
 
     const filteredCourses = useMemo(() => {
-        return courses.filter(course => 
-            (selectedFieldId === 'all' || course.fieldId === selectedFieldId) &&
-            (selectedLevel === 'all' || course.level === selectedLevel)
-        );
-    }, [courses, selectedFieldId, selectedLevel]);
+        const student = currentUser?.student;
+        return courses.filter(course => {
+            // Student view logic
+            if (student) {
+                const isForStudentLevel = course.level === student.level;
+                if (!isForStudentLevel) return false;
+                // Check for common core courses in their sector
+                const isCommonCore = course.sectorId === student.sectorId;
+                // Check for field-specific courses
+                const isFieldSpecific = course.fieldId === student.fieldId;
+                return isCommonCore || isFieldSpecific;
+            }
+
+            // Admin view logic
+            const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
+            return (
+                (selectedSectorId === 'all' || courseSectorId === selectedSectorId) &&
+                (selectedLevel === 'all' || course.level === selectedLevel) &&
+                (selectedFieldId === 'all' || course.fieldId === selectedFieldId || (course.sectorId && course.sectorId === fields.find(f => f.id === selectedFieldId)?.sectorId))
+            );
+        });
+    }, [courses, selectedFieldId, selectedLevel, selectedSectorId, currentUser, fields]);
 
 
     const scheduleGrid = useMemo(() => {
@@ -173,7 +197,7 @@ function ScheduleContent() {
                          <div>
                             <CardTitle>Grille de la semaine</CardTitle>
                             <CardDescription>
-                               {isStudentView ? `Emploi du temps pour ${fieldsById[selectedFieldId]?.name || ''} - ${selectedLevel}` : "Vue hebdomadaire des cours planifiés."}
+                               {isStudentView ? `Emploi du temps pour ${currentUser.student?.level}` : "Vue hebdomadaire des cours planifiés."}
                             </CardDescription>
                          </div>
                         <div className="flex items-center gap-4 flex-wrap">
@@ -188,13 +212,22 @@ function ScheduleContent() {
                                         {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                <Select value={selectedFieldId} onValueChange={setSelectedFieldId}>
+                                <Select value={selectedSectorId} onValueChange={(v) => { setSelectedSectorId(v); setSelectedFieldId('all'); }}>
+                                    <SelectTrigger className="w-[240px]">
+                                        <SelectValue placeholder="Filtrer par secteur" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tous les secteurs</SelectItem>
+                                        {(sectors || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                 <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
                                     <SelectTrigger className="w-[240px]">
                                         <SelectValue placeholder="Filtrer par filière" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Toutes les filières</SelectItem>
-                                        {(fields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                                        {(fields.filter(f => f.sectorId === selectedSectorId) || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                 </>
@@ -283,5 +316,3 @@ export default function SchedulePage() {
         </Suspense>
     );
 }
-
-    

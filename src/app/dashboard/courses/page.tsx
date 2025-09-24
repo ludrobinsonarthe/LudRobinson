@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BookOpenCheck, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -51,8 +51,25 @@ export default function CoursesPage() {
 
         setLoading(true);
         let q;
-        if (userToView.role === 'student' && userToView.student?.fieldId) {
-            q = query(collection(db, "courses"), where("fieldId", "==", userToView.student.fieldId));
+        if (userToView.role === 'student' && userToView.student) {
+            const studentClauses = [];
+            if(userToView.student.fieldId) {
+                studentClauses.push(where("fieldId", "==", userToView.student.fieldId))
+            }
+            if(userToView.student.sectorId) {
+                 studentClauses.push(where("sectorId", "==", userToView.student.sectorId))
+            }
+            if (studentClauses.length === 0) {
+                 setLoading(false);
+                 setCourses([]);
+                 return;
+            }
+            
+            q = query(
+                collection(db, "courses"),
+                where("level", "==", userToView.student.level),
+                or(...studentClauses)
+            );
         } else if (userToView.role === 'teacher') {
             q = query(collection(db, "courses"), where("teacherId", "==", userToView.uid));
         } else {

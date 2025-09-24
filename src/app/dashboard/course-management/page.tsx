@@ -72,11 +72,18 @@ export default function CourseManagementPage() {
         return teacher ? `${teacher.lastName} ${teacher.firstName}` : 'Non assigné';
     }
 
-    const getFieldInfo = (fieldId: string) => {
-        const field = fieldsById[fieldId];
-        if (!field) return { fieldName: 'N/A', sectorName: 'N/A' };
-        const sector = sectorsById[field.sectorId];
-        return { fieldName: field.name, sectorName: sector?.name || 'N/A' };
+    const getFieldInfo = (course: Course) => {
+        if (course.fieldId) {
+            const field = fieldsById[course.fieldId];
+            if (!field) return { fieldName: 'N/A', sectorName: 'N/A' };
+            const sector = sectorsById[field.sectorId];
+            return { fieldName: field.name, sectorName: sector?.name || 'N/A' };
+        }
+        if (course.sectorId) {
+            const sector = sectorsById[course.sectorId];
+            return { fieldName: 'Tronc Commun', sectorName: sector?.name || 'N/A' };
+        }
+        return { fieldName: 'N/A', sectorName: 'N/A' };
     }
     
     const availableFields = useMemo(() => {
@@ -90,15 +97,14 @@ export default function CourseManagementPage() {
 
     const filteredCourses = useMemo(() => {
         return courses.filter(course => {
-            const courseField = course.fieldId ? fieldsById[course.fieldId] : null;
-            const courseSectorId = courseField?.sectorId;
+            const courseSectorId = course.sectorId || (course.fieldId ? fieldsById[course.fieldId]?.sectorId : undefined);
 
             return (
                 (nameFilter === "" || course.name.toLowerCase().includes(nameFilter.toLowerCase())) &&
                 (levelFilter === "all" || course.level === levelFilter) &&
                 (cycleFilter === "all" || course.cycle === cycleFilter) &&
                 (sectorFilter === "all" || courseSectorId === sectorFilter) &&
-                (fieldFilter === "all" || course.fieldId === fieldFilter)
+                (fieldFilter === "all" || course.fieldId === fieldFilter || (course.sectorId && fieldFilter === 'common_core'))
             );
         });
     }, [courses, nameFilter, levelFilter, sectorFilter, fieldFilter, cycleFilter, fieldsById]);
@@ -178,7 +184,7 @@ export default function CourseManagementPage() {
             const courseData = [
                 course.name,
                 course.level,
-                getFieldInfo(course.fieldId).fieldName,
+                getFieldInfo(course).fieldName,
                 getTeacherName(course.teacherId),
                 course.credit,
             ];
@@ -271,6 +277,7 @@ export default function CourseManagementPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Toutes les filières</SelectItem>
+                                <SelectItem value="common_core">Tronc Commun</SelectItem>
                                 {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -280,7 +287,7 @@ export default function CourseManagementPage() {
                             <TableRow>
                                 <TableHead>Nom du cours</TableHead>
                                 <TableHead>Professeur</TableHead>
-                                <TableHead>Filière</TableHead>
+                                <TableHead>Filière / Tronc Commun</TableHead>
                                 <TableHead>Crédit</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
@@ -297,7 +304,7 @@ export default function CourseManagementPage() {
                                     </TableRow>
                                 ))
                             ) : filteredCourses.length > 0 ? filteredCourses.map(course => {
-                                const { fieldName, sectorName } = getFieldInfo(course.fieldId);
+                                const { fieldName } = getFieldInfo(course);
                                 return (
                                 <TableRow key={course.id}>
                                     <TableCell className="font-medium">{course.name}</TableCell>
@@ -364,5 +371,3 @@ export default function CourseManagementPage() {
         </div>
     );
 }
-
-    

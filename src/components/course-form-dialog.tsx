@@ -44,7 +44,7 @@ const courseFormSchema = z.object({
   level: z.string().min(1, "Le niveau est requis."),
   cycle: z.enum(['local', 'international', 'entrepreneur']),
   sectorId: z.string().min(1, "Le secteur est requis."),
-  fieldId: z.string().min(1, "La filière est requise."),
+  fieldId: z.string().optional(), // Now optional
   credit: z.coerce.number().min(0, "Le crédit est requis."),
   documentFile: z.any().optional(),
   schedule: z.array(scheduleSchema).optional(),
@@ -82,7 +82,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         level: '',
         cycle: 'local',
         sectorId: '',
-        fieldId: '',
+        fieldId: 'common_core',
         credit: 0,
         schedule: []
     }
@@ -102,7 +102,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
 
   useEffect(() => {
     if (isOpen) {
-        const courseSectorId = fields.find(f => f.id === course?.fieldId)?.sectorId || '';
+        const courseSectorId = course?.sectorId || fields.find(f => f.id === course?.fieldId)?.sectorId || '';
         if (course) {
           form.reset({
             name: course.name,
@@ -111,7 +111,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             level: course.level,
             cycle: course.cycle,
             sectorId: courseSectorId,
-            fieldId: course.fieldId,
+            fieldId: course.fieldId ? course.fieldId : 'common_core',
             credit: course.credit,
             schedule: course.schedule || [],
           });
@@ -123,7 +123,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             level: '',
             cycle: 'local',
             sectorId: '',
-            fieldId: '',
+            fieldId: 'common_core',
             credit: 0,
             schedule: [],
           });
@@ -133,20 +133,38 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
   
    useEffect(() => {
     if(!form.getValues('fieldId')) return;
-    const currentField = fields.find(f => f.id === form.getValues('fieldId'));
+    const currentFieldId = form.getValues('fieldId');
+    if (currentFieldId === 'common_core') return;
+
+    const currentField = fields.find(f => f.id === currentFieldId);
     if(currentField && currentField.sectorId !== selectedSector) {
-        form.setValue('fieldId', '');
+        form.setValue('fieldId', 'common_core');
     }
    }, [selectedSector, form, fields]);
 
   const onSubmit = async (data: CourseFormValues) => {
     setIsSubmitting(true);
-    const { sectorId, documentFile, ...courseData} = data;
+    const { documentFile, ...courseData} = data;
+    
     const finalCourseData: Partial<Course> = {
-        ...courseData,
+        name: courseData.name,
+        description: courseData.description,
+        teacherId: courseData.teacherId,
+        level: courseData.level,
+        cycle: courseData.cycle,
+        credit: courseData.credit,
+        schedule: courseData.schedule,
         documents: course?.documents || [] 
     };
-    // Handle file upload here if needed
+
+    if (courseData.fieldId === 'common_core') {
+        finalCourseData.sectorId = courseData.sectorId;
+        finalCourseData.fieldId = undefined; // Ensure fieldId is not set for common core
+    } else {
+        finalCourseData.fieldId = courseData.fieldId;
+        finalCourseData.sectorId = undefined; // Ensure sectorId is not set for specific field
+    }
+
     await onSave(finalCourseData);
     setIsSubmitting(false);
     setIsOpen(false);
@@ -256,7 +274,10 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                         <FormItem><FormLabel>Filière</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
                             <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Filière..."} /></SelectTrigger></FormControl>
-                            <SelectContent>{availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>
+                                <SelectItem value="common_core">Tronc Commun (Toutes les filières)</SelectItem>
+                                {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                            </SelectContent>
                         </Select>
                         <FormMessage />
                         </FormItem>
@@ -317,5 +338,3 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     </Dialog>
   );
 }
-
-    
