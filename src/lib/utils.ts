@@ -8,21 +8,19 @@ export function cn(...inputs: ClassValue[]) {
 export async function imageToDataUrl(url: string | null | undefined): Promise<string | null> {
     if (!url) return null;
 
+    // If it's already a data URL, return it directly
     if (url.startsWith('data:')) return url;
 
-    // Use a proxy if available for CORS issues, otherwise, fetch directly.
-    // In a real production app, you might use a server-side proxy.
-    // For this demo, we'll fetch directly and rely on proper CORS configuration.
+    // Use a CORS proxy to bypass browser security restrictions on fetching cross-origin images.
+    // This is a common and necessary step for client-side PDF generation when images are hosted on different domains.
+    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
+
     try {
-        // Appending a cache-busting parameter can sometimes help with CORS-cached responses.
-        const fetchUrl = new URL(url);
-        fetchUrl.searchParams.append('t', new Date().getTime().toString());
-        
-        const response = await fetch(fetchUrl.href, { cache: 'no-store' });
+        const response = await fetch(proxyUrl);
         
         if (!response.ok) {
-            console.error(`Failed to fetch image from ${url}. Status: ${response.statusText}`);
-            return null; // Return null if fetch fails
+            console.error(`Failed to fetch image via proxy from ${url}. Status: ${response.statusText}`);
+            return null;
         }
         
         const blob = await response.blob();
@@ -35,8 +33,7 @@ export async function imageToDataUrl(url: string | null | undefined): Promise<st
         });
 
     } catch (error) {
-        console.error(`Error converting image to data URL for ${url}. This might be a CORS issue.`, error);
-        console.warn("To resolve CORS issues, ensure the storage bucket (e.g., Firebase Storage) is configured to allow cross-origin requests from this web app's domain.");
-        return null; // Return null on any error
+        console.error(`Error converting image to data URL for ${url} using proxy.`, error);
+        return null;
     }
 }
