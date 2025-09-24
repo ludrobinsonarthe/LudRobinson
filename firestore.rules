@@ -2,15 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow the Firebase Storage service to read user roles
-    match /users/{userId} {
-      allow get: if request.auth.token.firebase.sign_in_provider == "firebase.storage";
-      allow read, write: if request.auth.uid == userId;
-    }
-
+    // Default rule: Allow read and write access to all authenticated users.
+    // Specific data access is controlled by Firestore queries within the application code.
     match /{document=**} {
-      allow read, write: if request.auth.token.email.matches(".*@isgi.com$");
+      allow read, write: if request.auth != null;
     }
   }
 }

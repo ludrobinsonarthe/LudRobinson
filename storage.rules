@@ -2,36 +2,35 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-
-    function isUserAuthenticated() {
-      return request.auth != null;
+    // General access control for all files
+    match /{allPaths=**} {
+      // By default, deny all reads and writes
+      allow read, write: if false;
     }
 
-    function isUserAdmin() {
-      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    function isOwner(userId) {
-      return isUserAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Official documents can be read by their owner or any admin.
-    // Only admins can write them.
-    match /official_documents/{userId}/{allPaths=**} {
-      allow read: if isOwner(userId) || isUserAdmin();
-      allow write: if isUserAdmin();
-    }
-    
-    // Avatars can be read by anyone, but only written by the owner or an admin.
+    // Allow read/write access to user avatars
     match /avatars/{userId} {
-        allow read: if true;
-        allow write: if isOwner(userId) || isUserAdmin();
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Logos can be read by anyone, but only written by an admin.
+    // Allow read/write access to logos (only for admins)
     match /logos/{allPaths=**} {
-        allow read: if true;
-        allow write: if isUserAdmin();
+       allow read; // All users can read the logo
+       allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for official documents
+    match /official_documents/{studentId}/{document=**} {
+      // Allow read access if the user is the student owner of the document
+      // OR if the user has an 'admin' role in Firestore.
+      allow read: if request.auth != null && (
+        (request.auth.uid == studentId) ||
+        (get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+
+      // Allow write access (create, update, delete) only for admin users.
+      allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }
