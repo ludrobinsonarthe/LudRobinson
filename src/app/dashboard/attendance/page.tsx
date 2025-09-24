@@ -76,36 +76,35 @@ function CourseAttendanceContent() {
     const filteredCourses = useMemo(() => {
         let filtered = courses;
 
-        // Teacher filter has priority
         if (selectedTeacherId !== 'all') {
             return filtered.filter(course => course.teacherId === selectedTeacherId);
         }
 
-        // If no teacher is selected, apply other filters
         if (selectedLevel !== 'all') {
-            filtered = filtered.filter(course => course.level === selectedLevel);
+            filtered = filtered.filter(c => c.level === selectedLevel);
         }
+        
         if (selectedSectorId !== 'all') {
-            if (selectedFieldId === 'all') {
-                // All fields in a sector
-                 filtered = filtered.filter(course => {
-                    if (course.fieldId) {
-                        const field = fields.find(f => f.id === course.fieldId);
-                        return field?.sectorId === selectedSectorId;
-                    }
-                    return course.sectorId === selectedSectorId; // For common core courses
-                });
-            } else if (selectedFieldId === 'common_core') {
-                 // Only common core courses in a sector
-                filtered = filtered.filter(course => course.sectorId === selectedSectorId && !course.fieldId);
+             if (selectedFieldId !== 'all' && selectedFieldId !== 'common_core') {
+                // Specific field selected
+                filtered = filtered.filter(c => c.fieldId === selectedFieldId);
             } else {
-                 // A specific field in a sector
-                filtered = filtered.filter(course => course.fieldId === selectedFieldId);
+                 // Sector selected, but not a specific field (or "all fields" in that sector)
+                 const fieldsInSector = fields.filter(f => f.sectorId === selectedSectorId).map(f => f.id);
+                 filtered = filtered.filter(c => 
+                    (c.sectorId === selectedSectorId && !c.fieldId) || // Common core for the sector
+                    (c.fieldId && fieldsInSector.includes(c.fieldId)) // Course in one of the sector's fields
+                 );
+                 
+                 if(selectedFieldId === 'common_core') {
+                     filtered = filtered.filter(c => !c.fieldId);
+                 }
             }
         }
-
+        
         return filtered;
     }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fields]);
+
 
     const scheduleByDay = useMemo(() => {
         const schedule: { [key: string]: any[] } = {};
@@ -442,3 +441,5 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
+
+    

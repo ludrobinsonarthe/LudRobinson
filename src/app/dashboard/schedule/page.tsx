@@ -80,26 +80,36 @@ function ScheduleContent() {
     }, [selectedSectorId]);
 
     const filteredCourses = useMemo(() => {
-        return courses.filter(course => {
-            // Teacher filter takes priority
-            if (selectedTeacherId !== 'all') {
-                return course.teacherId === selectedTeacherId;
+        let filtered = courses;
+
+        if (selectedTeacherId !== 'all') {
+            return filtered.filter(course => course.teacherId === selectedTeacherId);
+        }
+
+        if (selectedLevel !== 'all') {
+            filtered = filtered.filter(c => c.level === selectedLevel);
+        }
+        
+        if (selectedSectorId !== 'all') {
+             if (selectedFieldId !== 'all' && selectedFieldId !== 'common_core') {
+                // Specific field selected
+                filtered = filtered.filter(c => c.fieldId === selectedFieldId);
+            } else {
+                 // Sector selected, but not a specific field (or "all fields" in that sector)
+                 const fieldsInSector = fields.filter(f => f.sectorId === selectedSectorId).map(f => f.id);
+                 filtered = filtered.filter(c => 
+                    (c.sectorId === selectedSectorId && !c.fieldId) || // Common core for the sector
+                    (c.fieldId && fieldsInSector.includes(c.fieldId)) // Course in one of the sector's fields
+                 );
+                 
+                 if(selectedFieldId === 'common_core') {
+                     filtered = filtered.filter(c => !c.fieldId);
+                 }
             }
-
-            // Level filter
-            const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
-            if (!levelMatch) return false;
-
-            // Sector and Field filter
-            const courseSectorId = course.fieldId ? fields.find(f => f.id === course.fieldId)?.sectorId : course.sectorId;
-            const sectorMatch = selectedSectorId === 'all' || courseSectorId === selectedSectorId;
-            const fieldMatch = selectedFieldId === 'all' || course.fieldId === selectedFieldId;
-            
-            // If a specific field is selected, it must match.
-            // If 'all' fields are selected within a sector, we must match courses for that sector.
-            return fieldMatch && sectorMatch;
-        });
-    }, [courses, selectedFieldId, selectedLevel, selectedTeacherId, selectedSectorId, fields]);
+        }
+        
+        return filtered;
+    }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fields]);
 
 
     const scheduleGrid = useMemo(() => {
@@ -354,3 +364,5 @@ export default function SchedulePage() {
         </Suspense>
     );
 }
+
+    

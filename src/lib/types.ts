@@ -3,6 +3,7 @@
 
 
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -58,7 +59,6 @@ export interface User {
     cycle?: Cycle;
     level?: string;
     fieldId?: string;
-    sectorId?: string; // Added for easy access
     enrollmentDate: string;
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user
@@ -268,3 +268,5 @@ export interface UnifiedSalary {
   // Admin specific
   baseSalary?: number;
 }
+
+    
