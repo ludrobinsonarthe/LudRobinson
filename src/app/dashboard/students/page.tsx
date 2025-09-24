@@ -222,8 +222,8 @@ export default function StudentsPage() {
 
             batch.set(studentRef, finalStudentData);
 
-            // If it's a new student, create the registration fee payment
             if (isNewStudent && finalStudentData.student) {
+                // Create the registration fee payment
                 const feeStructure = feeStructures.find(fs => fs.level === finalStudentData.student?.level && fs.cycle === finalStudentData.student?.cycle);
                 if (feeStructure && feeStructure.registration > 0) {
                     const registrationPaymentRef = doc(collection(db, "payments"));
@@ -256,10 +256,26 @@ export default function StudentsPage() {
                         relatedDocId: payment.id,
                     });
                 }
+                 // Automatically generate school certificate
+                const certificateBlob = await createCertificatePdf(finalStudentData);
+                const certificateFileName = `certificat_${finalStudentData.lastName}_${finalStudentData.firstName}_${Date.now()}.pdf`;
+                const certificateFileRef = ref(storage, `official_documents/${studentUid}/${certificateFileName}`);
+                const certificateSnapshot = await uploadBytes(certificateFileRef, certificateBlob);
+                const certificateFileUrl = await getDownloadURL(certificateSnapshot.ref);
+
+                const newDocRef = doc(collection(db, 'officialDocuments'));
+                const newCertificateDoc: Omit<OfficialDocument, 'id'> = {
+                    studentId: studentUid,
+                    type: 'certificat',
+                    fileUrl: certificateFileUrl,
+                    issuedBy: adminUser?.uid || 'system-admin',
+                    issuedAt: new Date().toISOString(),
+                };
+                batch.set(newDocRef, newCertificateDoc);
             }
 
             await batch.commit();
-            toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté", description: isNewStudent ? "Les frais d'inscription ont été automatiquement enregistrés." : "" });
+            toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté", description: isNewStudent ? "Les frais d'inscription et le certificat de scolarité ont été automatiquement générés." : "" });
             
         } catch (error) {
             console.error("Error saving student:", error);
