@@ -190,5 +190,3 @@ export default function AttendanceDialog({ isOpen, setIsOpen, onSave, course, da
     </Dialog>
   );
 }
-
-    
