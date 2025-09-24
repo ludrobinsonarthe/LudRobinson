@@ -114,14 +114,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => d.data() as Course))));
         unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => d.data() as Grade))));
     } else {
-        // Other roles only get what they need
-        const neededUserIds: string[] = [currentUser.uid];
-        if(currentUser.role === 'parent' && currentUser.parent?.childrenUids) {
-            neededUserIds.push(...currentUser.parent.childrenUids);
-        }
-        
-        unsubs.push(onSnapshot(query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin'])), teacherAdminSnap => {
-                 setAllUsers(teacherAdminSnap.docs.map(d => d.data() as User));
+        // Other roles only get what they need.
+        // They can read their own profile (already fetched), plus all teachers and admins for display purposes.
+        const usersQuery = query(collection(db, 'users'), where('role', 'in', ['teacher', 'admin']));
+        unsubs.push(onSnapshot(usersQuery, (usersSnap) => {
+            const staffUsers = usersSnap.docs.map(d => d.data() as User);
+            // Also add the current user and their potential children to the list
+             if (currentUser.role === 'parent' && currentUser.parent?.childrenUids?.length) {
+                const childrenQuery = query(collection(db, 'users'), where('uid', 'in', currentUser.parent.childrenUids));
+                getDocs(childrenQuery).then(childrenDocs => {
+                    const childrenData = childrenDocs.docs.map(d => d.data() as User);
+                    setAllUsers([currentUser, ...staffUsers, ...childrenData]);
+                });
+            } else {
+                setAllUsers([currentUser, ...staffUsers]);
+            }
         }));
 
         if (currentUser.role === 'student' && currentUser.student) {
@@ -228,4 +235,3 @@ export function useUser() {
   }
   return context;
 }
-
