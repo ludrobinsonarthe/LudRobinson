@@ -79,36 +79,31 @@ function CourseAttendanceContent() {
         return courses.filter(course => {
             const isTeacherMatch = selectedTeacherId === 'all' || course.teacherId === selectedTeacherId;
             const isLevelMatch = selectedLevel === 'all' || course.level === selectedLevel;
-    
+
             if (!isTeacherMatch || !isLevelMatch) {
                 return false;
             }
-    
-            // If a teacher is selected, other filters are secondary for their schedule view
-            if (selectedTeacherId !== 'all') {
-                return true;
-            }
-    
-            // Logic for when "Tous les professeurs" is selected
+
             if (selectedSectorId === 'all') {
-                return true; // No sector filter, show all matching levels
+                return true; // No sector/field filter, just teacher and level
             }
-    
+
             const courseField = fields.find(f => f.id === course.fieldId);
             const courseSectorId = course.sectorId || courseField?.sectorId;
-    
+
             if (courseSectorId !== selectedSectorId) {
                 return false;
             }
-    
-            // At this point, we know the course belongs to the selected sector
+
             if (selectedFieldId === 'all') {
-                return true; // Show all fields in sector
+                return true; // All fields within the selected sector
             }
+            
             if (selectedFieldId === 'common_core') {
-                return !course.fieldId; // Show only common core courses for the sector
+                 return !course.fieldId; // Only common core courses for the sector
             }
-            return course.fieldId === selectedFieldId; // Show specific field
+
+            return course.fieldId === selectedFieldId; // Specific field
         });
     }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fields]);
 
@@ -285,21 +280,21 @@ function CourseAttendanceContent() {
                                     {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Select value={selectedLevel} onValueChange={setSelectedLevel} disabled={selectedTeacherId !== 'all'}>
+                            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
                                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Niveau..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous les Niveaux</SelectItem>
                                     {settings?.levels?.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Select value={selectedSectorId} onValueChange={setSelectedSectorId} disabled={selectedTeacherId !== 'all'}>
+                            <Select value={selectedSectorId} onValueChange={setSelectedSectorId}>
                                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Secteur..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous les Secteurs</SelectItem>
                                     {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedTeacherId !== 'all' || selectedSectorId === 'all'}>
+                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
                                 <SelectTrigger className="w-[240px]"><SelectValue placeholder="Filière..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Toutes les filières</SelectItem>
@@ -448,5 +443,7 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
+
+    
 
     
