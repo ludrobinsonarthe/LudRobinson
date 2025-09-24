@@ -2,170 +2,107 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // =============================================================
+    
+    // =====================================================================
     // Helper Functions
-    // =============================================================
+    // =====================================================================
     function isAuth() {
       return request.auth != null;
     }
 
-    function isRole(role) {
-      return isAuth() && request.auth.token.role == role;
+    function isUser(uid) {
+      return isAuth() && request.auth.uid == uid;
     }
     
     function isAdmin() {
-      // Super Admins have the 'super_admin' roleId in their claims.
-      // Other admins have specific permissions checked via hasPermission().
-      return isRole('admin');
+      return isAuth() && request.auth.token.role == 'admin';
     }
 
     function isTeacher() {
-      return isRole('teacher');
+        return isAuth() && request.auth.token.role == 'teacher';
     }
 
-    function isStudent() {
-      return isRole('student');
-    }
-
-    function isParent() {
-      return isRole('parent');
-    }
-    
-    function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
-    }
-
-    // This function relies on a backend function (e.g., Firebase Function)
-    // to write the user's role and roleId into their auth token as custom claims.
-    // This avoids costly 'get()' calls in security rules.
     function hasPermission(permission) {
-        // A super_admin has all permissions.
-        if (request.auth.token.roleId == 'super_admin') {
-            return true;
-        }
-        // Check if the permission exists in the role's permission list,
-        // which should be stored in the custom claims.
-        return request.auth.token.permissions != null && permission in request.auth.token.permissions;
+      return isAdmin() && request.auth.token.permissions.hasAny(permission);
     }
-
-    // Secure function to check if the authenticated user is the parent of a given student.
+    
     function isParentOf(studentId) {
-        let parentData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-        // Defensive check to ensure the parent object and childrenUids array exist.
-        return isAuth() && parentData.role == 'parent' && 
-               parentData.parent != null &&
-               studentId in parentData.parent.childrenUids;
+        let parentData = request.auth.token;
+        return isAuth() && parentData.role == 'parent' &&
+           parentData.parent != null &&
+           studentId in parentData.parent.childrenUids;
     }
 
-    // =============================================================
-    // Collection Rules
-    // =============================================================
+    // =====================================================================
+    // Collections Rules
+    // =====================================================================
 
-    // --- Users, Settings, Roles ---
+    // Settings, Sectors, Fields: Publicly readable by any authenticated user
+    match /{collectionName}/{docId} where collectionName in ['settings', 'sectors', 'fields', 'courses', 'adminRoles'] {
+      allow read: if isAuth();
+      allow write: if hasPermission('manage_admin_settings');
+    }
+
+    // Users: Granular access control
     match /users/{userId} {
-      // Admins can manage all users.
-      // Users can read/update their own profile.
-      allow read, update: if isOwner(userId) || isAdmin();
-      allow create, delete: if isAdmin();
-    }
-
-    match /adminRoles/{roleId} {
-      // Only admins with 'manage_roles' permission can manage roles.
-      allow read: if isAdmin();
-      allow write: if isAdmin() && hasPermission('manage_roles');
-    }
-
-    match /settings/system {
-      // Everyone can read system settings. Only admins can change them.
-      allow read: if isAuth();
-      allow write: if isAdmin() && hasPermission('manage_admin_settings');
-    }
-
-    // --- Academic Structure ---
-    match /sectors/{sectorId} {
-      allow read: if isAuth();
-      allow write: if isAdmin() && hasPermission('manage_admin_settings');
-    }
-     match /fields/{fieldId} {
-      allow read: if isAuth();
-      allow write: if isAdmin() && hasPermission('manage_admin_settings');
-    }
-
-    // --- Pedagogy ---
-    match /courses/{courseId} {
-      // Everyone can read the course list.
-      allow read: if isAuth();
-      // Only admins with 'manage_course' can modify courses.
-      allow write: if isAdmin() && hasPermission('manage_course');
+      allow read: if isUser(userId) || hasPermission('manage_users');
+      allow create: if hasPermission('manage_users');
+      allow update: if isUser(userId) || hasPermission('manage_users');
+      allow delete: if hasPermission('manage_users');
     }
     
-    match /grades/{gradeId} {
-      // Admins can manage all grades.
-      // Teachers can manage grades for their own courses.
-      // Students can read their own grades.
-      // Parents can read their children's grades.
-      allow read: if isAdmin() || isOwner(resource.data.studentId) || isParentOf(resource.data.studentId);
-      allow create, update, delete: if isAdmin() || (isTeacher() && get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.teacherId == request.auth.uid);
-    }
-    
-    match /attendances/{attendanceId} {
-        // Only admins can manage attendances. Teachers need read access to see past records.
-        allow read, write: if isAdmin() && hasPermission('manage_attendance');
-    }
-    
-    match /officialDocuments/{docId} {
-        // Students can read their own documents. Parents their children's. Admins can manage all.
-        allow read: if isOwner(resource.data.studentId) || isParentOf(resource.data.studentId) || (isAdmin() && hasPermission('manage_students'));
-        allow write: if isAdmin() && hasPermission('manage_students');
-    }
-
-    // --- Finances ---
-    match /payments/{paymentId} {
-        // Students can read their own payments. Parents their children's. Admins can manage all.
-        allow read: if isOwner(resource.data.studentId) || isParentOf(resource.data.studentId) || (isAdmin() && hasPermission('manage_tuition'));
-        allow write: if isAdmin() && hasPermission('manage_tuition');
-    }
-    
-    match /teacherSalaries/{salaryId} {
-        // Teachers can read their own salary slips. Admins manage all.
-        allow read: if (isTeacher() && isOwner(resource.data.teacherId)) || (isAdmin() && hasPermission('manage_salaries'));
-        allow write: if isAdmin() && hasPermission('manage_salaries');
-    }
-
-    match /cashTransactions/{transactionId} {
-        // Only admins with cash flow permission can manage cash transactions.
-        allow read, write: if isAdmin() && hasPermission('manage_cash_flow');
-    }
-    
-    match /feeStructures/{structureId} {
-        // Only admins with fee management permission can manage fee structures.
-        allow read, write: if isAdmin() && hasPermission('manage_fees');
-    }
-    
-    // --- Communication ---
-    match /private_messages/{messageId} {
-      // A user can read a message if they are the sender or receiver.
-      // A user can only create a message where they are the sender.
-      allow read: if isAuth() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-      allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
-      // Only sender or receiver can update/delete (e.g. 'delete for me' functionality - not implemented yet).
-      allow update, delete: if isAuth() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-    }
-    
+    // Announcements: Read for specific roles, write only for admin
     match /announcements/{announcementId} {
-        // Any authenticated user can read announcements.
         allow read: if isAuth();
-        // Only admins can create/edit/delete announcements.
-        allow write: if isAdmin();
+        allow write: if hasPermission('manage_admin_settings'); // Or a more specific permission
+    }
+
+    // Private Messages: Only between sender and receiver
+    match /private_messages/{messageId} {
+        allow read, update, delete: if isAuth() && (request.resource.data.senderId == request.auth.uid || request.resource.data.receiverId == request.auth.uid);
+        allow create: if isAuth() && request.resource.data.senderId == request.auth.uid;
+    }
+
+    // Grades: Read for student/parent/admin/teacher, write for teacher/admin
+    match /grades/{gradeId} {
+        allow read: if isUser(resource.data.studentId) || isParentOf(resource.data.studentId) || hasPermission('manage_grades');
+        allow create, update, delete: if hasPermission('manage_grades') || (isTeacher() && request.auth.uid == get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.teacherId);
     }
     
+    // Payments: Read for student/parent, full access for finance admin
+    match /payments/{paymentId} {
+      allow read: if isUser(resource.data.studentId) || isParentOf(resource.data.studentId) || hasPermission('manage_tuition');
+      allow write: if hasPermission('manage_tuition');
+    }
+
+    // Official Documents: Read for student/parent, full access for admin
+    match /officialDocuments/{docId} {
+        allow read: if isUser(resource.data.studentId) || isParentOf(resource.data.studentId) || hasPermission('manage_students');
+        allow write: if hasPermission('manage_students');
+    }
+    
+    // Teacher Salaries & Attendances: Only for admins with salary/attendance permissions
+    match /{collectionName}/{docId} where collectionName in ['teacherSalaries', 'attendances'] {
+        allow read, write: if hasPermission('manage_salaries') || hasPermission('manage_attendance');
+    }
+    
+    // Cash Transactions: Only for admins with cash flow permissions
+    match /cashTransactions/{transactionId} {
+        allow read, write: if hasPermission('manage_cash_flow');
+    }
+    
+    // Fee Structures: Read for any admin, write only for fee managers
+    match /feeStructures/{feeId} {
+        allow read: if isAdmin();
+        allow write: if hasPermission('manage_fees');
+    }
+    
+    // QR Sessions: Tightly controlled session validation
     match /qr_sessions/{sessionId} {
-      // Anyone can create a session request.
-      allow create: if true;
-      // The logged-in user can validate it. The requesting user can read it.
-      allow read, update: if isAuth() || request.resource.data.status == 'pending';
-      allow delete: if true; // allow cleanup
+      allow create: if request.resource.data.keys().hasOnly(['status', 'createdAt']) && request.resource.data.status == 'pending';
+      allow read: if true;
+      allow update: if (isAuth() && request.resource.data.status == 'validated') || (isAuth() && isUser(request.resource.data.userId) && request.resource.data.status == 'completed');
+      allow delete: if isAdmin();
     }
   }
 }
