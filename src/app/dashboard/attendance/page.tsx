@@ -147,7 +147,7 @@ function CourseAttendanceContent() {
             toast({ title: 'Présences enregistrées', description: 'La fiche de présence a été mise à jour.' });
         } catch (error) {
             console.error("Error saving attendance: ", error);
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible d\'enregistrer la fiche de présence.' });
+            toast({ variant: "destructive", title: 'Erreur', description: 'Impossible d\'enregistrer la fiche de présence.' });
         } finally {
             setIsDialogOpen(false);
         }
@@ -390,7 +390,7 @@ function CourseAttendanceContent() {
 }
 
 function StaffAttendanceContent() {
-    const { user: currentUser, users, loading: usersLoading } = useUser();
+    const { user: currentUser, users, loading: usersLoading, settings } = useUser();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
     const { toast } = useToast();
@@ -451,6 +451,56 @@ function StaffAttendanceContent() {
         }
     };
     
+    const handleExportPDF = async () => {
+        if (!settings || usersLoading) {
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Données non prêtes pour l\'exportation.' });
+            return;
+        }
+
+        const doc = new jsPDF();
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if (logoDataUrl) {
+                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+            }
+        } catch (error) {
+            console.error("Error adding logo to PDF", error);
+        }
+
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Rapport de Présence du Personnel`, 40, 25);
+        doc.setFontSize(12);
+        doc.text(`Date: ${format(selectedDate, 'd MMMM yyyy', { locale: fr })}`, 14, 35);
+        
+        const statusTranslation: Record<StaffMemberAttendance['status'], string> = {
+            present: 'Présent(e)',
+            absent: 'Absent(e)',
+            leave: 'En Congé'
+        };
+
+        const tableColumn = ["Personnel", "Statut"];
+        const tableRows = adminStaff.map(staff => [
+            `${staff.lastName} ${staff.firstName}`,
+            statusTranslation[getStatusForStaff(staff.uid)]
+        ]);
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 45,
+            theme: 'striped',
+        });
+
+        doc.save(`presence_personnel_${formattedDate}.pdf`);
+        toast({ title: "Exportation réussie", description: "Le rapport de présence du personnel a été téléchargé." });
+    };
+
     const statusOptions: { value: StaffMemberAttendance['status']; label: string; icon: React.ElementType, className: string, hoverClassName: string }[] = [
         { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-600 text-white', hoverClassName: 'hover:bg-green-700' },
         { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 text-white', hoverClassName: 'hover:bg-red-600' },
@@ -461,34 +511,40 @@ function StaffAttendanceContent() {
     return (
         <Card>
             <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center flex-wrap gap-4">
                     <div>
                         <CardTitle>Suivi du Personnel Administratif</CardTitle>
                         <CardDescription>Enregistrez la présence journalière de l'équipe administrative.</CardDescription>
                     </div>
-                     <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            variant={"outline"}
-                            className={cn(
-                            "w-[280px] justify-start text-left font-normal",
-                            !selectedDate && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy', { locale: fr }) : <span>Choisir une date</span>}
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" onClick={handleExportPDF}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Exporter en PDF
                         </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={(day) => setSelectedDate(day || new Date())}
-                            initialFocus
-                            locale={fr}
-                        />
-                        </PopoverContent>
-                    </Popover>
+                         <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-[280px] justify-start text-left font-normal",
+                                !selectedDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy', { locale: fr }) : <span>Choisir une date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={(day) => setSelectedDate(day || new Date())}
+                                initialFocus
+                                locale={fr}
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
