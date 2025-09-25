@@ -126,7 +126,7 @@ function StudentAttendanceContent() {
                 const batch = writeBatch(db);
                 const newAttendance: Attendance = {
                     id: attendanceId, date: dateStr, courseId: course.id, teacherId: course.teacherId,
-                    teacherStatus: 'pending', studentAttendances: [{ studentId: selectedStudent.uid, status: newStatus }],
+                    teacherStatus: 'present', studentAttendances: [{ studentId: selectedStudent.uid, status: newStatus }],
                     validatedBy: 'system', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
                 };
                 batch.set(attendanceRef, newAttendance);
@@ -384,27 +384,25 @@ function StudentAttendanceContent() {
 }
 
 function TeacherAttendanceContent() {
-    const { user: currentUser, users, loading: usersLoading, settings, courses } = useUser();
-    const [attendances, setAttendances] = useState<Attendance[]>([]);
+    const { user: currentUser, users, loading: usersLoading, settings, courses, attendances } = useUser();
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [isReportOpen, setIsReportOpen] = useState(false);
     const { toast } = useToast();
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const teachers = useMemo(() => users.filter(u => u.role === 'teacher').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')), [users]);
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
-    
+    const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
+
     useEffect(() => {
         setLoadingData(true);
-        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
-            setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance));
-            setLoadingData(false);
-        });
-        return () => unsubAttendances();
+        // Data is already being loaded by the parent or hook, just handle local loading state
+        const timer = setTimeout(() => setLoadingData(false), 300);
+        return () => clearTimeout(timer);
     }, []);
 
     const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
-    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'pending' | 'nocourse', course?: Course }[] => {
+    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse', course?: Course }[] => {
         const dateStr = format(day, 'yyyy-MM-dd');
         const teacherCoursesOnDay = courses.filter(c => c.teacherId === teacherId && c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
         
@@ -412,10 +410,7 @@ function TeacherAttendanceContent() {
 
         return teacherCoursesOnDay.map(course => {
             const attendance = attendances.find(a => a.date === dateStr && a.courseId === course.id);
-            if (attendance) {
-                return { status: attendance.teacherStatus, course: course };
-            }
-            return { status: 'pending', course: course };
+            return { status: attendance?.teacherStatus || 'absent', course: course };
         });
     };
 
@@ -455,181 +450,203 @@ function TeacherAttendanceContent() {
         }
     };
 
-    const weeklyTeacherReportData = useMemo(() => {
-        const report: { teacher: User, present: number, absent: number, pending: number }[] = [];
-        teachers.forEach(teacher => {
-            let present = 0, absent = 0, pending = 0;
-            weekDays.forEach(day => {
-                getAttendanceStatusForTeacher(teacher.uid, day).forEach(statusInfo => {
-                    if (statusInfo.status === 'present') present++;
-                    else if (statusInfo.status === 'absent') absent++;
-                    else if (statusInfo.status === 'pending') pending++;
-                });
-            });
-            report.push({ teacher, present, absent, pending });
-        });
-        return report;
-    }, [teachers, weekDays, attendances, courses]);
-    
-    const handleExportPDF = async () => {
-        if (!settings) {
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de générer le PDF : paramètres manquants.' });
-            return;
-        }
+    const teacherSchedule = useMemo(() => {
+        if (!selectedTeacher) return null;
+        return courses.filter(c => c.teacherId === selectedTeacher.uid);
+    }, [selectedTeacher, courses]);
 
-        const doc = new jsPDF({ orientation: 'landscape' });
+    const scheduleGrid = useMemo(() => {
+        const grid: { [key: string]: { [key: string]: Course | null } } = {};
+        daysOfWeek.forEach(day => {
+            grid[day] = {};
+            timeSlots.forEach(slot => grid[day][slot] = null);
+        });
+
+        teacherSchedule?.forEach(course => {
+            course.schedule?.forEach(slot => {
+                const startTimeHour = parseInt(slot.start.split(':')[0]);
+                const timeSlotKey = `${startTimeHour.toString().padStart(2, '0')}:00`;
+                if (grid[slot.day] && grid[slot.day][timeSlotKey] === null) {
+                    grid[slot.day][timeSlotKey] = course;
+                }
+            });
+        });
+        return grid;
+    }, [teacherSchedule]);
+
+    const getTeacherAttendanceForSlot = (course: Course, day: Date): 'present' | 'absent' => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const attendance = attendances.find(a => a.date === dateStr && a.courseId === course.id);
+        return attendance?.teacherStatus || 'absent';
+    };
+
+    const handleExportPDF = async () => {
+        if (!selectedTeacher || !settings) return;
+
+        const doc = new jsPDF();
+        const teacherName = `${selectedTeacher.lastName} ${selectedTeacher.firstName}`;
+        const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
+        const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
         
         try {
             const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) doc.addImage(logoDataUrl, logoDataUrl.split(';')[0].split('/')[1].toUpperCase(), 14, 10, 20, 20);
-        } catch (error) { console.error("Error adding logo to PDF", error); }
+            if(logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 14, 10, 20, 20);
+        } catch (error) { console.error("Could not add logo to PDF, proceeding without it.", error); }
 
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Rapport de Présence des Professeurs', 40, 25);
-        doc.setFontSize(10);
-        doc.text(`Semaine du ${format(currentWeek, 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 14, 30, { align: 'right' });
+        doc.setFontSize(18); doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14); doc.text(`Rapport de Présence - ${teacherName}`, 40, 25);
+        doc.setFontSize(12);
+        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 14, 40);
 
-        const statusText: Record<'present'|'absent'|'pending'|'nocourse', string> = { present: 'Présent', absent: 'Absent', pending: 'En attente', nocourse: '-' };
-        const tableColumn = ['Professeur', ...weekDays.map(day => format(day, 'eeee d', { locale: fr }))];
-        const tableRows = teachers.map(teacher => {
-            const row = [`${teacher.lastName} ${teacher.firstName}`];
-            weekDays.forEach(day => {
-                const statuses = getAttendanceStatusForTeacher(teacher.uid, day);
-                const cellText = statuses.map(s => {
-                     if (s.status === 'nocourse' || !s.course) return '-';
-                     return `${statusText[s.status]} (${s.course.name.substring(0, 10)}...)`;
-                }).join('\n');
-                row.push(cellText);
+        const statusText = { present: 'Présent(e)', absent: 'Absent(e)' };
+        const tableColumn = ["Date", "Cours", "Statut"];
+        const tableRows: string[][] = [];
+
+        weekDays.forEach(day => {
+            const coursesOnDay = teacherSchedule?.filter(c => c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
+            coursesOnDay?.forEach(course => {
+                const status = getTeacherAttendanceForSlot(course, day);
+                tableRows.push([format(day, 'eeee d MMMM', { locale: fr }), course.name, statusText[status]]);
             });
-            return row;
         });
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-            theme: 'grid',
-            styles: { fontSize: 8 }
-        });
-
-        doc.save(`rapport_presence_professeurs_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Exportation PDF', description: 'Le rapport des présences a été téléchargé.' });
+        
+        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 50 });
+        doc.save(`rapport_presence_${selectedTeacher.lastName}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
+        toast({ title: 'Exportation PDF réussie' });
+        setIsReportOpen(false);
     };
+
+    if (selectedTeacher) {
+        return (
+             <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                         <div className="flex items-center gap-4">
+                            <Button variant="outline" size="icon" onClick={() => setSelectedTeacher(null)}><ArrowLeft className="h-4 w-4"/></Button>
+                            <div>
+                                <CardTitle>Présence de {selectedTeacher.lastName} {selectedTeacher.firstName}</CardTitle>
+                                <CardDescription>Emploi du temps interactif de la semaine.</CardDescription>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+                                <DialogTrigger asChild><Button variant="outline"><Eye className="mr-2 h-4 w-4"/> Aperçu du Rapport</Button></DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle>Rapport de présence de {selectedTeacher.lastName}</DialogTitle>
+                                        <DialogDescription>Semaine du {format(currentWeek, 'd MMMM yyyy', { locale: fr })}</DialogDescription>
+                                    </DialogHeader>
+                                     <Table>
+                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Cours</TableHead><TableHead>Statut</TableHead></TableRow></TableHeader>
+                                        <TableBody>
+                                             {weekDays.flatMap(day => 
+                                                (teacherSchedule || [])
+                                                    .filter(c => c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })))
+                                                    .map(course => {
+                                                        const status = getTeacherAttendanceForSlot(course, day);
+                                                        return (
+                                                            <TableRow key={`${day.toISOString()}-${course.id}`}>
+                                                                <TableCell>{format(day, 'eeee dd/MM', { locale: fr })}</TableCell>
+                                                                <TableCell>{course.name}</TableCell>
+                                                                <TableCell><Badge variant={status === 'present' ? 'default' : 'destructive'} className={cn(status === 'present' && 'bg-green-600')}>{status}</Badge></TableCell>
+                                                            </TableRow>
+                                                        )
+                                                    })
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsReportOpen(false)}>Fermer</Button>
+                                        <Button onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Télécharger en PDF</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                             </Dialog>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}><ArrowLeft className="h-4 w-4" /></Button>
+                                <span>{format(currentWeek, 'd MMM', { locale: fr })}</span>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, 7))}><ArrowRight className="h-4 w-4" /></Button>
+                            </div>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                     <div className="border rounded-lg overflow-hidden">
+                        <Table className="min-w-full border-collapse">
+                             <TableHeader><TableRow>
+                                <TableHead className="w-[100px] border-r">Heure</TableHead>
+                                {weekDays.map(day => <TableHead key={day.toISOString()} className="border-r text-center">{format(day, 'EEEE dd/MM', { locale: fr })}</TableHead>)}
+                            </TableRow></TableHeader>
+                            <TableBody>
+                                {timeSlots.map(slot => (
+                                    <TableRow key={slot} className="h-28">
+                                        <TableCell className="font-medium align-top pt-3 border-r">{slot}</TableCell>
+                                        {weekDays.map(day => {
+                                            const course = scheduleGrid[format(day, 'EEEE', { locale: fr })]?.[slot];
+                                            if (!course) return <TableCell key={day.toISOString()} className="p-1 align-top border-r"></TableCell>;
+                                            
+                                            const status = getTeacherAttendanceForSlot(course, day);
+                                            const statusInfo = {
+                                                present: { label: 'Présent', className: 'bg-green-100 text-green-800' },
+                                                absent: { label: 'Absent', className: 'bg-red-100 text-red-800' }
+                                            }[status];
+                                            
+                                            return (
+                                            <TableCell key={day.toISOString()} className="p-1 align-top border-r">
+                                                 <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs cursor-pointer", statusInfo.className)}>
+                                                            <p className="font-bold truncate">{course.name}</p>
+                                                            <p>{statusInfo.label}</p>
+                                                        </div>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-2">
+                                                        <div className="flex gap-2">
+                                                            <Button size="sm" variant="outline" className="bg-green-500 hover:bg-green-600 text-white" onClick={() => handleTeacherStatusChange(selectedTeacher.uid, course, day, 'present')}><Check className="h-4 w-4 mr-2" /> Présent</Button>
+                                                            <Button size="sm" variant="outline" className="bg-red-500 hover:bg-red-600 text-white" onClick={() => handleTeacherStatusChange(selectedTeacher.uid, course, day, 'absent')}><X className="h-4 w-4 mr-2" /> Absent</Button>
+                                                        </div>
+                                                    </PopoverContent>
+                                                 </Popover>
+                                            </TableCell>
+                                            );
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card>
             <CardHeader>
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle>Présence des Professeurs</CardTitle>
-                        <CardDescription>Vue hebdomadaire de l'assiduité des enseignants.</CardDescription>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
-                            <DialogTrigger asChild><Button variant="outline"><Eye className="mr-2 h-4 w-4"/> Aperçu du Rapport</Button></DialogTrigger>
-                            <DialogContent className="max-w-4xl">
-                                <DialogHeader>
-                                    <DialogTitle>Rapport de présence des professeurs</DialogTitle>
-                                    <DialogDescription>Semaine du {format(currentWeek, 'd MMMM yyyy', { locale: fr })}</DialogDescription>
-                                </DialogHeader>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Professeur</TableHead>
-                                            <TableHead className="text-center">Cours Présents</TableHead>
-                                            <TableHead className="text-center">Cours Absents</TableHead>
-                                            <TableHead className="text-center">En Attente</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {weeklyTeacherReportData.map(({ teacher, present, absent, pending }) => (
-                                            <TableRow key={teacher.uid}>
-                                                <TableCell className="font-medium">{teacher.lastName} {teacher.firstName}</TableCell>
-                                                <TableCell className="text-center font-bold text-green-600">{present}</TableCell>
-                                                <TableCell className="text-center font-bold text-red-600">{absent}</TableCell>
-                                                <TableCell className="text-center font-bold text-gray-500">{pending}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsReportOpen(false)}>Fermer</Button>
-                                    <Button onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Télécharger en PDF</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                        <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <span className="font-semibold text-sm text-center min-w-[200px]">
-                            Semaine du {format(currentWeek, 'd MMMM', { locale: fr })}
-                        </span>
-                        <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, 7))}>
-                            <ArrowRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
+                <CardTitle>Liste des Professeurs</CardTitle>
+                <CardDescription>Sélectionnez un professeur pour gérer sa présence.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="border rounded-lg overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[250px] font-semibold">Professeur</TableHead>
-                                {weekDays.map(day => <TableHead key={day.toISOString()} className="text-center">{format(day, 'EEEE d', { locale: fr })}</TableHead>)}
+                <Table>
+                    <TableHeader><TableRow><TableHead>Professeur</TableHead><TableHead>Spécialité</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {usersLoading ? (
+                             Array.from({length: 5}).map((_, i) => <TableRow key={i}><TableCell colSpan={2}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                        ) : teachers.map(teacher => (
+                            <TableRow key={teacher.uid} onClick={() => setSelectedTeacher(teacher)} className="cursor-pointer">
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-9 w-9">
+                                            <AvatarImage src={teacher.photoUrl} alt={teacher.firstName} />
+                                            <AvatarFallback>{getInitials(teacher.firstName, teacher.lastName)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="font-medium">{teacher.lastName} {teacher.firstName}</div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>{teacher.teacher?.specialty || 'N/A'}</TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {teachers.map(teacher => (
-                                <TableRow key={teacher.uid}>
-                                    <TableCell className="font-medium">{teacher.lastName} {teacher.firstName}</TableCell>
-                                    {weekDays.map(day => (
-                                        <TableCell key={day.toISOString()} className="text-center p-1">
-                                            <div className="flex flex-col items-center justify-center gap-2">
-                                                {getAttendanceStatusForTeacher(teacher.uid, day).map(({ status, course }, i) => {
-                                                    if (status === 'nocourse' || !course) {
-                                                        return <div key={i} className="h-10 flex items-center justify-center"><span className="text-muted-foreground text-xs">-</span></div>;
-                                                    }
-
-                                                    const statusMap = {
-                                                        present: { text: "Présent", className: "bg-green-100 text-green-800 border-green-200" },
-                                                        absent: { text: "Absent", className: "bg-red-100 text-red-800 border-red-200" },
-                                                        pending: { text: "En attente", className: "bg-yellow-100 text-yellow-800 border-yellow-200" }
-                                                    };
-                                                    
-                                                    return (
-                                                        <Popover key={`${course.id}-${i}`}>
-                                                            <PopoverTrigger asChild>
-                                                                <button className={cn("w-full text-xs p-1 rounded-md text-left hover:bg-muted/50", statusMap[status]?.className)}>
-                                                                    <p className="font-semibold truncate">{course.name}</p>
-                                                                    <p>{statusMap[status].text}</p>
-                                                                </button>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-2">
-                                                                <div className="flex gap-2">
-                                                                    <Button size="sm" variant="outline" className="bg-green-500 hover:bg-green-600 text-white flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'present')}>
-                                                                        <Check className="h-4 w-4 mr-2" /> Présent
-                                                                    </Button>
-                                                                    <Button size="sm" variant="outline" className="bg-red-500 hover:bg-red-600 text-white flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'absent')}>
-                                                                        <X className="h-4 w-4 mr-2" /> Absent
-                                                                    </Button>
-                                                                </div>
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                    )
-                                                })}
-                                            </div>
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                        ))}
+                    </TableBody>
+                </Table>
             </CardContent>
         </Card>
     );
