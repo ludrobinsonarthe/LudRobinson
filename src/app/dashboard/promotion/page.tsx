@@ -46,11 +46,11 @@ export default function PromotionPage() {
     }, [currentUser]);
 
     const currentField = useMemo(() => {
-        if (!currentUser?.student?.fieldId) return null;
+        if (!currentUser?.student?.fieldId || !fields) return null;
         return fields.find(f => f.id === currentUser.student.fieldId);
     }, [currentUser, fields]);
 
-    const title = `Promotion ${currentUser?.student?.level} - ${currentField?.name || ''}`;
+    const title = `Promotion ${currentUser?.student?.level || ''} - ${currentField?.name || ''}`;
 
     const isLoading = userLoading || loadingClassmates;
 
