@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Announcement } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Announcement, Attendance } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where, or } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -24,6 +24,7 @@ type UserContextType = {
   fields: Field[];
   courses: Course[];
   grades: Grade[];
+  attendances: Attendance[];
 }
 
 const defaultSettings: Settings = {
@@ -50,6 +51,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
+  const [attendances, setAttendances] = useState<Attendance[]>([]);
 
 
   useEffect(() => {
@@ -94,6 +96,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       { name: 'fields', setter: setFields },
       { name: 'courses', setter: setCourses },
       { name: 'grades', setter: setGrades },
+      { name: 'attendances', setter: setAttendances },
     ];
 
     const promises = collectionsToFetch.map(c => getDocs(collection(db, c.name)));
@@ -120,6 +123,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()}) as Sector))));
         unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()}) as Field))));
         unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => ({...d.data(), id: d.id}) as Course))));
+        unsubs.push(onSnapshot(collection(db, 'attendances'), snap => setAttendances(snap.docs.map(d => ({...d.data(), id: d.id}) as Attendance))));
         
         if (currentUser.role === 'admin') {
             unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade))));
@@ -189,7 +193,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       sectors,
       fields,
       courses,
-      grades
+      grades,
+      attendances
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
