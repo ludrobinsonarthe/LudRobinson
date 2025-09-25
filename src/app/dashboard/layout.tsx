@@ -61,7 +61,7 @@ import React, { useEffect, useState } from "react";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
-import TutorPanel from "@/app/dashboard/tutor/page";
+import TutorPanel from "@/components/tutor-panel";
 import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 
 function AppLogo() {
