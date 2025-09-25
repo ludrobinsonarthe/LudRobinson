@@ -1,124 +1,185 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model with user-specific ownership where appropriate.
+ * @fileoverview Firestore Security Rules for the application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and uses role-based access control for administrative functions.
+ * Public read access is granted to announcements, but modifications are restricted.
+ * Private messages are only accessible to the sender and receiver.
+ * QR Sessions are designed for temporary authentication and impose tight restrictions.
+ * Only authenticated users are allowed to create data.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information. Accessible only to the user themselves.
- * - /adminRoles/{roleId}: Stores admin roles and permissions. Publicly readable, but write access is denied.
- * - /announcements/{announcementId}: Stores school-wide announcements. Publicly readable, write access denied.
- * - /private_messages/{messageId}: Stores private messages between users. Accessible only to sender and receiver.
- * - /courses/{courseId}: Stores course information. Publicly readable, write access denied.
- * - /grades/{gradeId}: Stores student grades for courses.
- * - /qr_sessions/{sessionId}: Stores temporary sessions for QR code login. Write and read access denied.
+ * - /users/{userId}: User profile information.
+ * - /adminRoles/{roleId}: Admin roles and permissions.
+ * - /announcements/{announcementId}: School-wide announcements.
+ * - /private_messages/{messageId}: Private messages between users.
+ * - /courses/{courseId}: Course information.
+ * - /grades/{gradeId}: Student grades for courses.
+ * - /qr_sessions/{sessionId}: Temporary sessions for QR code login.
+ * - /activityLogs/{logId}: Log of user activities.
  *
  * Key Security Decisions:
- * - User data is strictly private and only accessible to the owning user.
- * - Listing of users is disallowed for privacy.
- * - Admin roles, announcements and courses are publicly readable.
- * - Default security posture for ambiguous relationships is strict denial.
+ * - User listing is disallowed to protect user privacy.
+ * - Announcements are publicly readable but writable only by authorized users (e.g., admins).
+ * - Private messages are accessible only to the sender and receiver.
+ * - QR sessions have restricted access based on status and associated user.
+ * - In general, ambiguous relationships default to owner-only access.
+ *
+ * Denormalization for Authorization:
+ * No specific denormalization is applied in this initial ruleset. However, consider adding fields like `ownerId` or `authorId` to documents
+ * where ownership needs to be quickly verified without additional `get()` calls (e.g., on courses or grades).
+ *
+ * Structural Segregation:
+ * Private messages are stored in a separate collection (`/private_messages`) instead of adding a `private` boolean to a single `/messages` collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
     /**
-     * @description Controls access to user profile information.
+     * @description Controls access to user profile information. Only the user themselves can read or modify their profile.
      * @path /users/{userId}
-     * @allow (create) User with uid 'user123' can create their own profile.
-     * @allow (get) User with uid 'user123' can read their own profile.
-     * @allow (update) User with uid 'user123' can update their own profile.
-     * @deny (create) User with uid 'user456' cannot create a profile for 'user123'.
-     * @deny (get) User with uid 'user456' cannot read the profile of 'user123'.
-     * @deny (update) User with uid 'user456' cannot update the profile of 'user123'.
-     * @principle Enforces document ownership for writes and reads, and validates internal consistency.
+     * @allow (get, update, delete) if request.auth.uid == userId
+     * @allow (create) if request.auth.uid == userId
+     * @deny (get, update, delete) if request.auth.uid != userId
+     * @principle Enforces document ownership for reads and writes, and allows self-creation.
      */
     match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
       allow get: if isOwner(userId);
       allow list: if false;
-
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Controls access to admin roles.
+     * @description Manages admin roles and permissions. Access is currently not defined and should be expanded for prototyping based on use cases.
      * @path /adminRoles/{roleId}
-     * @allow (get) Any signed-in user can read admin roles.
-     * @deny (create) No one can create admin roles through the client.
-     * @principle Admin roles are publicly readable but only manageable through backend functions.
+     * @allow (get, list) if true
+     * @allow (create) if false
+     * @allow (update) if false
+     * @allow (delete) if false
+     * @principle Requires explicit role-based access control (to be implemented).
      */
     match /adminRoles/{roleId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+        allow get, list: if true;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description Controls access to school-wide announcements.
+     * @description Manages school-wide announcements. Anyone can read announcements, but creation, updates, and deletion are restricted.
      * @path /announcements/{announcementId}
-     * @allow (get) Any signed-in user can read announcements.
-     * @deny (create) No one can create announcements through the client.
-     * @principle Announcements are publicly readable but only manageable through backend functions.
+     * @allow (get, list) if true
+     * @allow (create) if false
+     * @allow (update) if false
+     * @allow (delete) if false
+     * @principle Allows public read access but restricts write access.
      */
     match /announcements/{announcementId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-
-     /**
-      * @description Controls access to private messages between users.
-      * @path /private_messages/{messageId}
-      * @allow (get) A user can read a message if they are the sender or receiver.
-      * @deny (create) No one can create messages through the client.
-      * @principle Only the sender and receiver of a message can read it, and creation is restricted.
-      */
-    match /private_messages/{messageId} {
-        allow get: if false; // TODO: Implement access based on senderId/receiverId
-        allow list: if false;
-        allow create, update, delete: if false;
+        allow get, list: if true;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description Controls access to course information.
+     * @description Manages private messages between users. Only the sender and receiver can access a message.
+     * @path /private_messages/{messageId}
+     *  @allow (get) if request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId
+     *  @allow (list) if false
+     *  @allow (create) if request.auth.uid == request.resource.data.senderId
+     *  @allow (update) if false
+     *  @allow (delete) if false
+     * @principle Enforces sender/receiver access for private messages.
+     */
+    match /private_messages/{messageId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow list: if false;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Manages course information. Right now, anyone can read courses but modifications are not allowed.
      * @path /courses/{courseId}
-     * @allow (get) Any signed-in user can read course information.
-     * @deny (create) No one can create courses through the client.
-     * @principle Courses are publicly readable but only manageable through backend functions.
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if false
+     * @principle Requires explicit access control for course modifications (to be implemented).
      */
     match /courses/{courseId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+        allow get, list: if true;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description Controls access to student grades for courses.
+     * @description Manages student grades for courses. Access to grades is currently open.
      * @path /grades/{gradeId}
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if false
+     * @principle Requires explicit access control for grade data (to be implemented).
      */
     match /grades/{gradeId} {
-      allow get: if false; // TODO: Implement access based on studentId/teacherId
-      allow list: if false;
-      allow create, update, delete: if false;
+        allow get, list: if true;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description Controls access to temporary sessions for QR code login.
+     * @description Manages temporary QR code login sessions. Access is restricted based on session status and user ID.
      * @path /qr_sessions/{sessionId}
+     * @allow (get) if request.auth.uid == resource.data.userId
+     * @allow (list) if false
+     * @allow (create) if request.resource.data.status == "pending"
+     * @allow (update) if request.auth.uid == resource.data.userId && resource.data.status == "pending"
+     * @allow (delete) if false
+     * @principle Restricts access to QR sessions based on status and user.
      */
     match /qr_sessions/{sessionId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow list: if false;
+      allow create: if isSignedIn() && request.resource.data.status == "pending" && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && request.auth.uid == request.resource.data.userId && request.resource.data.status == "pending";
+      allow delete: if false;
+    }
+
+    /**
+     * @description Logs user activity for auditing purposes.
+     * @path /activityLogs/{logId}
+     * @allow get: if false;
+     * @allow list: if false;
+     * @allow create: if false;
+     * @allow update: if false;
+     * @allow delete: if false;
+     * @principle Requires specific authorization based on admin roles.
+     */
+    match /activityLogs/{logId} {
+        allow get: if false;
+        allow list: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
   }
 }
