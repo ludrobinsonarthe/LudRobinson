@@ -101,7 +101,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(unsubscribe);
     };
     
-    // Always load these small, essential collections
+    // Always load these small, essential collections for all users
     setupSubscription('adminRoles', setRoles);
     setupSubscription('sectors', setSectors);
     setupSubscription('fields', setFields);
@@ -114,17 +114,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
 
-    // Conditionally load larger collections only for admin users
+    // Load all data for admins, otherwise load specific data for others.
     if (currentUser.role === 'admin') {
-        setupSubscription('users', setUsers);
-        setupSubscription('courses', setCourses);
-        setupSubscription('grades', setGrades);
-        setupSubscription('attendances', setAttendances);
+      setupSubscription('users', setUsers);
+      setupSubscription('courses', setCourses);
+      setupSubscription('grades', setGrades);
+      setupSubscription('attendances', setAttendances);
     } else {
-        // For non-admin users, we still need all courses for schedule/grades display
-        // And we need all users for messaging
-        setupSubscription('courses', setCourses);
-        setupSubscription('users', setUsers);
+      // For non-admin, load all users for messaging and all courses for schedules.
+      // Other data is fetched on-demand in their respective pages.
+      setupSubscription('users', setUsers);
+      setupSubscription('courses', setCourses);
     }
     
     const initialLoadTimer = setTimeout(() => setLoading(false), 500);
