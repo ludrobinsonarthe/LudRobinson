@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance, Payment, TeacherSalary, CashTransaction, OfficialDocument, StaffAttendance } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, FirestoreError } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
@@ -21,7 +21,7 @@ type UserContextType = {
   hasPermission: (permission: AdminPermission) => boolean;
   sectors: Sector[];
   fields: Field[];
-  courses: Course[];
+  allCourses: Course[];
   grades: Grade[];
   attendances: Attendance[];
   staffAttendances: StaffAttendance[];
@@ -57,7 +57,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setUsers] = useState<User[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [allCourses, setCourses] = useState<Course[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
@@ -89,7 +89,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         signOut();
       }
     }, (error) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'get' }));
+      if (error.code === 'permission-denied') {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'get' }));
+      }
       signOut();
     });
 
@@ -110,8 +112,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const q = query(collection(db, collectionName));
         const unsubscribe = onSnapshot(q, 
             (snapshot) => setter(snapshot.docs.map(d => ({...d.data(), id: d.id}))),
-            (error) => {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
+            (error: FirestoreError) => {
+                if (error.code === 'permission-denied') {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
+                } else {
+                    console.error(`Error on collection ${collectionName}:`, error);
+                }
             }
         );
         unsubs.push(unsubscribe);
@@ -122,18 +128,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setupSubscription('sectors', setSectors);
     setupSubscription('fields', setFields);
     setupSubscription('courses', setCourses);
+    setupSubscription('users', setUsers);
     
     const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
-        (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'settings/system', operation: 'get' }));
+        (error: FirestoreError) => {
+            if (error.code === 'permission-denied') {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'settings/system', operation: 'get' }));
+            } else {
+                 console.error(`Error on settings doc:`, error);
+            }
         }
     );
     unsubs.push(settingsUnsub);
     
     // For admins, load everything. For others, data is fetched on demand in pages.
     if (currentUser.role === 'admin') {
-      setupSubscription('users', setUsers);
       setupSubscription('grades', setGrades);
       setupSubscription('attendances', setAttendances);
       setupSubscription('staffAttendances', setStaffAttendances);
@@ -183,7 +193,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setSettings: handleSetSettings,
       sectors,
       fields,
-      courses,
+      allCourses,
       grades,
       attendances,
       staffAttendances,

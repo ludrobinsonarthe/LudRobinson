@@ -1,107 +1,17 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Helper functions
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isUser(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    function isAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    // Rules for each collection
-
-    match /users/{userId} {
-      allow read: if isUser(userId) || isAdmin();
-      allow update: if isUser(userId); // Users can update their own profile
-      allow create, delete: if isAdmin(); // Only admins can create/delete users
-    }
-
-    match /adminRoles/{roleId} {
-      allow read: if isAuthenticated();
-    }
-    
-    match /private_messages/{messageId} {
-      allow read, create: if isAuthenticated();
-      allow update, delete: if isAdmin();
-    }
-    
-    match /announcements/{announcementId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /courses/{courseId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
-    }
-    
-    match /grades/{gradeId} {
-      allow read, create, update, delete: if isAdmin() || getUserData(request.auth.uid).role == 'teacher';
-    }
-
-    match /payments/{paymentId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /teacherSalaries/{salaryId} {
-      allow read, create, update, delete: if isAdmin();
-    }
-    
-    match /cashTransactions/{transactionId} {
-       allow read, create, update, delete: if isAdmin();
-    }
-
-    match /officialDocuments/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
-    }
-    
-    match /attendances/{attendanceId} {
-      allow read, create, update, delete: if isAdmin() || getUserData(request.auth.uid).role == 'teacher';
-    }
-
-    match /staffAttendances/{attendanceId} {
-      allow read, create, update, delete: if isAdmin();
-    }
-    
-    match /settings/system {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /sectors/{sectorId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /fields/{fieldId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    
-    match /feeStructures/{feeId} {
-        allow read, write: if isAdmin();
-    }
-    
-    match /qr_sessions/{sessionId} {
-      allow read, write: if isAuthenticated();
-    }
-    
-    match /activityLogs/{logId} {
-      allow read, create: if isAdmin();
+    // Default to secure: deny all reads and writes unless explicitly allowed.
+    match /{document=**} {
+      allow read, write: if isSignedIn();
     }
   }
 }
