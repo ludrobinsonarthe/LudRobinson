@@ -54,6 +54,7 @@ import {
   ArrowRightLeft,
   Archive,
   QrCode,
+  History,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect, useState } from "react";
@@ -137,6 +138,7 @@ function MainSidebar() {
              { href: "/dashboard/admin-management", label: "Administration", icon: Building, permission: 'manage_admin_settings' },
              { href: "/dashboard/annual-transition", label: "Transition Annuelle", icon: ArrowRightLeft, permission: 'manage_admin_settings' },
              { href: "/dashboard/academic-history", label: "Historique Académique", icon: Archive, permission: 'manage_admin_settings' },
+             { href: "/dashboard/activity-history", label: "Historique Activités", icon: History, permission: 'manage_admin_settings' },
         ]
     }
   ];

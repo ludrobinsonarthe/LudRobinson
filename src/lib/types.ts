@@ -274,3 +274,21 @@ export interface StaffAttendance {
     createdAt: string;
     updatedAt: string;
 }
+
+export type ActivityLogAction = 
+    | 'create' | 'update' | 'delete' | 'login' | 'logout' 
+    | 'payment_validation' | 'payment_rejection' | 'grade_update'
+    | 'user_creation' | 'user_deletion' | 'role_update' | 'settings_change';
+
+export interface ActivityLog {
+    id: string;
+    actorId: string; // Who performed the action
+    actorName?: string; // Denormalized name
+    action: ActivityLogAction;
+    entityType: string; // e.g., 'payment', 'user', 'course'
+    entityId: string;
+    timestamp: string;
+    details: string; // Human-readable description
+    previousState?: any;
+    newState?: any;
+}

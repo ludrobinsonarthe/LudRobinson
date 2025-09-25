@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
-import { Payment, User } from "@/lib/types";
+import { Payment, User, ActivityLog } from "@/lib/types";
 import { MoreHorizontal, PlusCircle, Trash2, Download, Check, X, ArrowLeft, FileDown, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
@@ -33,7 +33,7 @@ import { imageToDataUrl } from '@/lib/utils';
 import autoTable from 'jspdf-autotable';
 
 function TuitionManagementContent() {
-    const { allUsers: users, loading: usersLoading, settings, user } = useUser();
+    const { allUsers, loading: usersLoading, settings, user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const studentIdFilter = searchParams.get('studentId');
@@ -67,7 +67,7 @@ function TuitionManagementContent() {
         return () => unsubscribe();
     }, [user]);
     
-    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
     const getStudentName = (studentId: string) => {
         const student = students.find(s => s.uid === studentId);
         return student ? `${student.lastName} ${student.firstName}` : 'Inconnu';
@@ -105,11 +105,26 @@ function TuitionManagementContent() {
     
     const handleUpdateStatus = async (payment: Payment, status: 'validated' | 'rejected') => {
         const paymentRef = doc(db, 'payments', payment.id);
-        const adminUser = users.find(u => u.role === 'admin');
 
         try {
             const batch = writeBatch(db);
-            batch.update(paymentRef, { status, validatedBy: adminUser?.uid || 'system' });
+            batch.update(paymentRef, { status, validatedBy: user?.uid || 'system' });
+
+            const studentName = getStudentName(payment.studentId);
+            const logMessage = `Paiement de ${payment.amountPaid} ${payment.currency} pour ${studentName} (${payment.month}) ${status === 'validated' ? 'validé' : 'rejeté'}.`;
+
+            // Create activity log
+            const logRef = doc(collection(db, 'activityLogs'));
+            const newLog: Omit<ActivityLog, 'id'> = {
+                actorId: user!.uid,
+                actorName: `${user!.lastName} ${user!.firstName}`,
+                action: status === 'validated' ? 'payment_validation' : 'payment_rejection',
+                entityType: 'payment',
+                entityId: payment.id,
+                timestamp: new Date().toISOString(),
+                details: logMessage,
+            };
+            batch.set(logRef, newLog);
 
             if (status === 'validated') {
                 const transactionRef = doc(collection(db, 'cashTransactions'));
@@ -120,7 +135,7 @@ function TuitionManagementContent() {
                     currency: payment.currency,
                     description: `Scolarité ${payment.month} - ${getStudentName(payment.studentId)}`,
                     date: new Date().toISOString(),
-                    createdBy: adminUser?.uid || 'system',
+                    createdBy: user?.uid || 'system',
                     relatedDocId: payment.id,
                 });
             }
@@ -140,7 +155,7 @@ function TuitionManagementContent() {
 
     const confirmDelete = async () => {
         if(selectedPayment) {
-            try {
+             try {
                 await deleteDoc(doc(db, 'payments', selectedPayment.id));
                  toast({ title: "Paiement supprimé" });
             } catch(error) {

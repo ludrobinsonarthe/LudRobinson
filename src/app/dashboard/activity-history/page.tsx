@@ -1,0 +1,149 @@
+
+"use client";
+
+import { useState, useMemo, useEffect } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ActivityLog } from "@/lib/types";
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useUser } from '@/hooks/use-user';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+
+const getInitials = (name: string = '') => {
+    const parts = name.split(' ');
+    if (parts.length > 1) {
+        return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+    }
+    return (name[0] || '').toUpperCase();
+}
+
+
+export default function ActivityHistoryPage() {
+    const { allUsers } = useUser();
+    const [logs, setLogs] = useState<ActivityLog[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        setLoading(true);
+        const q = query(collection(db, 'activityLogs'), orderBy('timestamp', 'desc'));
+        const unsub = onSnapshot(q, snapshot => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityLog));
+            setLogs(data);
+            setLoading(false);
+        });
+        return () => unsub();
+    }, []);
+
+    const filteredLogs = useMemo(() => {
+        if (!searchTerm) return logs;
+        const lowercasedFilter = searchTerm.toLowerCase();
+        return logs.filter(log =>
+            log.details.toLowerCase().includes(lowercasedFilter) ||
+            log.actorName?.toLowerCase().includes(lowercasedFilter) ||
+            log.entityType.toLowerCase().includes(lowercasedFilter)
+        );
+    }, [logs, searchTerm]);
+    
+    const usersById = useMemo(() => {
+        return allUsers.reduce((acc, user) => {
+            acc[user.uid] = user;
+            return acc;
+        }, {} as Record<string, any>);
+    }, [allUsers]);
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold font-headline tracking-tight">Historique des Activités</h1>
+                <p className="text-muted-foreground">
+                    Suivez toutes les actions importantes effectuées sur la plateforme en temps réel.
+                </p>
+            </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Journal d'audit</CardTitle>
+                    <CardDescription>
+                       Liste chronologique des activités des utilisateurs.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <div className="mb-4">
+                        <Input
+                            placeholder="Rechercher dans les activités..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="max-w-sm"
+                        />
+                    </div>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Acteur</TableHead>
+                                <TableHead>Action</TableHead>
+                                <TableHead>Date</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-10 w-48" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : filteredLogs.length > 0 ? filteredLogs.map(log => {
+                                const actor = usersById[log.actorId];
+                                return (
+                                <TableRow key={log.id}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-9 w-9">
+                                                <AvatarImage src={actor?.photoUrl} alt={log.actorName} />
+                                                <AvatarFallback>{getInitials(log.actorName)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="font-medium">{log.actorName || 'Système'}</div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">{log.details}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                Type: <Badge variant="secondary" className="mr-1">{log.entityType}</Badge>
+                                                ID: {log.entityId}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">
+                                        {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true, locale: fr })}
+                                    </TableCell>
+                                </TableRow>
+                            )}) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">
+                                        Aucune activité trouvée.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
