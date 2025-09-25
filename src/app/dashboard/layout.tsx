@@ -17,12 +17,12 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  SidebarInput,
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription
+  SheetDescription,
+  SheetTrigger,
 } from "@/components/ui/sidebar";
 import {
   Home,
