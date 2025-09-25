@@ -1,185 +1,107 @@
-/**
- * @fileoverview Firestore Security Rules for the application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles and uses role-based access control for administrative functions.
- * Public read access is granted to announcements, but modifications are restricted.
- * Private messages are only accessible to the sender and receiver.
- * QR Sessions are designed for temporary authentication and impose tight restrictions.
- * Only authenticated users are allowed to create data.
- *
- * Data Structure:
- * - /users/{userId}: User profile information.
- * - /adminRoles/{roleId}: Admin roles and permissions.
- * - /announcements/{announcementId}: School-wide announcements.
- * - /private_messages/{messageId}: Private messages between users.
- * - /courses/{courseId}: Course information.
- * - /grades/{gradeId}: Student grades for courses.
- * - /qr_sessions/{sessionId}: Temporary sessions for QR code login.
- * - /activityLogs/{logId}: Log of user activities.
- *
- * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - Announcements are publicly readable but writable only by authorized users (e.g., admins).
- * - Private messages are accessible only to the sender and receiver.
- * - QR sessions have restricted access based on status and associated user.
- * - In general, ambiguous relationships default to owner-only access.
- *
- * Denormalization for Authorization:
- * No specific denormalization is applied in this initial ruleset. However, consider adding fields like `ownerId` or `authorId` to documents
- * where ownership needs to be quickly verified without additional `get()` calls (e.g., on courses or grades).
- *
- * Structural Segregation:
- * Private messages are stored in a separate collection (`/private_messages`) instead of adding a `private` boolean to a single `/messages` collection.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
 
-    /**
-     * @description Controls access to user profile information. Only the user themselves can read or modify their profile.
-     * @path /users/{userId}
-     * @allow (get, update, delete) if request.auth.uid == userId
-     * @allow (create) if request.auth.uid == userId
-     * @deny (get, update, delete) if request.auth.uid != userId
-     * @principle Enforces document ownership for reads and writes, and allows self-creation.
-     */
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    // Rules for each collection
+
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == request.auth.uid;
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow read: if isUser(userId) || isAdmin();
+      allow update: if isUser(userId); // Users can update their own profile
+      allow create, delete: if isAdmin(); // Only admins can create/delete users
     }
 
-    /**
-     * @description Manages admin roles and permissions. Access is currently not defined and should be expanded for prototyping based on use cases.
-     * @path /adminRoles/{roleId}
-     * @allow (get, list) if true
-     * @allow (create) if false
-     * @allow (update) if false
-     * @allow (delete) if false
-     * @principle Requires explicit role-based access control (to be implemented).
-     */
     match /adminRoles/{roleId} {
-        allow get, list: if true;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow read: if isAuthenticated();
     }
-
-    /**
-     * @description Manages school-wide announcements. Anyone can read announcements, but creation, updates, and deletion are restricted.
-     * @path /announcements/{announcementId}
-     * @allow (get, list) if true
-     * @allow (create) if false
-     * @allow (update) if false
-     * @allow (delete) if false
-     * @principle Allows public read access but restricts write access.
-     */
-    match /announcements/{announcementId} {
-        allow get, list: if true;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
-    }
-
-    /**
-     * @description Manages private messages between users. Only the sender and receiver can access a message.
-     * @path /private_messages/{messageId}
-     *  @allow (get) if request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId
-     *  @allow (list) if false
-     *  @allow (create) if request.auth.uid == request.resource.data.senderId
-     *  @allow (update) if false
-     *  @allow (delete) if false
-     * @principle Enforces sender/receiver access for private messages.
-     */
+    
     match /private_messages/{messageId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      allow get: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
-      allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
-      allow update: if false;
-      allow delete: if false;
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+    
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Manages course information. Right now, anyone can read courses but modifications are not allowed.
-     * @path /courses/{courseId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if false
-     * @principle Requires explicit access control for course modifications (to be implemented).
-     */
     match /courses/{courseId} {
-        allow get, list: if true;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
     }
-
-    /**
-     * @description Manages student grades for courses. Access to grades is currently open.
-     * @path /grades/{gradeId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if false
-     * @principle Requires explicit access control for grade data (to be implemented).
-     */
+    
     match /grades/{gradeId} {
-        allow get, list: if true;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow read, create, update, delete: if isAdmin() || getUserData(request.auth.uid).role == 'teacher';
     }
 
-    /**
-     * @description Manages temporary QR code login sessions. Access is restricted based on session status and user ID.
-     * @path /qr_sessions/{sessionId}
-     * @allow (get) if request.auth.uid == resource.data.userId
-     * @allow (list) if false
-     * @allow (create) if request.resource.data.status == "pending"
-     * @allow (update) if request.auth.uid == resource.data.userId && resource.data.status == "pending"
-     * @allow (delete) if false
-     * @principle Restricts access to QR sessions based on status and user.
-     */
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /teacherSalaries/{salaryId} {
+      allow read, create, update, delete: if isAdmin();
+    }
+    
+    match /cashTransactions/{transactionId} {
+       allow read, create, update, delete: if isAdmin();
+    }
+
+    match /officialDocuments/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    match /attendances/{attendanceId} {
+      allow read, create, update, delete: if isAdmin() || getUserData(request.auth.uid).role == 'teacher';
+    }
+
+    match /staffAttendances/{attendanceId} {
+      allow read, create, update, delete: if isAdmin();
+    }
+    
+    match /settings/system {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /sectors/{sectorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /fields/{fieldId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    match /feeStructures/{feeId} {
+        allow read, write: if isAdmin();
+    }
+    
     match /qr_sessions/{sessionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
-      allow list: if false;
-      allow create: if isSignedIn() && request.resource.data.status == "pending" && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && request.auth.uid == request.resource.data.userId && request.resource.data.status == "pending";
-      allow delete: if false;
+      allow read, write: if isAuthenticated();
     }
-
-    /**
-     * @description Logs user activity for auditing purposes.
-     * @path /activityLogs/{logId}
-     * @allow get: if false;
-     * @allow list: if false;
-     * @allow create: if false;
-     * @allow update: if false;
-     * @allow delete: if false;
-     * @principle Requires specific authorization based on admin roles.
-     */
+    
     match /activityLogs/{logId} {
-        allow get: if false;
-        allow list: if false;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow read, create: if isAdmin();
     }
   }
 }
