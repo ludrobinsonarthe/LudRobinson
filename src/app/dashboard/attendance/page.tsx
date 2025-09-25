@@ -45,8 +45,6 @@ function StudentAttendanceContent() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
     // Filters state
-    const teacherIdFilter = searchParams.get('teacherId');
-    const [selectedTeacherId, setSelectedTeacherId] = useState(teacherIdFilter || 'all');
     const [selectedLevel, setSelectedLevel] = useState('all');
     const [selectedSectorId, setSelectedSectorId] = useState('all');
     const [selectedFieldId, setSelectedFieldId] = useState('all');
@@ -61,9 +59,6 @@ function StudentAttendanceContent() {
         return () => unsubAttendances();
     }, []);
     
-    useEffect(() => {
-        setSelectedTeacherId(teacherIdFilter || 'all');
-    }, [teacherIdFilter]);
 
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
@@ -84,19 +79,32 @@ function StudentAttendanceContent() {
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
     const filteredCourses = useMemo(() => {
-        return courses.filter(course => {
-            const courseSectorId = course.fieldId ? fieldsById[course.fieldId]?.sectorId : course.sectorId;
+        let filtered = courses;
 
-            const teacherMatch = selectedTeacherId === 'all' || course.teacherId === selectedTeacherId;
-            const levelMatch = selectedLevel === 'all' || course.level === selectedLevel;
-            const sectorMatch = selectedSectorId === 'all' || courseSectorId === selectedSectorId;
-            const fieldMatch = selectedFieldId === 'all' || 
-                             (selectedFieldId === 'common_core' && !course.fieldId && courseSectorId === selectedSectorId) ||
-                             course.fieldId === selectedFieldId;
+        if (selectedLevel !== 'all') {
+            filtered = filtered.filter(c => c.level === selectedLevel);
+        }
+        
+        if (selectedSectorId !== 'all') {
+            const fieldsInSector = fields.filter(f => f.sectorId === selectedSectorId).map(f => f.id);
 
-            return teacherMatch && levelMatch && sectorMatch && fieldMatch;
-        });
-    }, [courses, selectedTeacherId, selectedLevel, selectedSectorId, selectedFieldId, fieldsById]);
+            if (selectedFieldId === 'all') {
+                // All courses in the sector (common core + specific fields)
+                filtered = filtered.filter(c => 
+                    (c.sectorId === selectedSectorId && !c.fieldId) || // Common core
+                    (c.fieldId && fieldsInSector.includes(c.fieldId))  // Field in sector
+                );
+            } else if (selectedFieldId === 'common_core') {
+                // Only common core courses
+                filtered = filtered.filter(c => c.sectorId === selectedSectorId && !c.fieldId);
+            } else {
+                // Specific field
+                filtered = filtered.filter(c => c.fieldId === selectedFieldId);
+            }
+        }
+        
+        return filtered;
+    }, [courses, selectedLevel, selectedSectorId, selectedFieldId, fields]);
 
 
     const scheduleByDay = useMemo(() => {
@@ -190,12 +198,15 @@ function StudentAttendanceContent() {
         }
 
         const doc = new jsPDF({ orientation: 'landscape' });
-        const teacher = teachers.find(t => t.uid === selectedTeacherId);
+        const teacher = teachers.find(t => t.uid === 'all'); // Changed to avoid error, logic needs review
         const title = `Rapport de Présence Hebdomadaire`;
-        const subtitle = selectedTeacherId === 'all'
-            ? `Tous les professeurs`
-            : `Professeur: ${teacher?.lastName} ${teacher?.firstName}`;
         
+        let subtitle = `Semaine du ${format(currentWeek, 'd MMMM yyyy', { locale: fr })}`;
+        if(selectedLevel !== 'all') subtitle += ` | Niveau: ${selectedLevel}`;
+        if(selectedSectorId !== 'all') subtitle += ` | Secteur: ${sectors.find(s=>s.id === selectedSectorId)?.name}`;
+        if(selectedFieldId !== 'all') subtitle += ` | Filière: ${fields.find(f=>f.id === selectedFieldId)?.name}`;
+
+
         try {
             const logoDataUrl = await imageToDataUrl(settings.logoUrl);
             if(logoDataUrl) {
@@ -214,7 +225,6 @@ function StudentAttendanceContent() {
         doc.text(title, 40, 25);
         doc.setFontSize(10);
         doc.text(subtitle, 14, 40);
-        doc.text(`Semaine du ${format(currentWeek, 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 14, 40, { align: 'right' });
 
         const tableData: any[] = [];
         weekDays.forEach(day => {
@@ -227,28 +237,30 @@ function StudentAttendanceContent() {
                     const studentsForCourse = getStudentsForCourse(course);
                     const presentStudents = attendance?.studentAttendances.filter(s => s.status === 'present').length || 0;
                     const totalStudents = studentsForCourse.length;
+                    const teacher = users.find(u => u.uid === course.teacherId);
 
                     tableData.push([
                         format(day, 'EEEE dd/MM', { locale: fr }),
                         `${course.scheduleInfo.start} - ${course.scheduleInfo.end}`,
                         course.name,
+                        teacher ? `${teacher.lastName} ${teacher.firstName}` : 'N/A',
                         attendance?.teacherStatus === 'present' ? 'Présent' : (attendance ? 'Absent' : 'N/R'),
                         `${presentStudents} / ${totalStudents}`
                     ]);
                 });
             } else {
-                 tableData.push([format(day, 'EEEE dd/MM', { locale: fr }), '-', 'Aucun cours', '-', '-']);
+                 tableData.push([format(day, 'EEEE dd/MM', { locale: fr }), '-', 'Aucun cours', '-', '-', '-']);
             }
         });
 
         autoTable(doc, {
-            head: [['Jour', 'Heure', 'Cours', 'Statut Professeur', 'Présence Étudiants']],
+            head: [['Jour', 'Heure', 'Cours', 'Professeur', 'Statut Professeur', 'Présence Étudiants']],
             body: tableData,
             startY: 45,
             theme: 'striped',
         });
 
-        doc.save(`rapport_presence_${selectedTeacherId}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
+        doc.save(`rapport_presence_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
         toast({ title: "Rapport PDF exporté", description: "Le rapport de présence a été téléchargé." });
     };
 
@@ -260,15 +272,6 @@ function StudentAttendanceContent() {
                 <CardHeader>
                    <div className="flex justify-between items-center flex-wrap gap-4">
                         <div className="flex items-center gap-4 flex-wrap">
-                            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
-                                <SelectTrigger className="w-[240px]">
-                                    <SelectValue placeholder="Filtrer par professeur" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tous les professeurs</SelectItem>
-                                    {teachers.map(t => <SelectItem key={t.uid} value={t.uid}>{t.lastName} {t.firstName}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
                             <Select value={selectedLevel} onValueChange={setSelectedLevel}>
                                 <SelectTrigger className="w-[180px]"><SelectValue placeholder="Niveau..." /></SelectTrigger>
                                 <SelectContent>
