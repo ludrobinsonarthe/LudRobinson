@@ -459,6 +459,55 @@ function TeacherAttendanceContent() {
             toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la présence.' });
         }
     };
+    
+    const handleExportPDF = async () => {
+        if (!settings) {
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de générer le PDF : paramètres manquants.' });
+            return;
+        }
+
+        const doc = new jsPDF({ orientation: 'landscape' });
+        
+        try {
+            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+            if (logoDataUrl) doc.addImage(logoDataUrl, logoDataUrl.split(';')[0].split('/')[1].toUpperCase(), 14, 10, 20, 20);
+        } catch (error) { console.error("Error adding logo to PDF", error); }
+
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Rapport de Présence des Professeurs', 40, 25);
+        doc.setFontSize(10);
+        doc.text(`Semaine du ${format(currentWeek, 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 14, 30, { align: 'right' });
+
+        const statusText = { present: 'P', absent: 'A', pending: '?', nocourse: '-' };
+        const tableColumn = ['Professeur', ...weekDays.map(day => format(day, 'eeee d', { locale: fr }))];
+        const tableRows = teachers.map(teacher => {
+            const row = [`${teacher.lastName} ${teacher.firstName}`];
+            weekDays.forEach(day => {
+                const statuses = getAttendanceStatusForTeacher(teacher.uid, day);
+                const cellText = statuses.map(s => {
+                     if (s.status === 'nocourse') return '-';
+                     return `${statusText[s.status]} (${s.course?.name.substring(0, 10)}...)`;
+                }).join('\n');
+                row.push(cellText);
+            });
+            return row;
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+            theme: 'grid',
+            styles: { fontSize: 8 }
+        });
+
+        doc.save(`rapport_presence_professeurs_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
+        toast({ title: 'Exportation PDF', description: 'Le rapport des présences a été téléchargé.' });
+    };
 
     return (
         <Card>
@@ -469,6 +518,7 @@ function TeacherAttendanceContent() {
                         <CardDescription>Vue hebdomadaire de l'assiduité des enseignants.</CardDescription>
                     </div>
                      <div className="flex items-center gap-2">
+                        <Button variant="outline" onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4" /> Exporter PDF</Button>
                         <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
@@ -503,10 +553,10 @@ function TeacherAttendanceContent() {
                                                     }
                                                     return (
                                                         <div key={`${course.id}-${i}`} className="w-full flex justify-center items-center gap-1 p-1 rounded-md" title={course.name}>
-                                                            <Button size="sm" variant={status === 'present' ? 'default' : 'outline'} className={cn('flex-1', status === 'present' && 'bg-green-600 hover:bg-green-700')} onClick={() => handleTeacherStatusChange(teacher.uid, course, day, 'present')}>
+                                                            <Button size="sm" variant={status === 'present' ? 'default' : 'outline'} className={cn('flex-1', status === 'present' && 'bg-green-600 hover:bg-green-700')} onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'present')}>
                                                                 <Check className="h-4 w-4" />
                                                             </Button>
-                                                            <Button size="sm" variant={status === 'absent' ? 'destructive' : 'outline'} className="flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course, day, 'absent')}>
+                                                            <Button size="sm" variant={status === 'absent' ? 'destructive' : 'outline'} className="flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'absent')}>
                                                                 <X className="h-4 w-4" />
                                                             </Button>
                                                         </div>
