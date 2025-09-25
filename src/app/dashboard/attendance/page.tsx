@@ -391,7 +391,7 @@ function StudentAttendanceContent() {
 }
 
 function TeacherAttendanceContent() {
-    const { users, loading: usersLoading, settings, courses } = useUser();
+    const { user: currentUser, users, loading: usersLoading, settings, courses } = useUser();
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -410,7 +410,7 @@ function TeacherAttendanceContent() {
 
     const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
-    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse' | 'pending', courseName?: string }[] => {
+    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse' | 'pending', course?: Course }[] => {
         const dateStr = format(day, 'yyyy-MM-dd');
         const teacherCoursesOnDay = courses.filter(c => c.teacherId === teacherId && c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
         
@@ -419,10 +419,45 @@ function TeacherAttendanceContent() {
         return teacherCoursesOnDay.map(course => {
             const attendance = attendances.find(a => a.date === dateStr && a.courseId === course.id);
             if (attendance) {
-                return { status: attendance.teacherStatus, courseName: course.name };
+                return { status: attendance.teacherStatus, course: course };
             }
-            return { status: 'pending', courseName: course.name };
+            return { status: 'pending', course: course };
         });
+    };
+
+    const handleTeacherStatusChange = async (teacherId: string, course: Course, day: Date, newStatus: 'present' | 'absent') => {
+        if (!currentUser) return;
+        
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const attendanceId = `${dateStr}-${course.id}`;
+        const attendanceRef = doc(db, 'attendances', attendanceId);
+
+        try {
+            const docSnap = await getDoc(attendanceRef);
+            let updatedData: Partial<Attendance>;
+
+            if (docSnap.exists()) {
+                updatedData = { teacherStatus: newStatus, updatedAt: new Date().toISOString() };
+            } else {
+                updatedData = {
+                    id: attendanceId,
+                    date: dateStr,
+                    courseId: course.id,
+                    teacherId: teacherId,
+                    teacherStatus: newStatus,
+                    studentAttendances: [], // Leave students empty for now
+                    validatedBy: currentUser.uid,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+            }
+            
+            await setDoc(attendanceRef, updatedData, { merge: true });
+            toast({ title: 'Présence du professeur mise à jour', duration: 2000 });
+        } catch (error) {
+            console.error("Error updating teacher attendance:", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la présence.' });
+        }
     };
 
     return (
@@ -460,15 +495,24 @@ function TeacherAttendanceContent() {
                                 <TableRow key={teacher.uid}>
                                     <TableCell className="font-medium">{teacher.lastName} {teacher.firstName}</TableCell>
                                     {weekDays.map(day => (
-                                        <TableCell key={day.toISOString()} className="text-center">
-                                            {getAttendanceStatusForTeacher(teacher.uid, day).map((s, i) => (
-                                                <div key={i} className="flex items-center justify-center gap-2">
-                                                    {s.status === 'present' && <Badge className="bg-green-500 w-full justify-center" title={s.courseName}>Présent</Badge>}
-                                                    {s.status === 'absent' && <Badge variant="destructive" className="w-full justify-center" title={s.courseName}>Absent</Badge>}
-                                                    {s.status === 'pending' && <Badge variant="secondary" className="w-full justify-center" title={s.courseName}>Non noté</Badge>}
-                                                    {s.status === 'nocourse' && <span className="text-muted-foreground text-xs">-</span>}
-                                                </div>
-                                            ))}
+                                        <TableCell key={day.toISOString()} className="text-center p-2">
+                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                {getAttendanceStatusForTeacher(teacher.uid, day).map(({ status, course }, i) => {
+                                                    if (status === 'nocourse' || !course) {
+                                                        return <div key={i} className="h-8 flex items-center justify-center"><span className="text-muted-foreground text-xs">-</span></div>;
+                                                    }
+                                                    return (
+                                                        <div key={`${course.id}-${i}`} className="w-full flex justify-center items-center gap-1 p-1 rounded-md" title={course.name}>
+                                                            <Button size="sm" variant={status === 'present' ? 'default' : 'outline'} className={cn('flex-1', status === 'present' && 'bg-green-600 hover:bg-green-700')} onClick={() => handleTeacherStatusChange(teacher.uid, course, day, 'present')}>
+                                                                <Check className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button size="sm" variant={status === 'absent' ? 'destructive' : 'outline'} className="flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course, day, 'absent')}>
+                                                                <X className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
                                         </TableCell>
                                     ))}
                                 </TableRow>
