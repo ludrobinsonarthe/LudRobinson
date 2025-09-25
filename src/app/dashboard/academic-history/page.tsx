@@ -36,7 +36,7 @@ const categoryTitles: Record<DataType, string> = {
 };
 
 export default function AcademicHistoryPage() {
-    const { settings, allUsers: users, allCourses: courses } = useUser();
+    const { settings, allUsers: users, allCourses } = useUser();
     const { toast } = useToast();
     const [allData, setAllData] = useState<{
         payments: Payment[],
@@ -63,6 +63,10 @@ export default function AcademicHistoryPage() {
         if (!selectedYear) return;
 
         setLoading(true);
+        const [startYear, endYear] = selectedYear.split('-').map(Number);
+        const academicYearStartDate = new Date(startYear, 6, 1); // July 1st of start year
+        const academicYearEndDate = new Date(endYear, 5, 30); // June 30th of end year
+
         const qPayments = query(collection(db, 'payments'), where("year", "==", selectedYear));
         const qGrades = query(collection(db, 'grades'), where("academicYear", "==", selectedYear));
         const qSalaries = query(collection(db, 'teacherSalaries'), where("year", "==", selectedYear));
@@ -72,11 +76,18 @@ export default function AcademicHistoryPage() {
         const unsubSalaries = onSnapshot(qSalaries, snap => setAllData(d => ({...d, salaries: snap.docs.map(doc => doc.data() as TeacherSalary)})));
         
         const unsubDocs = onSnapshot(collection(db, 'officialDocuments'), snap => {
-            const filteredDocs = snap.docs.map(doc => doc.data() as OfficialDocument).filter(d => new Date(d.issuedAt).getFullYear().toString() === selectedYear.split('-')[0]);
+            const filteredDocs = snap.docs.map(doc => doc.data() as OfficialDocument).filter(d => {
+                const issuedDate = new Date(d.issuedAt);
+                return issuedDate >= academicYearStartDate && issuedDate <= academicYearEndDate;
+            });
             setAllData(d => ({...d, documents: filteredDocs}));
         });
+        
         const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snap => {
-            const filteredTransac = snap.docs.map(doc => doc.data() as CashTransaction).filter(t => new Date(t.date).getFullYear().toString() === selectedYear.split('-')[0]);
+            const filteredTransac = snap.docs.map(doc => doc.data() as CashTransaction).filter(t => {
+                const transacDate = new Date(t.date);
+                return transacDate >= academicYearStartDate && transacDate <= academicYearEndDate;
+            });
             setAllData(d => ({...d, transactions: filteredTransac}));
         });
 
@@ -93,7 +104,7 @@ export default function AcademicHistoryPage() {
     }, [selectedYear]);
     
     const usersById = useMemo(() => users.reduce((acc, u) => ({...acc, [u.uid]: u}), {} as Record<string, User>), [users]);
-    const coursesById = useMemo(() => (courses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+    const coursesById = useMemo(() => (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [allCourses]);
 
     const handleExportPDF = async () => {
         if (!activeView || !settings || allData[activeView].length === 0) {
@@ -316,4 +327,5 @@ export default function AcademicHistoryPage() {
 
         </div>
     )
-}
+
+    
