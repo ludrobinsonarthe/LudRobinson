@@ -27,6 +27,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
 import { imageToDataUrl } from '@/lib/utils';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const getInitials = (name: string = '') => {
@@ -51,6 +53,10 @@ export default function ActivityHistoryPage() {
         const unsub = onSnapshot(q, snapshot => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityLog));
             setLogs(data);
+            setLoading(false);
+        },
+        (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'activityLogs', operation: 'list'}));
             setLoading(false);
         });
         return () => unsub();
