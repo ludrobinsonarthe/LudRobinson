@@ -53,6 +53,7 @@ export interface User {
     cycle?: Cycle;
     level?: string;
     fieldId?: string;
+    sectorId?: string; // For "tronc commun" students
     enrollmentDate: string;
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user

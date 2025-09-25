@@ -1,207 +1,100 @@
-/**
- * @file Firestore Security Rules
- * @core_philosophy This ruleset enforces a strict user-ownership model for user profiles and restricts listing of users. Admin roles can manage admin roles. Public read access is granted for announcements, with owner-only writes. Private messages are restricted to sender and receiver.
- * @data_structure
- *   - /users/{userId}: Stores user profile data.
- *   - /adminRoles/{roleId}: Stores admin roles and associated permissions.
- *   - /announcements/{announcementId}: Stores school-wide announcements.
- *   - /private_messages/{messageId}: Stores private messages between users.
- *   - /courses/{courseId}: Stores course information.
- *   - /grades/{gradeId}: Stores student grades for courses.
- *   - /qr_sessions/{sessionId}: Stores temporary sessions for QR code login.
- * @key_security_decisions
- *   - User listing is explicitly denied to protect user privacy.
- *   - Users can only create their own profile.
- *   - Announcements are publicly readable but only created/updated/deleted by admins.
- *   - Private messages are readable/writable only by the sender and receiver.
- *   - No data validation is performed in this prototype.
- * @denormalization_for_authorization N/A (prototype).
- * @structural_segregation Private messages are stored in a separate collection from public announcements.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Controls access to user profile information.
-     * @path /users/{userId}
-     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth.uid.
-     * @allow (get, update, delete) - Authenticated user can get, update, and delete their profile if the userId matches their auth.uid.
-     * @deny (list) - Listing all users is forbidden.
-     * @deny (create, update, delete) - Other users cannot create, update, or delete profiles.
-     * @principle Enforces document ownership for user profiles.
-     */
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Allow authenticated users to list users, but not read them all without constraint
+    match /users {
+      allow list: if request.auth != null;
+    }
+
+    // Rules for a single user document
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource.data != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false;
-
-      allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == request.auth.uid;
-      allow delete: if isExistingOwner(userId);
+      allow get: if request.auth != null; // Allow any authenticated user to get a specific user's profile
+      allow write: if request.auth.uid == userId; // Allow a user to write only to their own profile
     }
 
-    /**
-     * @description Controls access to admin roles and permissions.
-     * @path /adminRoles/{roleId}
-     * @allow (create) - Only admins can create new roles.
-     * @allow (get, list, update, delete) - Only admins can get, list, update, and delete roles.
-     * @deny (create, get, list, update, delete) - Non-admins cannot create, get, list, update, or delete roles.
-     * @principle Restricts admin role management to authorized personnel.
-     */
     match /adminRoles/{roleId} {
-       function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // TODO: Add admin role check after roles are properly implemented.
-      // This placeholder currently allows all signed-in users.
-      function isAdmin() {
-        return false;
-      }
-
-      allow get, list: if isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read: if request.auth != null; // Admins need to read roles
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; // Only admins can change roles
     }
-
-    /**
-     * @description Controls access to school-wide announcements.
-     * @path /announcements/{announcementId}
-     * @allow (get, list) - Anyone can read announcements.
-     * @allow (create, update, delete) - Only admins can create, update, and delete announcements.
-     * @deny (create, update, delete) - Non-admins cannot create, update, or delete announcements.
-     * @principle Allows public read access for announcements but restricts write access to admins.
-     */
+    
     match /announcements/{announcementId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // TODO: Add admin role check after roles are properly implemented.
-      // This placeholder currently allows all signed-in users.
-      function isAdmin() {
-        return false;
-      }
-
-      allow get, list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-
-    /**
-     * @description Controls access to private messages between users.
-     * @path /private_messages/{messageId}
-     * @allow (get) - Only the sender or receiver can get a specific message.
-     * @allow (list) - Listing all messages is forbidden for all users.
-     * @allow (create) - Only the sender can create a new message.
-     * @allow (update, delete) - Only the sender can update or delete their own message.
-     * @deny (get, list, create, update, delete) - Other users cannot access private messages.
-     */
+    
     match /private_messages/{messageId} {
-        function isSignedIn() {
-        return request.auth != null;
-      }
-      function isSender(message) {
-          return isSignedIn() && request.auth.uid == message.senderId;
-      }
-      function isReceiver(message) {
-          return isSignedIn() && request.auth.uid == message.receiverId;
-      }
-
-      allow get: if isSignedIn() && (isSender(resource.data) || isReceiver(resource.data));
-      allow list: if false;
-      allow create: if isSignedIn() && isSender(request.resource.data);
-      allow update: if isSignedIn() && isSender(request.resource.data);
-      allow delete: if isSignedIn() && isSender(resource.data);
+        allow read, write: if request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId;
+        allow create: if request.auth.uid == request.resource.data.senderId;
     }
 
-    /**
-     * @description Controls access to course information.
-     * @path /courses/{courseId}
-     * @allow (get, list) - Anyone can read course information.
-     * @allow (create, update, delete) - Only admins can create, update, and delete courses.
-     * @deny (create, update, delete) - Non-admins cannot create, get, list, update, or delete courses.
-     * @principle Allows public read access for courses but restricts write access to admins.
-     */
     match /courses/{courseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // TODO: Add admin role check after roles are properly implemented.
-      // This placeholder currently allows all signed-in users.
-      function isAdmin() {
-        return false;
-      }
-        allow get, list: if true;
-        allow create: if isAdmin();
-        allow update: if isAdmin();
-        allow delete: if isAdmin();
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    /**
-     * @description Controls access to student grades for courses.
-     * @path /grades/{gradeId}
-     * @allow (get) - Anyone can read grade information.
-     * @allow (list) - Listing all grades is forbidden for all users.
-     * @allow (create, update, delete) - Only admins can create, update, and delete grades.
-     * @deny (create, update, delete) - Non-admins cannot create, update, or delete grades.
-     *  @principle Allows public read access for courses but restricts write access to admins.
-     */
     match /grades/{gradeId} {
-        function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // TODO: Add admin role check after roles are properly implemented.
-      // This placeholder currently allows all signed-in users.
-      function isAdmin() {
-        return false;
-      }
-
-      allow get: if true;
-      allow list: if false;
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    match /payments/{paymentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null; // Student or Parent can create a pending payment record
+        allow update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    /**
-     * @description Controls access to QR code login sessions.
-     * @path /qr_sessions/{sessionId}
-     * @allow (create) -  Any signed in user can create
-     * @allow (get, update, delete) - Only admins can get, update, and delete qr_sessions.
-     * @deny (get, list, create, update, delete) - Non-admins cannot access qr_sessions.
-     * @principle Restricts access to qr_sessions.
-     */
-    match /qr_sessions/{sessionId} {
-       function isSignedIn() {
-        return request.auth != null;
-      }
+    match /teacherSalaries/{salaryId} {
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    match /cashTransactions/{transactionId} {
+        allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
 
-      // TODO: Add admin role check after roles are properly implemented.
-      // This placeholder currently allows all signed-in users.
-      function isAdmin() {
-        return false;
-      }
+    match /officialDocuments/{docId} {
+        allow read: if request.auth != null;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    match /attendances/{attendanceId} {
+        allow read: if request.auth != null;
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
 
-      allow create: if isSignedIn();
-      allow get: if isAdmin();
-      allow list: if false;
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+    match /staffAttendances/{attendanceId} {
+        allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /settings/system {
+      allow read: if true; // Everyone can read system settings
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    match /sectors/{sectorId} {
+      allow read: if true;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /fields/{fieldId} {
+      allow read: if true;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    match /feeStructures/{fsId} {
+      allow read: if true;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+     match /qr_sessions/{sessionId} {
+      allow get: if true; // Let anyone read a session doc to listen for changes
+      allow create, update, delete: if request.auth != null; // Only authenticated users can write
     }
   }
 }
