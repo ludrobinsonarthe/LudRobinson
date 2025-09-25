@@ -39,7 +39,6 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
-const levels = ["Licence 1", "Licence 2", "Licence 3", "Master 1", "Master 2"];
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
     { value: 'international', label: 'Cycle International' },
@@ -141,6 +140,61 @@ export default function StudentsPage() {
         setSelectedStudent(user);
         setIsDeleteOpen(true);
     }
+
+    const createCertificatePdf = async (student: User): Promise<Blob> => {
+        const doc = new jsPDF();
+        if(settings) {
+            const schoolName = settings.schoolName;
+            const academicYear = settings.academicYear;
+            
+            try {
+                const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+                if (logoDataUrl) {
+                    const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                    doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
+                }
+            } catch (error) {
+                 console.error("Could not add logo to PDF, proceeding without it.", error);
+            }
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
+            
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 50, { align: 'center' });
+
+            doc.setFontSize(20);
+            doc.setFont("helvetica", "bold");
+            doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 80, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+
+            const studentName = `${student.lastName} ${student.firstName}`;
+            const studentMatricule = student.student?.matricule || 'N/A';
+            const studentLevel = student.student?.level || 'N/A';
+            const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A';
+
+            const textLines = [
+                `Nous soussignés, Direction de ${schoolName}, certifions que :`,
+                `L'étudiant(e) ${studentName}`,
+                `Matricule: ${studentMatricule}`,
+                `est régulièrement inscrit(e) en ${studentLevel} de la filière ${studentField}`,
+                `pour l'année académique ${academicYear}.`,
+                ` `,
+                `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
+            ];
+            
+            doc.text(textLines, 20, 110);
+
+            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
+            doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 220, { align: 'right' });
+        }
+
+        return doc.output('blob');
+    };
 
     const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => {
         if (!adminUser) return;
@@ -371,7 +425,141 @@ export default function StudentsPage() {
         if (!student.student) return [];
         return (allCourses || []).filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
     }
+    
+    const createTranscriptPdf = async (student: User): Promise<Blob> => {
+        const doc = new jsPDF();
+        
+        if (settings) {
+            const schoolName = settings.schoolName;
+            const academicYear = settings.academicYear;
+            const studentName = `${student.lastName} ${student.firstName}`;
+            
+             try {
+                const logoDataUrl = await imageToDataUrl(settings.logoUrl);
+                if (logoDataUrl) {
+                    const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                    doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
+                }
+            } catch (error) {
+                 console.error("Could not add logo to PDF, proceeding without it.", error);
+            }
+            
+            // Header
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+            doc.setFontSize(14);
+            doc.text(`Bulletin de Notes - ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
 
+            // Student Info
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Étudiant(e): ${studentName}`, 14, 45);
+            doc.text(`Matricule: ${student.student?.matricule || 'N/A'}`, 14, 52);
+            doc.text(`Niveau: ${student.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
+            doc.text(`Filière: ${student.student?.fieldId && fieldsById[student.student.fieldId] ? fieldsById[student.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
+            
+            // Grades Table
+            const studentGrades = (grades || []).filter(g => g.studentId === student.uid);
+            const coursesById = (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
+            
+            const tableColumn = ["Matière", "Crédit", "Devoir Classe", "Devoir Recherche", "Examen", "Moyenne /20"];
+            const tableRows: (string | number)[][] = [];
+
+            const gradesByCourse: Record<string, Grade[]> = {};
+            studentGrades.forEach(grade => {
+                if (!gradesByCourse[grade.courseId]) gradesByCourse[grade.courseId] = [];
+                gradesByCourse[grade.courseId].push(grade);
+            });
+
+            let totalWeightedAverage = 0;
+            let totalCredits = 0;
+
+            Object.keys(gradesByCourse).forEach(courseId => {
+                const course = coursesById[courseId];
+                if (!course) return;
+
+                const courseGrades = gradesByCourse[courseId];
+                
+                const dc = courseGrades.find(g => g.type === 'devoir de classe');
+                const dr = courseGrades.find(g => g.type === 'devoir de recherche');
+                const exam = courseGrades.find(g => g.type === 'examen');
+                
+                const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
+                
+                let nc = 0; // Note de classe out of 20
+                const dcScore20 = dc ? getScoreOutOf20(dc) : null;
+                const drScore20 = dr ? getScoreOutOf20(dr) : null;
+
+                if (dcScore20 !== null && drScore20 !== null) {
+                    nc = (dcScore20 + drScore20) / 2;
+                } else if (dcScore20 !== null) {
+                    nc = dcScore20;
+                } else if (drScore20 !== null) {
+                    nc = drScore20;
+                }
+
+                const examScore20 = getScoreOutOf20(exam);
+                const finalScoreOutOf20 = (nc * 0.4) + (examScore20 * 0.6);
+                
+                totalWeightedAverage += finalScoreOutOf20 * course.credit;
+                totalCredits += course.credit;
+
+                tableRows.push([
+                    course.name, 
+                    course.credit, 
+                    dc ? `${dc.score}/${dc.total}` : 'N/A', 
+                    dr ? `${dr.score}/${dr.total}` : 'N/A',
+                    exam ? `${exam.score}/${exam.total}` : 'N/A', 
+                    finalScoreOutOf20.toFixed(2)
+                ]);
+            });
+
+            autoTable(doc, { head: [tableColumn], body: tableRows, startY: 60, theme: 'grid' });
+
+            // Footer
+            const finalY = (doc as any).lastAutoTable.finalY || 100;
+            const generalAverage = totalCredits > 0 ? totalWeightedAverage / totalCredits : 0;
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Moyenne Générale: ${generalAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
+            
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
+            doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
+        }
+
+        return doc.output('blob');
+    };
+
+    const generateAndStoreDocument = async (student: User, type: 'certificat' | 'bulletin', docGenerator: (student: User) => Promise<Blob>) => {
+        if(!adminUser) return;
+        try {
+            const blob = await docGenerator(student);
+            const fileName = `${type}_${student.lastName}_${student.firstName}_${Date.now()}.pdf`;
+            const fileRef = ref(storage, `official_documents/${student.uid}/${fileName}`);
+            
+            const snapshot = await uploadBytes(fileRef, blob);
+            const fileUrl = await getDownloadURL(snapshot.ref);
+
+            const newDoc: Omit<OfficialDocument, 'id'> = {
+                studentId: student.uid,
+                type: type,
+                fileUrl: fileUrl,
+                issuedBy: adminUser.uid,
+                issuedAt: new Date().toISOString(),
+            };
+            await addDoc(collection(db, "officialDocuments"), newDoc);
+
+            toast({ title: `${type === 'certificat' ? 'Certificat' : 'Bulletin'} généré et enregistré`, description: `Le document pour ${student.lastName} ${student.firstName} est disponible.` });
+
+        } catch (error) {
+            console.error(`Error generating ${type}:`, error);
+            toast({ variant: 'destructive', title: `Erreur de génération`, description: `Impossible de générer le document.` });
+        }
+    };
+    
     const getExportData = () => {
         return filteredStudents.map(student => {
             const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student!.parentUid) : null;
@@ -418,7 +606,7 @@ export default function StudentsPage() {
             return;
         }
         const tableColumn = Object.keys(exportData[0]);
-        const tableRows = exportData.map(row => Object.values(row).map(v => v !== undefined ? String(v) : ''));
+        const tableRows = exportData.map(row => Object.values(row).map(v => v !== undefined && v !== null ? String(v) : ''));
 
         autoTable(doc, {
             head: [tableColumn],
@@ -554,195 +742,6 @@ export default function StudentsPage() {
         if(fileInputRef.current) {
             fileInputRef.current.value = "";
         }
-    };
-
-    const generateAndStoreDocument = async (student: User, type: 'certificat' | 'bulletin', docGenerator: (student: User) => Promise<Blob>) => {
-        if(!adminUser) return;
-        try {
-            const blob = await docGenerator(student);
-            const fileName = `${type}_${student.lastName}_${student.firstName}_${Date.now()}.pdf`;
-            const fileRef = ref(storage, `official_documents/${student.uid}/${fileName}`);
-            
-            const snapshot = await uploadBytes(fileRef, blob);
-            const fileUrl = await getDownloadURL(snapshot.ref);
-
-            const newDoc: Omit<OfficialDocument, 'id'> = {
-                studentId: student.uid,
-                type: type,
-                fileUrl: fileUrl,
-                issuedBy: adminUser.uid,
-                issuedAt: new Date().toISOString(),
-            };
-            await addDoc(collection(db, "officialDocuments"), newDoc);
-
-            toast({ title: `${type === 'certificat' ? 'Certificat' : 'Bulletin'} généré et enregistré`, description: `Le document pour ${student.lastName} ${student.firstName} est disponible.` });
-
-        } catch (error) {
-            console.error(`Error generating ${type}:`, error);
-            toast({ variant: 'destructive', title: `Erreur de génération`, description: `Impossible de générer le document.` });
-        }
-    };
-    
-    const createCertificatePdf = async (student: User): Promise<Blob> => {
-        const doc = new jsPDF();
-        if(settings) {
-            const schoolName = settings.schoolName;
-            const academicYear = settings.academicYear;
-            
-            try {
-                const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-                if (logoDataUrl) {
-                    const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                    doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
-                }
-            } catch (error) {
-                 console.error("Could not add logo to PDF, proceeding without it.", error);
-            }
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(16);
-            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
-            
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 50, { align: 'center' });
-
-            doc.setFontSize(20);
-            doc.setFont("helvetica", "bold");
-            doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 80, { align: 'center' });
-
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "normal");
-
-            const studentName = `${student.lastName} ${student.firstName}`;
-            const studentMatricule = student.student?.matricule || 'N/A';
-            const studentLevel = student.student?.level || 'N/A';
-            const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A';
-
-            const textLines = [
-                `Nous soussignés, Direction de ${schoolName}, certifions que :`,
-                `L'étudiant(e) ${studentName}`,
-                `Matricule: ${studentMatricule}`,
-                `est régulièrement inscrit(e) en ${studentLevel} de la filière ${studentField}`,
-                `pour l'année académique ${academicYear}.`,
-                ` `,
-                `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
-            ];
-            
-            doc.text(textLines, 20, 110);
-
-            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 200, { align: 'right' });
-            doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 220, { align: 'right' });
-        }
-
-        return doc.output('blob');
-    };
-
-    const createTranscriptPdf = async (student: User): Promise<Blob> => {
-        const doc = new jsPDF();
-        
-        if (settings) {
-            const schoolName = settings.schoolName;
-            const academicYear = settings.academicYear;
-            const studentName = `${student.lastName} ${student.firstName}`;
-            
-             try {
-                const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-                if (logoDataUrl) {
-                    const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                    doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-                }
-            } catch (error) {
-                 console.error("Could not add logo to PDF, proceeding without it.", error);
-            }
-            
-            // Header
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
-            doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
-            doc.setFontSize(14);
-            doc.text(`Bulletin de Notes - ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
-
-            // Student Info
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Étudiant(e): ${studentName}`, 14, 45);
-            doc.text(`Matricule: ${student.student?.matricule || 'N/A'}`, 14, 52);
-            doc.text(`Niveau: ${student.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
-            doc.text(`Filière: ${student.student?.fieldId && fieldsById[student.student.fieldId] ? fieldsById[student.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
-            
-            // Grades Table
-            const studentGrades = (grades || []).filter(g => g.studentId === student.uid);
-            const coursesById = (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
-            
-            const tableColumn = ["Matière", "Crédit", "Devoir Classe", "Devoir Recherche", "Examen", "Moyenne /20"];
-            const tableRows: (string | number)[][] = [];
-
-            const gradesByCourse: Record<string, Grade[]> = {};
-            studentGrades.forEach(grade => {
-                if (!gradesByCourse[grade.courseId]) gradesByCourse[grade.courseId] = [];
-                gradesByCourse[grade.courseId].push(grade);
-            });
-
-            let totalWeightedAverage = 0;
-            let totalCredits = 0;
-
-            Object.keys(gradesByCourse).forEach(courseId => {
-                const course = coursesById[courseId];
-                if (!course) return;
-
-                const courseGrades = gradesByCourse[courseId];
-                
-                const dc = courseGrades.find(g => g.type === 'devoir de classe');
-                const dr = courseGrades.find(g => g.type === 'devoir de recherche');
-                const exam = courseGrades.find(g => g.type === 'examen');
-                
-                const getScoreOutOf20 = (grade: Grade | undefined) => grade ? (grade.score / grade.total) * 20 : 0;
-                
-                let nc = 0; // Note de classe out of 20
-                const dcScore20 = dc ? getScoreOutOf20(dc) : null;
-                const drScore20 = dr ? getScoreOutOf20(dr) : null;
-
-                if (dcScore20 !== null && drScore20 !== null) {
-                    nc = (dcScore20 + drScore20) / 2;
-                } else if (dcScore20 !== null) {
-                    nc = dcScore20;
-                } else if (drScore20 !== null) {
-                    nc = drScore20;
-                }
-
-                const examScore20 = getScoreOutOf20(exam);
-                const finalScoreOutOf20 = (nc * 0.4) + (examScore20 * 0.6);
-                
-                totalWeightedAverage += finalScoreOutOf20 * course.credit;
-                totalCredits += course.credit;
-
-                tableRows.push([
-                    course.name, 
-                    course.credit, 
-                    dc ? `${dc.score}/${dc.total}` : 'N/A', 
-                    dr ? `${dr.score}/${dr.total}` : 'N/A',
-                    exam ? `${exam.score}/${exam.total}` : 'N/A', 
-                    finalScoreOutOf20.toFixed(2)
-                ]);
-            });
-
-            autoTable(doc, { head: [tableColumn], body: tableRows, startY: 60, theme: 'grid' });
-
-            // Footer
-            const finalY = (doc as any).lastAutoTable.finalY || 100;
-            const generalAverage = totalCredits > 0 ? totalWeightedAverage / totalCredits : 0;
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            doc.text(`Moyenne Générale: ${generalAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
-            
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
-            doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
-        }
-
-        return doc.output('blob');
     };
     
     const loading = loadingUsers || loadingData;
