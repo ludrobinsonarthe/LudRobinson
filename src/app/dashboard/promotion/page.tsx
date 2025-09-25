@@ -1,19 +1,31 @@
 
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useUser } from '@/hooks/use-user';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { User } from 'lucide-react';
+import { User as UserIcon } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { User } from '@/lib/types';
+
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function PromotionPage() {
-    const { user: currentUser, users, loading: usersLoading, fields } = useUser();
+    const { user: currentUser, fields, loading: userLoading } = useUser();
+    const [users, setUsers] = useState<User[]>([]);
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
+            setUsers(snapshot.docs.map(doc => doc.data() as User));
+        });
+        return () => unsub();
+    }, []);
 
     const classmates = useMemo(() => {
         if (!currentUser || currentUser.role !== 'student' || !currentUser.student?.fieldId || !currentUser.student?.level) {
@@ -36,14 +48,14 @@ export default function PromotionPage() {
 
     const title = `Promotion ${currentUser?.student?.level} - ${currentField?.name || ''}`;
 
-    if (usersLoading) {
+    if (userLoading) {
         return <div>Chargement de la promotion...</div>;
     }
     
     if (currentUser?.role !== 'student') {
         return (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
-                <User className="mx-auto h-12 w-12 text-muted-foreground" />
+                <UserIcon className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-semibold">Page réservée aux étudiants</h3>
                 <p className="mb-4 mt-2 text-sm text-muted-foreground">
                     Cette section n'est accessible qu'aux étudiants pour voir leurs camarades de classe.
@@ -89,7 +101,7 @@ export default function PromotionPage() {
                         </div>
                     ) : (
                          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-full">
-                            <User className="mx-auto h-12 w-12 text-muted-foreground" />
+                            <UserIcon className="mx-auto h-12 w-12 text-muted-foreground" />
                             <h3 className="mt-4 text-lg font-semibold">Aucun camarade trouvé</h3>
                             <p className="mb-4 mt-2 text-sm text-muted-foreground">
                                 Il semblerait que vous soyez le premier de votre promotion !

@@ -14,8 +14,6 @@ import { FirestorePermissionError } from '@/firebase/errors';
 type UserContextType = {
   user: User | null;
   setUser: (user: User) => void;
-  users: User[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   loading: boolean;
   roles: AdminRole[];
   settings: Settings | null;
@@ -24,10 +22,6 @@ type UserContextType = {
   hasPermission: (permission: AdminPermission) => boolean;
   sectors: Sector[];
   fields: Field[];
-  courses: Course[];
-  grades: Grade[];
-  attendances: Attendance[];
-  staffAttendances: StaffAttendance[];
 }
 
 const defaultSettings: Settings = {
@@ -45,18 +39,12 @@ const UserContext = createContext<UserContextType | null>(null);
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user: authUser, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [fields, setFields] = useState<Field[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
-  const [grades, setGrades] = useState<Grade[]>([]);
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
-  const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
-
 
   useEffect(() => {
     if (authLoading) return;
@@ -106,14 +94,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(unsubscribe);
     };
 
-    setupSubscription('users', setAllUsers);
     setupSubscription('adminRoles', setRoles);
     setupSubscription('sectors', setSectors);
     setupSubscription('fields', setFields);
-    setupSubscription('courses', setCourses);
-    setupSubscription('attendances', setAttendances);
-    setupSubscription('staffAttendances', setStaffAttendances);
-
+    
     const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
         (error) => {
@@ -123,26 +107,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
     
-    // Conditional subscription for grades
-    let gradesQuery;
-    if (currentUser.role === 'admin') {
-        gradesQuery = query(collection(db, 'grades'));
-    } else if (currentUser.role === 'student') {
-        gradesQuery = query(collection(db, 'grades'), where('studentId', '==', currentUser.uid));
-    } else if (currentUser.role === 'parent' && currentUser.parent?.childrenUids.length > 0) {
-        gradesQuery = query(collection(db, 'grades'), where('studentId', 'in', currentUser.parent.childrenUids));
-    }
-    
-    if (gradesQuery) {
-        unsubs.push(onSnapshot(gradesQuery, 
-            (snap) => setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade)),
-            (error) => {
-                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'list' }));
-                 console.error("Error fetching grades:", error);
-            }
-        ));
-    }
-
     const initialLoadTimer = setTimeout(() => setLoading(false), 1500);
     unsubs.push(() => clearTimeout(initialLoadTimer));
     
@@ -171,7 +135,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const setUser = (user: User) => {
       setCurrentUser(user);
-      setAllUsers(prevUsers => prevUsers.map(u => u.uid === user.uid ? user : u));
   };
 
   const handleSetSettings = (newSettings: Settings) => {
@@ -181,8 +144,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const value: UserContextType = { 
       user: currentUser, 
       setUser, 
-      users: allUsers, 
-      setUsers: setAllUsers, 
       loading,
       roles,
       userPermissions,
@@ -191,10 +152,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setSettings: handleSetSettings,
       sectors,
       fields,
-      courses,
-      grades,
-      attendances,
-      staffAttendances
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

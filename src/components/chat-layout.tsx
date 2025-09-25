@@ -32,22 +32,23 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
 import { useTheme } from "next-themes";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 
 interface ChatLayoutProps {
   messages: Message[];
-  users: User[];
   onNewMessage: (message: Omit<Message, 'id' | 'createdAt'>) => void;
 }
 
 export default function ChatLayout({
   messages,
-  users,
   onNewMessage,
 }: ChatLayoutProps) {
   const { user: currentUser } = useUser();
   const { toast } = useToast();
   const { theme } = useTheme();
+  const [users, setUsers] = React.useState<User[]>([]);
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
@@ -59,6 +60,10 @@ export default function ChatLayout({
 
   React.useEffect(() => {
     setIsMounted(true);
+    const unsub = onSnapshot(collection(db, 'users'), snapshot => {
+        setUsers(snapshot.docs.map(doc => doc.data() as User));
+    });
+    return () => unsub();
   }, []);
   
   const getInitials = (firstName: string = '', lastName: string = '') => {

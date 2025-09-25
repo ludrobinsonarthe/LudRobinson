@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { OfficialDocument, User } from "@/lib/types";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from "@/hooks/use-user";
@@ -30,10 +30,18 @@ const documentTypeTranslation: {[key: string]: string} = {
 
 
 export default function DocumentsPage() {
-    const { user: currentUser, users } = useUser();
+    const { user: currentUser } = useUser();
+    const [users, setUsers] = useState<User[]>([]);
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
+            setUsers(snapshot.docs.map(doc => doc.data() as User));
+        });
+        return () => unsub();
+    }, []);
 
     const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];
@@ -132,7 +140,7 @@ export default function DocumentsPage() {
                             {loading ? (
                                 <TableRow>
                                     <TableCell colSpan={3} className="h-24 text-center">
-                                        Chargement...
+                                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
                             ) : documents.length > 0 ? documents.map(doc => (

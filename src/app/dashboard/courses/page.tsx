@@ -8,15 +8,23 @@ import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
 import { collection, query, where, getDocs, onSnapshot, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { BookOpenCheck, FileText } from 'lucide-react';
+import { BookOpenCheck, FileText, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 
 export default function CoursesPage() {
-    const { user: currentUser, users } = useUser();
+    const { user: currentUser } = useUser();
+    const [users, setUsers] = useState<User[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
+            setUsers(snapshot.docs.map(doc => doc.data() as User));
+        });
+        return () => unsub();
+    }, []);
 
     const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];
@@ -160,7 +168,7 @@ export default function CoursesPage() {
                 <CardContent>
                    {loading ? (
                         <div className="flex items-center justify-center h-48">
-                            <p>Chargement des cours...</p>
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
                    ) : courses.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

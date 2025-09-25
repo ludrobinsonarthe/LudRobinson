@@ -7,14 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useUser } from '@/hooks/use-user';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Course, CashTransaction, Payment, Field } from '@/lib/types';
+import { Course, CashTransaction, Payment, Field, User } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
 import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
 import PendingPaymentsCard from '@/components/pending-payments-card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ReportingPage() {
-    const { users, loading: usersLoading, settings, fields } = useUser();
+    const { settings, loading: userLoading } = useUser();
+    const [users, setUsers] = useState<User[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -22,6 +23,7 @@ export default function ReportingPage() {
 
     useEffect(() => {
         setLoadingData(true);
+        const unsubUsers = onSnapshot(collection(db, 'users'), snapshot => setUsers(snapshot.docs.map(doc => doc.data() as User)));
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
         const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction)));
         const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
@@ -30,6 +32,7 @@ export default function ReportingPage() {
         const timer = setTimeout(() => setLoadingData(false), 300);
         
         return () => {
+            unsubUsers();
             unsubCourses();
             unsubTransactions();
             unsubPayments();
@@ -60,7 +63,7 @@ export default function ReportingPage() {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF' }).format(amount);
     }
 
-    const loading = usersLoading || loadingData;
+    const loading = userLoading || loadingData;
 
     return (
         <div className="space-y-6">

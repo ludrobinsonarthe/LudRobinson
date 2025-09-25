@@ -12,7 +12,7 @@ import { db } from "@/lib/firebase";
 import { Payment, User } from '@/lib/types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
@@ -32,10 +32,18 @@ const methodTranslation: { [key: string]: string } = {
 }
 
 export default function PaymentsPage() {
-    const { user: currentUser, users } = useUser();
+    const { user: currentUser } = useUser();
+    const [users, setUsers] = useState<User[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
+            setUsers(snapshot.docs.map(doc => doc.data() as User));
+        });
+        return () => unsub();
+    }, []);
 
     const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];
@@ -138,7 +146,7 @@ export default function PaymentsPage() {
                 <CardContent>
                     {loading ? (
                          <div className="flex items-center justify-center h-48">
-                            <p>Chargement des paiements...</p>
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
                     ) : payments.length > 0 ? (
                         <Table>

@@ -12,7 +12,7 @@ import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function MessagesPage() {
-  const { user, users, loading: userLoading } = useUser();
+  const { user, loading: userLoading } = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +75,6 @@ export default function MessagesPage() {
       ) : (
         <ChatLayout
           messages={messages}
-          users={users}
           onNewMessage={handleNewMessage}
         />
       )}

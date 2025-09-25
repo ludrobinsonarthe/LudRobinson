@@ -1,10 +1,6 @@
 // Defines custom error types for the application.
 
-export type SecurityRuleContext = {
-  path: string;
-  operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
-  requestResourceData?: any;
-};
+import { SecurityRuleContext } from "@/lib/types";
 
 /**
  * A custom error for Firestore permission issues that includes
