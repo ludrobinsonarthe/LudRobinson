@@ -37,7 +37,7 @@ const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().pad
 
 
 function StudentAttendanceContent() {
-    const { user, allUsers: users, loading: usersLoading, settings, courses, fields, sectors, attendances } = useUser();
+    const { user, allUsers: users, loading: usersLoading, settings, allCourses: courses, fields, sectors, attendances } = useUser();
     const { toast } = useToast();
 
     // Filters state
@@ -50,7 +50,7 @@ function StudentAttendanceContent() {
     const [isReportOpen, setIsReportOpen] = useState(false);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+    const coursesById = useMemo(() => (courses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
@@ -387,7 +387,7 @@ function StudentAttendanceContent() {
 }
 
 function TeacherAttendanceContent() {
-    const { user: currentUser, allUsers: users, loading: usersLoading, settings, courses, attendances } = useUser();
+    const { user: currentUser, allUsers: users, loading: usersLoading, settings, allCourses: courses, attendances } = useUser();
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -403,7 +403,7 @@ function TeacherAttendanceContent() {
         return () => clearTimeout(timer);
     }, []);
 
-    const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+    const coursesById = useMemo(() => (courses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
     const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse', course?: Course }[] => {
         const dateStr = format(day, 'yyyy-MM-dd');
