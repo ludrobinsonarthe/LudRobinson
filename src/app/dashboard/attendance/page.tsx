@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
@@ -254,7 +253,6 @@ function StudentAttendanceContent() {
                                     </DialogFooter>
                                 </DialogContent>
                              </Dialog>
-                            <Button variant="outline" onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Exporter PDF</Button>
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}><ArrowLeft className="h-4 w-4" /></Button>
                                 <span>{format(currentWeek, 'd MMM', { locale: fr })}</span>
@@ -390,6 +388,7 @@ function TeacherAttendanceContent() {
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    const [isReportOpen, setIsReportOpen] = useState(false);
     const { toast } = useToast();
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
@@ -455,6 +454,22 @@ function TeacherAttendanceContent() {
             toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la présence.' });
         }
     };
+
+    const weeklyTeacherReportData = useMemo(() => {
+        const report: { teacher: User, present: number, absent: number, pending: number }[] = [];
+        teachers.forEach(teacher => {
+            let present = 0, absent = 0, pending = 0;
+            weekDays.forEach(day => {
+                getAttendanceStatusForTeacher(teacher.uid, day).forEach(statusInfo => {
+                    if (statusInfo.status === 'present') present++;
+                    else if (statusInfo.status === 'absent') absent++;
+                    else if (statusInfo.status === 'pending') pending++;
+                });
+            });
+            report.push({ teacher, present, absent, pending });
+        });
+        return report;
+    }, [teachers, weekDays, attendances, courses]);
     
     const handleExportPDF = async () => {
         if (!settings) {
@@ -514,7 +529,39 @@ function TeacherAttendanceContent() {
                         <CardDescription>Vue hebdomadaire de l'assiduité des enseignants.</CardDescription>
                     </div>
                      <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4" /> Exporter PDF</Button>
+                        <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+                            <DialogTrigger asChild><Button variant="outline"><Eye className="mr-2 h-4 w-4"/> Aperçu du Rapport</Button></DialogTrigger>
+                            <DialogContent className="max-w-4xl">
+                                <DialogHeader>
+                                    <DialogTitle>Rapport de présence des professeurs</DialogTitle>
+                                    <DialogDescription>Semaine du {format(currentWeek, 'd MMMM yyyy', { locale: fr })}</DialogDescription>
+                                </DialogHeader>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Professeur</TableHead>
+                                            <TableHead className="text-center">Cours Présents</TableHead>
+                                            <TableHead className="text-center">Cours Absents</TableHead>
+                                            <TableHead className="text-center">En Attente</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {weeklyTeacherReportData.map(({ teacher, present, absent, pending }) => (
+                                            <TableRow key={teacher.uid}>
+                                                <TableCell className="font-medium">{teacher.lastName} {teacher.firstName}</TableCell>
+                                                <TableCell className="text-center font-bold text-green-600">{present}</TableCell>
+                                                <TableCell className="text-center font-bold text-red-600">{absent}</TableCell>
+                                                <TableCell className="text-center font-bold text-gray-500">{pending}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsReportOpen(false)}>Fermer</Button>
+                                    <Button onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Télécharger en PDF</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                         <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
@@ -828,6 +875,6 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
-
+    
 
     
