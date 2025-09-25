@@ -59,6 +59,7 @@ import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import TutorPage from "./tutor/page";
+import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 
 function AppLogo() {
   const { settings, loading } = useUser();
@@ -269,6 +270,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
     
     return (
         <UserProvider>
+            <FirebaseErrorListener />
             <ProtectedContent>
                 {children}
             </ProtectedContent>

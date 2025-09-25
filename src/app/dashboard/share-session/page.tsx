@@ -12,6 +12,8 @@ import { useAuth } from "@/hooks/use-auth";
 import QRCode from "qrcode.react";
 import { signInWithCustomToken } from "firebase/auth";
 import { Button } from "@/components/ui/button";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 function ShareSessionContent() {
   const [mode, setMode] = useState<'initial' | 'display_qr' | 'validate_qr'>('initial');
@@ -43,7 +45,12 @@ function ShareSessionContent() {
             try {
                 setLoading(true);
                 await signInWithCustomToken(auth, data.token);
-                await updateDoc(sessionRef, { status: 'completed' });
+                
+                updateDoc(sessionRef, { status: 'completed' }).catch(err => {
+                    // Non-critical, just log it.
+                    console.error("Could not update session to completed:", err);
+                });
+
                 toast({ title: "Connexion réussie", description: "Vous êtes maintenant connecté." });
                 router.push("/dashboard");
             } catch (error) {
@@ -53,69 +60,82 @@ function ShareSessionContent() {
                  setMode('initial'); // Reset
             }
         }
+      },
+      (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sessionRef.path, operation: 'get' }));
+        console.error("Error on snapshot:", error);
       });
     }
     // Cleanup function
     return () => {
       if (unsubscribe) unsubscribe();
       // Clean up the session doc if user navigates away
-      if(qrSessionId) deleteDoc(doc(db, 'qr_sessions', qrSessionId));
+      if(qrSessionId) {
+          deleteDoc(doc(db, 'qr_sessions', qrSessionId)).catch(err => {
+               // Non-critical cleanup
+          });
+      }
     };
   }, [mode, qrSessionId, router, toast]);
 
   const handleDisplayQrCode = async () => {
     setLoading(true);
     const sessionId = doc(collection(db, 'qr_sessions')).id;
-    await setDoc(doc(db, 'qr_sessions', sessionId), { 
+    const sessionData = { 
       status: 'pending', 
       createdAt: serverTimestamp() 
-    });
-    setQrSessionId(sessionId);
-    setQrLoginError(null);
-    setMode('display_qr');
-    setLoading(false);
+    };
+
+    setDoc(doc(db, 'qr_sessions', sessionId), sessionData)
+        .then(() => {
+            setQrSessionId(sessionId);
+            setQrLoginError(null);
+            setMode('display_qr');
+            setLoading(false);
+        })
+        .catch(err => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `qr_sessions/${sessionId}`, operation: 'create', requestResourceData: sessionData }));
+            setLoading(false);
+        });
   };
   
   const validateSession = async () => {
     setLoading(true);
-    if (!sessionIdFromUrl) {
-      toast({ variant: "destructive", title: "Erreur", description: "ID de session manquant." });
+    if (!sessionIdFromUrl || !user) {
+      const errMessage = !sessionIdFromUrl ? "ID de session manquant." : "Vous devez être connecté pour valider une session.";
+      toast({ variant: "destructive", title: "Erreur", description: errMessage });
       setLoading(false);
       return;
     }
-    if (!user) {
-        toast({ variant: "destructive", title: "Erreur", description: "Vous devez être connecté pour valider une session." });
-        setLoading(false);
-        return;
-    }
 
+    const sessionRef = doc(db, 'qr_sessions', sessionIdFromUrl);
+    
     try {
-      const sessionRef = doc(db, 'qr_sessions', sessionIdFromUrl);
-      const sessionDoc = await getDoc(sessionRef);
+        const sessionDoc = await getDoc(sessionRef);
 
-      if (!sessionDoc.exists() || sessionDoc.data().status !== 'pending') {
-        throw new Error("Session invalide ou expirée.");
-      }
+        if (!sessionDoc.exists() || sessionDoc.data().status !== 'pending') {
+            throw new Error("Session invalide ou expirée.");
+        }
 
-      // **SECURITY**: In a real app, this should be a trusted server endpoint
-      // that verifies the user and generates a custom token.
-      // For this demo, we'll simulate token generation.
-      const customToken = await user.getIdToken(); 
-      
-      await updateDoc(sessionRef, {
-        userId: user.uid,
-        status: 'validated',
-        token: customToken, // Send the token to the waiting device
-      });
-      
-      setValidated(true);
-      toast({ title: "Validation réussie", description: "L'autre appareil est maintenant en train de se connecter." });
-
-    } catch (error: any) {
-      console.error("Validation error:", error);
-      toast({ variant: "destructive", title: "Erreur de validation", description: error.message || "Impossible de valider la session." });
+        const customToken = await user.getIdToken(); 
+        const updateData = {
+            userId: user.uid,
+            status: 'validated',
+            token: customToken,
+        };
+        
+        await updateDoc(sessionRef, updateData);
+        
+        setValidated(true);
+        toast({ title: "Validation réussie", description: "L'autre appareil est maintenant en train de se connecter." });
+    } catch(error: any) {
+        if(error.code === 'permission-denied') {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sessionRef.path, operation: 'get' }));
+        } else {
+             toast({ variant: "destructive", title: "Erreur de validation", description: error.message || "Impossible de valider la session." });
+        }
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
@@ -144,7 +164,7 @@ function ShareSessionContent() {
                  <CardHeader>
                     <Camera className="mx-auto h-12 w-12 text-primary"/>
                     <CardTitle className="mt-4">Valider un autre appareil</CardTitle>
-                    <CardDescription>Utilisez la caméra de votre téléphone pour scanner un QR code et autoriser la connexion.</CardDescription>
+                    <CardDescription>Utilisez la caméra de votre téléphone pour scanner un code affiché sur l'autre appareil.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm text-muted-foreground">Ouvrez l'application caméra de votre téléphone et scannez le code affiché sur l'autre appareil.</p>

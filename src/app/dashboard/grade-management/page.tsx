@@ -35,6 +35,9 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { imageToDataUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
@@ -86,6 +89,9 @@ function GradeManagementContent() {
         const qGrades = query(collection(db, "grades"));
         const unsubGrades = onSnapshot(qGrades, (snapshot) => {
             setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
+            setLoadingData(false);
+        }, (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `grades`, operation: 'list'}));
             setLoadingData(false);
         });
         
@@ -209,53 +215,55 @@ function GradeManagementContent() {
         }
 
         const batch = writeBatch(db);
+        const gradeDataTemplate: Omit<Grade, 'id' | 'studentId'> = {
+            courseId: targetCourseId,
+            type: newEvalType,
+            score: 0,
+            total: newEvalTotal,
+            coefficient: newEvalCoefficient,
+            academicYear: settings?.academicYear || "2024-2025",
+            createdAt: new Date().toISOString(),
+        };
+
         targetStudents.forEach(student => {
             const newGradeRef = doc(collection(db, "grades"));
             const gradeData: Omit<Grade, 'id'> = {
+                ...gradeDataTemplate,
                 studentId: student.uid,
-                courseId: targetCourseId,
-                type: newEvalType,
-                score: 0, // Default score
-                total: newEvalTotal,
-                coefficient: newEvalCoefficient,
-                academicYear: settings?.academicYear || "2024-2025",
-                createdAt: new Date().toISOString(),
             };
             batch.set(newGradeRef, gradeData);
         });
-        try {
-            await batch.commit();
-            toast({ title: "Nouvelle évaluation ajoutée", description: "Vous pouvez maintenant saisir les notes." });
-            if(!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
-        } catch (error) {
-            console.error(error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'ajouter l'évaluation." });
-        } finally {
-            setIsEvalDialogOpen(false);
-        }
+
+        batch.commit()
+            .then(() => {
+                toast({ title: "Nouvelle évaluation ajoutée", description: "Vous pouvez maintenant saisir les notes." });
+                if(!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
+            })
+            .catch(error => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'create', requestResourceData: gradeDataTemplate }));
+            })
+            .finally(() => {
+                setIsEvalDialogOpen(false);
+            });
     };
     
     const handleScoreChange = (gradeId: string, newScore: string) => {
         const scoreValue = parseFloat(newScore);
         if (isNaN(scoreValue)) return;
 
-        // Update local state immediately for instant UI feedback
         setGrades(currentGrades => currentGrades.map(g => g.id === gradeId ? { ...g, score: scoreValue } : g));
         
-        // Debounce Firestore update
         if (debounceTimeout.current) {
             clearTimeout(debounceTimeout.current);
         }
 
-        debounceTimeout.current = setTimeout(async () => {
+        debounceTimeout.current = setTimeout(() => {
             const gradeRef = doc(db, 'grades', gradeId);
-            try {
-                await updateDoc(gradeRef, { score: scoreValue });
-            } catch (error) {
-                console.error(error);
-                toast({ variant: "destructive", title: "Erreur de sauvegarde", description: "Impossible de mettre à jour la note." });
-            }
-        }, 500); // Wait 500ms after user stops typing
+            updateDoc(gradeRef, { score: scoreValue })
+                .catch(error => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({ path: gradeRef.path, operation: 'update', requestResourceData: { score: scoreValue } }));
+                });
+        }, 500); 
     }
     
     const handleDeleteEvaluation = (evaluation: EvaluationColumn) => {
@@ -272,16 +280,17 @@ function GradeManagementContent() {
             batch.delete(doc(db, "grades", grade.id));
         });
 
-        try {
-            await batch.commit();
-            toast({ title: "Évaluation supprimée", description: `L'évaluation "${evalToDelete.name}" et toutes ses notes ont été supprimées.` });
-        } catch (error) {
-            console.error(error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'évaluation." });
-        } finally {
-            setIsDeleteDialogOpen(false);
-            setEvalToDelete(null);
-        }
+        batch.commit()
+            .then(() => {
+                toast({ title: "Évaluation supprimée", description: `L'évaluation "${evalToDelete.name}" et toutes ses notes ont été supprimées.` });
+            })
+            .catch(error => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'delete' }));
+            })
+            .finally(() => {
+                setIsDeleteDialogOpen(false);
+                setEvalToDelete(null);
+            });
     };
     
     const getExportData = () => {

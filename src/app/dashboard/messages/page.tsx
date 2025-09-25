@@ -8,6 +8,8 @@ import { Message } from "@/lib/types";
 import { collection, query, where, onSnapshot, or, addDoc, serverTimestamp, and } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function MessagesPage() {
   const { user, users, loading: userLoading } = useUser();
@@ -18,7 +20,6 @@ export default function MessagesPage() {
     if (!user) return;
     setLoading(true);
 
-    // This query fetches all private messages where the current user is either the sender or the receiver.
     const q = query(
       collection(db, "private_messages"),
       or(
@@ -32,6 +33,7 @@ export default function MessagesPage() {
         setMessages(userMessages);
         setLoading(false);
     }, (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `private_messages`, operation: 'list' }));
         console.error("Error fetching messages:", error);
         setLoading(false);
     });
@@ -40,9 +42,18 @@ export default function MessagesPage() {
   }, [user]);
   
   const handleNewMessage = async (newMessageData: Omit<Message, 'id' | 'createdAt'>) => {
-     await addDoc(collection(db, "private_messages"), {
-        ...newMessageData,
-        createdAt: new Date().toISOString(),
+    const messagePayload = {
+      ...newMessageData,
+      createdAt: new Date().toISOString(),
+    };
+    
+    addDoc(collection(db, "private_messages"), messagePayload)
+    .catch((error) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `private_messages`,
+        operation: 'create',
+        requestResourceData: messagePayload,
+      }));
     });
   }
   

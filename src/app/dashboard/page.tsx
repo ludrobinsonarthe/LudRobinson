@@ -12,6 +12,8 @@ import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, where, orderBy, or, doc, setDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import UserDeleteDialog from "@/components/user-delete-dialog";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 
 export default function DashboardPage() {
@@ -45,6 +47,7 @@ export default function DashboardPage() {
             setAnnouncements(fetchedAnnouncements);
             setLoading(false);
         }, (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `announcements`, operation: 'list' }));
             console.error("Error fetching announcements: ", error);
             setLoading(false);
         });
@@ -70,14 +73,17 @@ export default function DashboardPage() {
     
     const confirmDelete = async () => {
         if (!editingAnnouncement) return;
-        try {
-            await deleteDoc(doc(db, "announcements", editingAnnouncement.id));
-            toast({ title: "Annonce supprimée" });
-        } catch (error) {
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'annonce." });
-        } finally {
-            setIsDeleteDialogOpen(false);
-        }
+        const docRef = doc(db, "announcements", editingAnnouncement.id);
+        deleteDoc(docRef)
+            .then(() => {
+                toast({ title: "Annonce supprimée" });
+            })
+            .catch(error => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+            })
+            .finally(() => {
+                setIsDeleteDialogOpen(false);
+            });
     }
     
     const pageIsLoading = loading || userLoading;

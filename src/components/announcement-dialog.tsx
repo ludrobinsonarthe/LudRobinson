@@ -30,6 +30,8 @@ import { Loader2 } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { collection, addDoc, doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 const announcementSchema = z.object({
   receiverId: z.string().min(1, "Veuillez sélectionner un destinataire."),
@@ -86,7 +88,7 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     try {
         if (announcement) {
             const updatedData = {
-                ...announcement, // start with existing data
+                ...announcement, 
                 receiverId: data.receiverId,
                 title: data.title,
                 content: data.content,
@@ -94,18 +96,22 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
             await setDoc(doc(db, "announcements", announcement.id), updatedData, { merge: true });
             toast({ title: "Annonce modifiée" });
         } else {
-            await addDoc(collection(db, "announcements"), {
+            const newAnnouncement = {
                 ...data,
                 senderId: user.uid,
                 type: 'announcement',
                 createdAt: new Date().toISOString(),
-            });
+            };
+            await addDoc(collection(db, "announcements"), newAnnouncement);
             toast({ title: "Annonce publiée" });
         }
         setIsOpen(false);
     } catch (error) {
-        console.error("Error saving announcement: ", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'annonce." });
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: announcement ? `announcements/${announcement.id}` : 'announcements',
+            operation: announcement ? 'update' : 'create',
+            requestResourceData: data,
+        }));
     } finally {
         setSubmitting(false);
     }
