@@ -146,53 +146,46 @@ function MainSidebar() {
   const showStudentMenu = user?.role === 'student' || user?.role === 'parent';
   const showAdminMenu = user?.role === 'admin';
 
+  const commonMenuItems = (
+    <SidebarMenu>
+        {menuItems.map((item) => (
+        <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+            <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+            </SidebarMenuButton>
+        </SidebarMenuItem>
+        ))}
+        
+        {showStudentMenu && studentMenuItems.map((item) => (
+        <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+            <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+            </SidebarMenuButton>
+        </SidebarMenuItem>
+        ))}
 
-  return (
-      <Sidebar>
-        <SidebarHeader>
-          <AppLogo />
-        </SidebarHeader>
-        <SidebarContent>
-          {isMounted && (
-          <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
-                  <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-            
-            {showStudentMenu && studentMenuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
-                  <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+        {showAdminMenu && adminMenuGroups.map(group => (
+        <SidebarGroup key={group.group}>
+            <SidebarGroupLabel>{group.group}</SidebarGroupLabel>
+            <SidebarGroupContent>
+            {group.items.map(item =>
+                hasPermission(item.permission) && (
+                <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+                    <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+                )
+            )}
+            </SidebarGroupContent>
+        </SidebarGroup>
+        ))}
+    </SidebarMenu>
+  );
 
-            {showAdminMenu && adminMenuGroups.map(group => (
-              <SidebarGroup key={group.group}>
-                <SidebarGroupLabel>{group.group}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  {group.items.map(item =>
-                      hasPermission(item.permission) && (
-                      <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
-                          <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
-                          </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      )
-                  )}
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))}
-          </SidebarMenu>
-          )}
-        </SidebarContent>
-        <SidebarFooter>
-          <SidebarMenu>
-             <Sheet>
+  const commonFooter = (
+      <SidebarMenu>
+            <Sheet>
                 <SheetTrigger asChild>
                     <SidebarMenuItem>
                     <SidebarMenuButton tooltip={"Tuteur IA"}>
@@ -203,16 +196,16 @@ function MainSidebar() {
                 </SheetTrigger>
                 <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
                     <SheetHeader className="p-0 m-0 h-0">
-                      <SheetTitle className="sr-only">Tuteur IA</SheetTitle>
-                      <SheetDescription className="sr-only">
+                        <SheetTitle className="sr-only">Tuteur IA</SheetTitle>
+                        <SheetDescription className="sr-only">
                         Un tuteur basé sur l'IA pour répondre aux questions des étudiants et générer des quiz.
-                      </SheetDescription>
+                        </SheetDescription>
                     </SheetHeader>
                     <TutorPage />
                 </SheetContent>
             </Sheet>
-             <SidebarMenuItem>
-                 <SidebarMenuButton
+            <SidebarMenuItem>
+                <SidebarMenuButton
                     asChild
                     isActive={pathname === "/dashboard/share-session"}
                     tooltip={"Partager la session"}
@@ -224,21 +217,54 @@ function MainSidebar() {
                 </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                  asChild
-                  isActive={pathname === "/dashboard/profile"}
-                  tooltip={"Profil"}
+            <SidebarMenuButton
+                asChild
+                isActive={pathname === "/dashboard/profile"}
+                tooltip={"Profil"}
                 >
-                  <Link href={"/dashboard/profile"}>
+                <Link href={"/dashboard/profile"}>
                     <UserIcon />
                     <span>Profil</span>
-                  </Link>
-              </SidebarMenuButton>
+                </Link>
+            </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <ThemeToggle />
+            <ThemeToggle />
             </SidebarMenuItem>
-          </SidebarMenu>
+        </SidebarMenu>
+  );
+
+
+  return (
+      <Sidebar>
+        <SidebarHeader className="hidden md:flex">
+          <AppLogo />
+        </SidebarHeader>
+        <SidebarContent>
+            <Sheet>
+                <SheetTrigger asChild>
+                    <div className="block md:hidden p-2">
+                        <AppLogo />
+                    </div>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0 w-[280px]">
+                    <SidebarHeader>
+                        <AppLogo />
+                    </SidebarHeader>
+                    <SidebarContent>
+                        {isMounted && commonMenuItems}
+                    </SidebarContent>
+                    <SidebarFooter>
+                        {commonFooter}
+                    </SidebarFooter>
+                </SheetContent>
+            </Sheet>
+            <div className="hidden md:block">
+                {isMounted && commonMenuItems}
+            </div>
+        </SidebarContent>
+        <SidebarFooter className="hidden md:flex">
+          {commonFooter}
         </SidebarFooter>
       </Sidebar>
   );
