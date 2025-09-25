@@ -1,17 +1,11 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Default to secure: deny all reads and writes unless explicitly allowed.
+    // Allow read/write access to all authenticated users
+    // THIS IS NOT A SECURE RULE. You should restrict access based on your app's needs.
     match /{document=**} {
-      allow read, write: if isSignedIn();
+      allow read, write: if request.auth != null;
     }
   }
 }
