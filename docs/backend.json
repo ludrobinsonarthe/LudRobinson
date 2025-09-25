@@ -82,7 +82,7 @@
         "attachments": { "type": "array", "items": { "type": "string", "format": "uri" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "senderId", "receiverId", "content", "type", "createdAt"]
+      "required": ["id", "senderId", "content", "type", "createdAt"]
     },
     "Course": {
       "title": "Course",
