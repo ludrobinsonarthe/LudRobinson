@@ -29,7 +29,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function CertificatesPage() {
-    const { users, loading: loadingUsers, settings, fields, sectors } = useUser();
+    const { allUsers: users, loading: loadingUsers, settings, fields, sectors } = useUser();
     const { toast } = useToast();
 
     // Filters state
@@ -38,6 +38,7 @@ export default function CertificatesPage() {
     const [fieldFilter, setFieldFilter] = useState("all");
 
     const studentsFromUsers = useMemo(() => {
+        if (!users) return [];
         return users
             .filter(u => u.role === 'student')
             .sort((a, b) => {
@@ -228,5 +229,3 @@ export default function CertificatesPage() {
         </div>
     );
 }
-
-    
