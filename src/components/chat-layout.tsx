@@ -48,7 +48,7 @@ export default function ChatLayout({
   const { user: currentUser } = useUser();
   const { toast } = useToast();
   const { theme } = useTheme();
-  const [users, setUsers] = React.useState<User[]>([]);
+  const [allUsers, setAllUsers] = React.useState<User[]>([]);
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
@@ -61,7 +61,7 @@ export default function ChatLayout({
   React.useEffect(() => {
     setIsMounted(true);
     const unsub = onSnapshot(collection(db, 'users'), snapshot => {
-        setUsers(snapshot.docs.map(doc => doc.data() as User));
+        setAllUsers(snapshot.docs.map(doc => doc.data() as User));
     });
     return () => unsub();
   }, []);
@@ -85,7 +85,7 @@ export default function ChatLayout({
       }
     });
 
-    users.forEach(user => {
+    allUsers.forEach(user => {
         if(user.uid !== currentUser.uid && (user.role === 'admin' || user.role === 'teacher')) {
             conversationPartners.add(user.uid);
         }
@@ -93,13 +93,13 @@ export default function ChatLayout({
 
 
     return Array.from(conversationPartners).map(partnerId => {
-        const partner = users.find(u => u.uid === partnerId);
+        const partner = allUsers.find(u => u.uid === partnerId);
         const lastMessage = messages
             .filter(m => (m.senderId === partnerId && m.receiverId === currentUser.uid) || (m.senderId === currentUser.uid && m.receiverId === partnerId))
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         return { partner, lastMessage };
     }).filter(c => c.partner).sort((a, b) => new Date(b.lastMessage?.createdAt || 0).getTime() - new Date(a.lastMessage?.createdAt || 0).getTime());
-  }, [messages, currentUser, users, isMounted]);
+  }, [messages, currentUser, allUsers, isMounted]);
 
   React.useEffect(() => {
     if(conversations.length > 0 && !selectedConversation) {
@@ -125,7 +125,7 @@ export default function ChatLayout({
       }
   }, [selectedMessages]);
 
-  const selectedUser = users.find(u => u.uid === selectedConversation);
+  const selectedUser = allUsers.find(u => u.uid === selectedConversation);
 
   const handleStartNewConversation = (userId: string) => {
     setSelectedConversation(userId);
@@ -369,7 +369,7 @@ export default function ChatLayout({
         isOpen={isNewMessageDialogOpen}
         setIsOpen={setIsNewMessageDialogOpen}
         onSelectUser={handleStartNewConversation}
-        users={users.filter(u => u.uid !== currentUser?.uid)}
+        users={allUsers.filter(u => u.uid !== currentUser?.uid)}
     />
     </>
   );

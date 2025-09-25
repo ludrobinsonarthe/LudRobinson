@@ -29,7 +29,7 @@ type UserContextType = {
   teacherSalaries: TeacherSalary[];
   cashTransactions: CashTransaction[];
   officialDocuments: OfficialDocument[];
-  users: User[];
+  allUsers: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
 };
 
@@ -54,7 +54,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   
   // All data collections
-  const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setUsers] = useState<User[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -121,6 +121,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setupSubscription('adminRoles', setRoles);
     setupSubscription('sectors', setSectors);
     setupSubscription('fields', setFields);
+    setupSubscription('courses', setCourses);
     
     const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
@@ -133,7 +134,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     // For admins, load everything. For others, data is fetched on demand in pages.
     if (currentUser.role === 'admin') {
       setupSubscription('users', setUsers);
-      setupSubscription('courses', setCourses);
       setupSubscription('grades', setGrades);
       setupSubscription('attendances', setAttendances);
       setupSubscription('staffAttendances', setStaffAttendances);
@@ -141,14 +141,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setupSubscription('teacherSalaries', setTeacherSalaries);
       setupSubscription('cashTransactions', setCashTransactions);
       setupSubscription('officialDocuments', setOfficialDocuments);
-    } else {
-      // Non-admins still need the list of all users and courses for messaging and schedule.
-      setupSubscription('users', setUsers);
-      setupSubscription('courses', setCourses);
-      // For non-admin, also load their specific attendances for their view
-      if (currentUser.role === 'teacher' || currentUser.role === 'student') {
-        setupSubscription('attendances', setAttendances);
-      }
     }
     
     const initialLoadTimer = setTimeout(() => setLoading(false), 500);
@@ -199,7 +191,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       teacherSalaries,
       cashTransactions,
       officialDocuments,
-      users,
+      allUsers,
       setUsers,
   };
 
