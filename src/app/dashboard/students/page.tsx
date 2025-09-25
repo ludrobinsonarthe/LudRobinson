@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -48,7 +47,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser, users, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
+    const { user: adminUser, allUsers: users, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
@@ -90,7 +89,7 @@ export default function StudentsPage() {
     }, []);
 
     const studentsFromUsers = useMemo(() => {
-        return users
+        return (users || [])
             .filter(u => u.role === 'student')
             .sort((a, b) => {
                 const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
@@ -99,7 +98,7 @@ export default function StudentsPage() {
             });
     }, [users]);
 
-    const parents = useMemo(() => users.filter(u => u.role === 'parent'), [users]);
+    const parents = useMemo(() => (users || []).filter(u => u.role === 'parent'), [users]);
     const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
     const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
