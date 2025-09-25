@@ -33,7 +33,6 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Fetch settings to display school name
     setSettingsLoading(true);
     const unsub = onSnapshot(doc(db, "settings", "system"), (settingsDoc) => {
         if (settingsDoc.exists()) {
@@ -78,13 +77,15 @@ export default function LoginPage() {
     }
   };
 
+  const logoSrc = settings?.logoUrl && settings.logoUrl.startsWith('https') ? settings.logoUrl : "/logo.png";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-card text-card-foreground">
-                    {settingsLoading ? <Skeleton className="h-12 w-12 rounded-lg" /> : <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={48} height={48} className="object-contain"/>}
+                    {settingsLoading ? <Skeleton className="h-12 w-12 rounded-lg" /> : <Image src={logoSrc} alt="Logo" width={48} height={48} className="object-contain" unoptimized />}
                 </div>
                 {settingsLoading ? <Skeleton className="h-9 w-40" /> : 
                   <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
