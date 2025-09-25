@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Announcement, Attendance } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Announcement, Attendance, StaffAttendance } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where, or } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -25,6 +25,7 @@ type UserContextType = {
   courses: Course[];
   grades: Grade[];
   attendances: Attendance[];
+  staffAttendances: StaffAttendance[];
 }
 
 const defaultSettings: Settings = {
@@ -52,6 +53,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
 
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       { name: 'courses', setter: setCourses },
       { name: 'grades', setter: setGrades },
       { name: 'attendances', setter: setAttendances },
+      { name: 'staffAttendances', setter: setStaffAttendances },
     ];
 
     const promises = collectionsToFetch.map(c => getDocs(collection(db, c.name)));
@@ -114,8 +117,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         
         setSettings(settingsSnap.exists() ? settingsSnap.data() as Settings : defaultSettings);
         
-        // Only set loading to false after initial data is fetched and listeners are ready
-        
         const unsubs: (() => void)[] = [];
 
         unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => ({id: d.id, ...d.data()}) as User))));
@@ -124,6 +125,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()}) as Field))));
         unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => ({...d.data(), id: d.id}) as Course))));
         unsubs.push(onSnapshot(collection(db, 'attendances'), snap => setAttendances(snap.docs.map(d => ({...d.data(), id: d.id}) as Attendance))));
+        unsubs.push(onSnapshot(collection(db, 'staffAttendances'), snap => setStaffAttendances(snap.docs.map(d => ({...d.data(), id: d.id}) as StaffAttendance))));
         
         if (currentUser.role === 'admin') {
             unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade))));
@@ -138,9 +140,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         
         unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => ({id: d.id, ...d.data()}) as AdminRole))));
 
-        setLoading(false); // Set loading to false after all initial fetches and listener setups
+        setLoading(false); 
         
-        // Cleanup listeners
         return () => unsubs.forEach(unsub => unsub());
 
     }).catch(error => {
@@ -194,7 +195,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       fields,
       courses,
       grades,
-      attendances
+      attendances,
+      staffAttendances
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

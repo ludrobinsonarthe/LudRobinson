@@ -6,11 +6,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap, Eye, UserX } from "lucide-react";
-import { format, startOfWeek, addDays, eachDayOfInterval, parseISO } from 'date-fns';
+import { ArrowLeft, ArrowRight, UserCheck, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap, Eye, UserX } from "lucide-react";
+import { format, startOfWeek, addDays, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, eachDayOf, getMonth, getYear, subMonths, addMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus } from '@/lib/types';
+import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus, StaffAttendance, StaffMemberAttendance } from '@/lib/types';
 import { collection, doc, getDoc, setDoc, onSnapshot, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -654,41 +654,44 @@ function TeacherAttendanceContent() {
 
 function StaffAttendanceContent() {
     const { user: currentUser, users, loading: usersLoading, settings } = useUser();
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [staffAttendances, setStaffAttendances] = useState<any[]>([]);
+    const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
+    const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
+    const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
     const { toast } = useToast();
 
     const adminStaff = useMemo(() => {
         return users.filter(u => u.role === 'admin').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
     }, [users]);
     
-    const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'staffAttendances'), snapshot => {
-            setStaffAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any));
+            setStaffAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as StaffAttendance));
         });
         return () => unsub();
     }, []);
     
-    const todaysAttendance = useMemo(() => {
-        return staffAttendances.find(a => a.id === formattedDate);
-    }, [staffAttendances, formattedDate]);
-
-    const getStatusForStaff = (staffId: string): any['status'] => {
-        return todaysAttendance?.staffStatus.find((s:any) => s.staffId === staffId)?.status || 'absent';
+    const getStatusForDay = (staffId: string, day: Date): StaffMemberAttendance['status'] | 'weekend' => {
+        const dayOfWeek = getMonth(day);
+        if (dayOfWeek === 0) return 'weekend'; // Sunday
+        
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const attendanceRecord = staffAttendances.find(a => a.id === dateStr);
+        const staffStatus = attendanceRecord?.staffStatus.find(s => s.staffId === staffId);
+        return staffStatus?.status || 'absent';
     }
 
-    const handleStatusChange = async (staffId: string, status: any['status']) => {
-        const newRecord: any = { staffId, status };
+    const handleStatusChange = async (staffId: string, day: Date, status: StaffMemberAttendance['status']) => {
+        if (!currentUser) return;
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const newRecord: StaffMemberAttendance = { staffId, status };
         
         try {
-            const docRef = doc(db, 'staffAttendances', formattedDate);
+            const docRef = doc(db, 'staffAttendances', dateStr);
             const docSnap = await getDoc(docRef);
 
             if (docSnap.exists()) {
-                const existingData = docSnap.data() as any;
-                const existingIndex = existingData.staffStatus.findIndex((s:any) => s.staffId === staffId);
+                const existingData = docSnap.data() as StaffAttendance;
+                const existingIndex = existingData.staffStatus.findIndex(s => s.staffId === staffId);
                 const newStaffStatus = [...existingData.staffStatus];
                 if (existingIndex > -1) {
                     newStaffStatus[existingIndex] = newRecord;
@@ -697,160 +700,156 @@ function StaffAttendanceContent() {
                 }
                 await setDoc(docRef, { ...existingData, staffStatus: newStaffStatus, updatedAt: new Date().toISOString() }, { merge: true });
             } else {
-                const newAttendanceRecord: any = {
-                    id: formattedDate,
-                    date: formattedDate,
+                const newAttendanceRecord: StaffAttendance = {
+                    id: dateStr,
+                    date: dateStr,
                     staffStatus: [newRecord],
-                    validatedBy: currentUser?.uid || 'system',
+                    validatedBy: currentUser.uid,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 };
                 await setDoc(docRef, newAttendanceRecord);
             }
-             toast({ title: 'Présence mise à jour', duration: 2000 });
+             toast({ title: 'Présence mise à jour', duration: 1500 });
         } catch (error) {
             console.error("Error updating staff attendance:", error);
             toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la présence.' });
         }
     };
-    
+
     const handleExportPDF = async () => {
-        if (!settings || usersLoading) {
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Données non prêtes pour l\'exportation.' });
+        if (!settings || !selectedStaff) {
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Employé ou paramètres non disponibles.' });
             return;
         }
 
         const doc = new jsPDF();
+        const monthName = format(currentMonthDate, 'MMMM yyyy', { locale: fr });
         
         try {
             const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Error adding logo to PDF", error);
-        }
+            if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 14, 10, 20, 20);
+        } catch (error) { console.error(error); }
 
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Rapport de Présence du Personnel`, 40, 25);
-        doc.setFontSize(12);
-        doc.text(`Date: ${format(selectedDate, 'd MMMM yyyy', { locale: fr })}`, 14, 35);
+        doc.setFontSize(18); doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14); doc.text(`Rapport de Présence - ${selectedStaff.lastName} ${selectedStaff.firstName}`, 40, 25);
+        doc.setFontSize(12); doc.text(`Mois: ${monthName}`, 14, 40);
         
-        const statusTranslation: Record<any['status'], string> = {
-            present: 'Présent(e)',
-            absent: 'Absent(e)',
-            leave: 'En Congé'
-        };
-
-        const tableColumn = ["Personnel", "Statut"];
-        const tableRows = adminStaff.map(staff => [
-            `${staff.lastName} ${staff.firstName}`,
-            statusTranslation[getStatusForStaff(staff.uid)]
+        const statusTranslation: Record<StaffMemberAttendance['status'], string> = { present: 'Présent(e)', absent: 'Absent(e)', leave: 'En Congé' };
+        
+        const tableColumn = ["Date", "Statut"];
+        const tableRows = monthDays.map(day => [
+            format(day, 'eeee d MMMM yyyy', { locale: fr }),
+            statusTranslation[getStatusForDay(selectedStaff.uid, day) as StaffMemberAttendance['status']] || 'Weekend'
         ]);
 
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 45,
-            theme: 'striped',
-        });
-
-        doc.save(`presence_personnel_${formattedDate}.pdf`);
-        toast({ title: "Exportation réussie", description: "Le rapport de présence du personnel a été téléchargé." });
+        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 50 });
+        doc.save(`presence_${selectedStaff.lastName}_${format(currentMonthDate, 'yyyy-MM')}.pdf`);
+        toast({ title: "Rapport PDF généré" });
     };
 
-    const statusOptions: { value: any['status']; label: string; icon: React.ElementType, className: string, hoverClassName: string }[] = [
-        { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-600 text-white', hoverClassName: 'hover:bg-green-700' },
-        { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 text-white', hoverClassName: 'hover:bg-red-600' },
-        { value: 'leave', label: 'Congé', icon: Coffee, className: 'bg-yellow-500 text-white', hoverClassName: 'hover:bg-yellow-600' },
+    const statusOptions: { value: StaffMemberAttendance['status']; label: string; icon: React.ElementType, className: string }[] = [
+        { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-500 hover:bg-green-600 text-white' },
+        { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 hover:bg-red-600 text-white' },
+        { value: 'leave', label: 'Congé', icon: Coffee, className: 'bg-yellow-500 hover:bg-yellow-600 text-white' },
     ];
-
+    
+    const monthDays = eachDayOfInterval({ start: startOfMonth(currentMonthDate), end: endOfMonth(currentMonthDate) });
+    
+    if (selectedStaff) {
+        return (
+             <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <Button variant="outline" size="icon" onClick={() => setSelectedStaff(null)}><ArrowLeft className="h-4 w-4"/></Button>
+                            <div>
+                                <CardTitle>Présence de {selectedStaff.lastName} {selectedStaff.firstName}</CardTitle>
+                                <CardDescription>Vue mensuelle de la présence.</CardDescription>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <Button variant="outline" onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Exporter en PDF</Button>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={() => setCurrentMonthDate(subMonths(currentMonthDate, 1))}><ArrowLeft className="h-4 w-4" /></Button>
+                                <span className='font-semibold text-sm'>{format(currentMonthDate, 'MMMM yyyy', { locale: fr })}</span>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentMonthDate(addMonths(currentMonthDate, 1))}><ArrowRight className="h-4 w-4" /></Button>
+                            </div>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                        {monthDays.map(day => {
+                            const status = getStatusForDay(selectedStaff.uid, day);
+                            const statusInfo = statusOptions.find(o => o.value === status);
+                            const isWeekend = status === 'weekend';
+                            return (
+                                <Popover key={day.toString()}>
+                                    <PopoverTrigger asChild disabled={isWeekend}>
+                                        <div className={cn("p-2 rounded-lg border text-center cursor-pointer", 
+                                            isWeekend ? 'bg-muted/50' : 'hover:bg-muted',
+                                            status === 'present' && 'bg-green-100 border-green-200',
+                                            status === 'absent' && 'bg-red-100 border-red-200',
+                                            status === 'leave' && 'bg-yellow-100 border-yellow-200'
+                                        )}>
+                                            <p className="font-bold">{format(day, 'd')}</p>
+                                            <p className="text-xs text-muted-foreground">{format(day, 'eee', { locale: fr })}</p>
+                                        </div>
+                                    </PopoverTrigger>
+                                     {!isWeekend && (
+                                        <PopoverContent className="w-auto p-2">
+                                            <div className="flex flex-col gap-2">
+                                                {statusOptions.map(option => (
+                                                    <Button key={option.value} size="sm" variant={status === option.value ? 'default' : 'outline'} className={status === option.value ? option.className : ''} onClick={() => handleStatusChange(selectedStaff.uid, day, option.value)}>
+                                                        <option.icon className="mr-2 h-4 w-4" /> {option.label}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </PopoverContent>
+                                     )}
+                                </Popover>
+                            );
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <Card>
             <CardHeader>
-                <div className="flex justify-between items-center flex-wrap gap-4">
-                    <div>
-                        <CardTitle>Suivi du Personnel Administratif</CardTitle>
-                        <CardDescription>Enregistrez la présence journalière de l'équipe administrative.</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleExportPDF}>
-                            <FileDown className="mr-2 h-4 w-4" />
-                            Exporter en PDF
-                        </Button>
-                         <Popover>
-                            <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "w-[280px] justify-start text-left font-normal",
-                                !selectedDate && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy', { locale: fr }) : <span>Choisir une date</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={selectedDate}
-                                onSelect={(day) => setSelectedDate(day || new Date())}
-                                initialFocus
-                                locale={fr}
-                            />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                </div>
+                <CardTitle>Suivi du Personnel Administratif</CardTitle>
+                <CardDescription>Sélectionnez un membre du personnel pour voir et gérer sa présence mensuelle.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="border rounded-lg">
-                    <table className="w-full text-sm">
-                        <thead className="bg-muted/50">
-                            <tr className="border-b">
-                                <th className="text-left p-4 font-medium">Personnel</th>
-                                <th className="text-center p-4 font-medium">Statut</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {usersLoading ? (
-                                <tr><td colSpan={2} className="p-4 text-center">Chargement...</td></tr>
-                            ) : adminStaff.map(staff => (
-                                <tr key={staff.uid} className="border-b">
-                                    <td className="p-4 font-medium">{staff.lastName} {staff.firstName}</td>
-                                    <td className="p-4 text-center">
-                                        <div className="flex justify-center gap-2">
-                                            {statusOptions.map(option => (
-                                                <Button 
-                                                    key={option.value}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleStatusChange(staff.uid, option.value)}
-                                                    className={cn(
-                                                        "transition-all",
-                                                        getStatusForStaff(staff.uid) === option.value ? option.className : 'text-foreground',
-                                                        getStatusForStaff(staff.uid) === option.value ? '' : option.hoverClassName.replace('hover:', 'hover:bg-opacity-20 hover:'),
-                                                        getStatusForStaff(staff.uid) === option.value ? '' : `hover:text-white`
-                                                    )}
-                                                >
-                                                    <option.icon className="mr-2 h-4 w-4" />
-                                                    {option.label}
-                                                </Button>
-                                            ))}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                 <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Personnel</TableHead>
+                            <TableHead>Poste</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {usersLoading ? (
+                             Array.from({length: 5}).map((_, i) => <TableRow key={i}><TableCell colSpan={2}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                        ) : adminStaff.map(staff => (
+                            <TableRow key={staff.uid} onClick={() => setSelectedStaff(staff)} className="cursor-pointer">
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-9 w-9">
+                                            <AvatarImage src={staff.photoUrl} alt={staff.firstName} />
+                                            <AvatarFallback>{getInitials(staff.firstName, staff.lastName)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="font-medium">{staff.lastName} {staff.firstName}</div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>{staff.admin?.position || 'N/A'}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
             </CardContent>
         </Card>
     );
@@ -892,6 +891,4 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
-    
-
     
