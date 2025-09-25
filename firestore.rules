@@ -3,41 +3,117 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAdmin() {
-      // Check if the user has an 'admin' role in their user document.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Global read access for authenticated users, write access for admins.
-    // This allows the app to function while securing write operations.
-    match /{document=**} {
-      allow read: if request.auth != null;
+    // Rules for qr_sessions
+    match /qr_sessions/{sessionId} {
+      allow create: if true;
+      allow read, delete: if isAuth() && (resource.data.userId == request.auth.uid || resource.data.creatorUid == request.auth.uid);
+      allow update: if isAuth();
     }
 
-    // Specific write rules
+    // Rules for users collection
     match /users/{userId} {
-      allow update: if request.auth.uid == userId || isAdmin(); // Users can update their own profile, admins can too.
-      allow create, delete: if isAdmin();
+      allow read: if isAuth();
+      allow create: if isAuth() && isOwner(userId);
+      allow update: if isAuth() && isOwner(userId);
+      allow delete: if isAuth() && isOwner(userId);
+    }
+    
+    // Rules for settings
+    match /settings/system {
+      allow read: if true;
+      allow write: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Admins have write access to all other collections
-    match /adminRoles/{docId} { allow write: if isAdmin(); }
-    match /courses/{docId} { allow write: if isAdmin(); }
-    match /feeStructures/{docId} { allow write: if isAdmin(); }
-    match /payments/{docId} { allow write: if isAdmin(); }
-    match /teacherSalaries/{docId} { allow write: if isAdmin(); }
-    match /cashTransactions/{docId} { allow write: if isAdmin(); }
-    match /grades/{docId} { allow write: if isAdmin(); }
-    match /announcements/{docId} { allow write: if isAdmin(); }
-    match /private_messages/{docId} { 
-      allow create: if request.auth.uid == request.resource.data.senderId;
-      allow read, update, delete: if request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId;
+    // Rules for announcements
+    match /announcements/{announcementId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    match /attendances/{docId} { allow write: if isAdmin(); }
-    match /staffAttendances/{docId} { allow write: if isAdmin(); }
-    match /officialDocuments/{docId} { allow write: if isAdmin(); }
-    match /settings/{docId} { allow write: if isAdmin(); }
-    match /sectors/{docId} { allow write: if isAdmin(); }
-    match /fields/{docId} { allow write: if isAdmin(); }
+    
+    // Rules for private messages
+    match /private_messages/{messageId} {
+      allow read, create: if isAuth() && (request.resource.data.senderId == request.auth.uid || request.resource.data.receiverId == request.auth.uid);
+      allow update, delete: if isAuth() && resource.data.senderId == request.auth.uid;
+    }
+
+    // Rules for sectors
+    match /sectors/{sectorId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Rules for fields
+    match /fields/{fieldId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for courses
+    match /courses/{courseId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for adminRoles
+    match /adminRoles/{roleId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Rules for payments
+    match /payments/{paymentId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        allow update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for grades
+    match /grades/{gradeId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Rules for teacherSalaries
+    match /teacherSalaries/{salaryId} {
+         allow read: if isAuth();
+        allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Rules for cashTransactions
+    match /cashTransactions/{transactionId} {
+         allow read: if isAuth();
+        allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for officialDocuments
+    match /officialDocuments/{docId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Rules for attendances
+    match /attendances/{attendanceId} {
+         allow read, write: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for staffAttendances
+    match /staffAttendances/{attendanceId} {
+         allow read, write: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+     // Rules for feeStructures
+    match /feeStructures/{feeId} {
+         allow read: if isAuth();
+         allow write: if isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
   }
 }

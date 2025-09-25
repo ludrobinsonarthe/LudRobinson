@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "teacher", "student", "parent"] },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "gender": { "type": "string", "enum": ["M", "F"] },
+        "dob": { "type": "string", "format": "date" },
+        "pob": { "type": "string" },
+        "nationality": { "type": "string" },
+        "address": { "type": "string" },
+        "photoUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "suspended", "graduated"] },
+        "admin": {
+          "type": "object",
+          "properties": {
+            "roleId": { "type": "string" },
+            "position": { "type": "string" },
+            "baseSalary": { "type": "number" }
+          }
+        },
+        "student": {
+          "type": "object",
+          "properties": {
+            "matricule": { "type": "string" },
+            "cycle": { "type": "string", "enum": ["local", "international", "entrepreneur"] },
+            "level": { "type": "string" },
+            "fieldId": { "type": "string" },
+            "enrollmentDate": { "type": "string", "format": "date-time" },
+            "endDate": { "type": "string", "format": "date-time" },
+            "parentUid": { "type": "string" },
+            "parentalLink": { "type": "string" },
+            "lastDiploma": { "type": "string" }
+          }
+        },
+        "teacher": {
+          "type": "object",
+          "properties": {
+            "specialty": { "type": "string" },
+            "assignedCourses": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "parent": {
+          "type": "object",
+          "properties": {
+            "childrenUids": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "required": ["uid", "role", "firstName", "lastName", "email", "createdAt", "status"]
+    },
+    "AdminRole": {
+      "title": "AdminRole",
+      "description": "Defines a role for an admin user with specific permissions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "permissions": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "name", "permissions"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Represents an announcement or a private message.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["announcement", "private"] },
+        "attachments": { "type": "array", "items": { "type": "string", "format": "uri" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "receiverId", "content", "type", "createdAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "fieldId": { "type": "string" },
+        "sectorId": { "type": "string" },
+        "level": { "type": "string" },
+        "cycle": { "type": "string", "enum": ["local", "international", "entrepreneur"] },
+        "credit": { "type": "number" },
+        "documents": { "type": "array", "items": { "type": "string" } },
+        "schedule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day": { "type": "string", "enum": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"] },
+              "start": { "type": "string" },
+              "end": { "type": "string" },
+              "room": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["id", "name", "teacherId", "level", "cycle", "credit"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "type": { "type": "string", "enum": ["devoir de classe", "devoir de recherche", "examen"] },
+        "score": { "type": "number" },
+        "coefficient": { "type": "number" },
+        "total": { "type": "number" },
+        "academicYear": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentId", "courseId", "type", "score", "total", "academicYear", "createdAt"]
+    },
+    "QrSession": {
+      "title": "QR Session",
+      "description": "Represents a temporary session for QR code login.",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["pending", "validated", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "token": { "type": "string" }
+      },
+      "required": ["status", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profile information."
+    },
+    "/adminRoles/{roleId}": {
+      "schema": { "$ref": "#/entities/AdminRole" },
+      "description": "Stores admin roles and permissions."
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Stores school-wide announcements."
+    },
+    "/private_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Stores private messages between users."
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Stores course information."
+    },
+    "/grades/{gradeId}": {
+      "schema": { "$ref": "#/entities/Grade" },
+      "description": "Stores student grades for courses."
+    },
+    "/qr_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/QrSession" },
+      "description": "Stores temporary sessions for QR code login."
+    }
+  }
+}
