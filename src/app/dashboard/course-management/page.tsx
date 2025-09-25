@@ -39,7 +39,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { users, settings, loading, fields, sectors, user } = useUser();
+    const { allUsers: users, settings, loading, fields, sectors, user } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);

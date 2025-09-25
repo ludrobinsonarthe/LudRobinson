@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -32,18 +33,10 @@ const methodTranslation: { [key: string]: string } = {
 }
 
 export default function PaymentsPage() {
-    const { user: currentUser } = useUser();
-    const [users, setUsers] = useState<User[]>([]);
+    const { user: currentUser, allUsers: users } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-
-    useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
-            setUsers(snapshot.docs.map(doc => doc.data() as User));
-        });
-        return () => unsub();
-    }, []);
 
     const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];

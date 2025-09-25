@@ -33,7 +33,7 @@ import { imageToDataUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function SalaryManagementContent() {
-    const { users, loading: usersLoading, settings, user } = useUser();
+    const { allUsers: users, loading: usersLoading, settings, user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const userIdFilter = searchParams.get('userId');

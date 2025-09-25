@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -32,7 +33,7 @@ import { imageToDataUrl } from '@/lib/utils';
 import autoTable from 'jspdf-autotable';
 
 function TuitionManagementContent() {
-    const { users, loading: usersLoading, settings, user } = useUser();
+    const { allUsers: users, loading: usersLoading, settings, user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const studentIdFilter = searchParams.get('studentId');

@@ -37,7 +37,7 @@ const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().pad
 
 
 function StudentAttendanceContent() {
-    const { user, users, loading: usersLoading, settings, courses, fields, sectors, attendances } = useUser();
+    const { user, allUsers: users, loading: usersLoading, settings, courses, fields, sectors, attendances } = useUser();
     const { toast } = useToast();
 
     // Filters state
@@ -387,7 +387,7 @@ function StudentAttendanceContent() {
 }
 
 function TeacherAttendanceContent() {
-    const { user: currentUser, users, loading: usersLoading, settings, courses, attendances } = useUser();
+    const { user: currentUser, allUsers: users, loading: usersLoading, settings, courses, attendances } = useUser();
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -659,7 +659,7 @@ function TeacherAttendanceContent() {
 }
 
 function StaffAttendanceContent() {
-    const { user: currentUser, users, loading: usersLoading, settings } = useUser();
+    const { user: currentUser, allUsers: users, loading: usersLoading, settings } = useUser();
     const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
     const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
     const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);

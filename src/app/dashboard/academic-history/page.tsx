@@ -36,7 +36,7 @@ const categoryTitles: Record<DataType, string> = {
 };
 
 export default function AcademicHistoryPage() {
-    const { settings, users, courses } = useUser();
+    const { settings, allUsers: users, courses } = useUser();
     const { toast } = useToast();
     const [allData, setAllData] = useState<{
         payments: Payment[],

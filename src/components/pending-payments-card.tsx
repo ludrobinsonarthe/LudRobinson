@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useMemo } from 'react';
@@ -30,7 +31,7 @@ export default function PendingPaymentsCard({ payments, users }: PendingPayments
     }, [payments]);
 
     const usersById = useMemo(() => {
-        return users.reduce((acc, user) => {
+        return (users || []).reduce((acc, user) => {
             acc[user.uid] = user;
             return acc;
         }, {} as Record<string, User>);
