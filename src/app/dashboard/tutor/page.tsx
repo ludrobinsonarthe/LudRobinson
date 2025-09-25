@@ -16,6 +16,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
+import { useTheme } from "next-themes";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface MessageWithQuiz extends TutorMessage {
     quiz?: TutorOutput['quiz'];
@@ -82,6 +85,7 @@ const QuizComponent = ({ quiz }: { quiz: NonNullable<TutorOutput['quiz']> }) => 
 
 export default function TutorPage() {
     const { user } = useUser();
+    const { theme } = useTheme();
     const [messages, setMessages] = useState<MessageWithQuiz[]>([
         {
             role: 'model',
@@ -193,9 +197,24 @@ export default function TutorPage() {
                             }}
                             disabled={isLoading}
                         />
-                        <Button type="submit" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2" disabled={isLoading || !input.trim()}>
-                            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CornerDownLeft className="h-5 w-5" />}
-                        </Button>
+                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button type="button" size="icon" variant="ghost" disabled={isLoading}>
+                                        <Smile className="h-5 w-5" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 border-0">
+                                    <EmojiPicker 
+                                        theme={theme === 'dark' ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+                                        onEmojiClick={(emojiObject) => setInput(prev => prev + emojiObject.emoji)} 
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+                                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CornerDownLeft className="h-5 w-5" />}
+                            </Button>
+                        </div>
                     </form>
                 </div>
             </div>
