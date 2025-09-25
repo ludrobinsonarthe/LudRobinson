@@ -22,13 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Message, AdminRole } from "@/lib/types";
+import type { Message, AdminRole, ActivityLog } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
@@ -86,25 +86,54 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
     setSubmitting(true);
     
     try {
+        const batch = writeBatch(db);
+        const logRef = doc(collection(db, 'activityLogs'));
+        
         if (announcement) {
+            const docRef = doc(db, "announcements", announcement.id);
             const updatedData = {
                 ...announcement, 
                 receiverId: data.receiverId,
                 title: data.title,
                 content: data.content,
             };
-            await setDoc(doc(db, "announcements", announcement.id), updatedData, { merge: true });
+            batch.set(docRef, updatedData, { merge: true });
+
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: user.uid,
+                actorName: `${user.lastName} ${user.firstName}`,
+                action: 'announcement_updated',
+                entityType: 'announcement',
+                entityId: announcement.id,
+                timestamp: new Date().toISOString(),
+                details: `A modifié l'annonce: "${data.title || 'Sans titre'}"`,
+            };
+            batch.set(logRef, log);
             toast({ title: "Annonce modifiée" });
         } else {
+            const docRef = doc(collection(db, "announcements"));
             const newAnnouncement = {
                 ...data,
                 senderId: user.uid,
                 type: 'announcement',
                 createdAt: new Date().toISOString(),
             };
-            await addDoc(collection(db, "announcements"), newAnnouncement);
+            batch.set(docRef, newAnnouncement);
+            
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: user.uid,
+                actorName: `${user.lastName} ${user.firstName}`,
+                action: 'announcement_created',
+                entityType: 'announcement',
+                entityId: docRef.id,
+                timestamp: new Date().toISOString(),
+                details: `A créé une annonce: "${data.title || 'Sans titre'}"`,
+            };
+            batch.set(logRef, log);
             toast({ title: "Annonce publiée" });
         }
+        
+        await batch.commit();
         setIsOpen(false);
     } catch (error) {
         errorEmitter.emit('permission-error', new FirestorePermissionError({

@@ -23,12 +23,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { AdminRole, adminPermissions, AdminPermission } from "@/lib/types";
+import { AdminRole, adminPermissions, AdminPermission, ActivityLog } from "@/lib/types";
 import { Loader2, PlusCircle, ShieldCheck, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDescription } from "@/components/ui/form";
 import { useUser } from "@/hooks/use-user";
-import { collection, doc, writeBatch, deleteDoc } from "firebase/firestore";
+import { collection, doc, writeBatch, deleteDoc, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 
@@ -52,7 +52,7 @@ const permissionGroups = {
 }
 
 export default function RolesPage() {
-  const { roles: initialRoles, loading: loadingRoles } = useUser();
+  const { roles: initialRoles, loading: loadingRoles, user: adminUser } = useUser();
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -78,12 +78,26 @@ export default function RolesPage() {
   }, [initialRoles, loadingRoles, replace]);
 
   const onSubmit = async (data: RolesFormValues) => {
+    if (!adminUser) return;
     setSubmitting(true);
     const batch = writeBatch(db);
+    
     data.roles.forEach(role => {
         if(role.id) {
             const roleRef = doc(db, 'adminRoles', role.id);
             batch.set(roleRef, role);
+
+            const logRef = doc(collection(db, 'activityLogs'));
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: adminUser.uid,
+                actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+                action: 'role_updated',
+                entityType: 'adminRole',
+                entityId: role.id,
+                timestamp: new Date().toISOString(),
+                details: `A mis à jour le rôle: "${role.name}"`,
+            };
+            batch.set(logRef, log);
         }
     });
 
@@ -118,9 +132,27 @@ export default function RolesPage() {
   }
 
   const confirmDelete = async () => {
-    if(!roleToDelete) return;
+    if(!roleToDelete || !adminUser) return;
+    const batch = writeBatch(db);
+
     try {
-        await deleteDoc(doc(db, 'adminRoles', roleToDelete.id));
+        const roleRef = doc(db, 'adminRoles', roleToDelete.id);
+        batch.delete(roleRef);
+
+        const logRef = doc(collection(db, 'activityLogs'));
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: adminUser.uid,
+            actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+            action: 'role_deleted',
+            entityType: 'adminRole',
+            entityId: roleToDelete.id,
+            timestamp: new Date().toISOString(),
+            details: `A supprimé le rôle: "${roleToDelete.name}"`,
+        };
+        batch.set(logRef, log);
+        
+        await batch.commit();
+
         const roleIndex = fields.findIndex(field => field.id === roleToDelete.id);
         if (roleIndex > -1) {
             remove(roleIndex);

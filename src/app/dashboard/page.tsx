@@ -3,13 +3,13 @@
 
 import { useState, useEffect } from "react";
 import AnnouncementCard from "@/components/announcement-card";
-import { User, Message } from "@/lib/types";
+import { User, Message, ActivityLog } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Loader2, PlusCircle } from "lucide-react";
 import AnnouncementDialog from "@/components/announcement-dialog";
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, where, orderBy, or, doc, setDoc, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, where, orderBy, or, doc, setDoc, addDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -72,18 +72,32 @@ export default function DashboardPage() {
     };
     
     const confirmDelete = async () => {
-        if (!editingAnnouncement) return;
+        if (!editingAnnouncement || !currentUser) return;
+        
+        const batch = writeBatch(db);
         const docRef = doc(db, "announcements", editingAnnouncement.id);
-        deleteDoc(docRef)
-            .then(() => {
-                toast({ title: "Annonce supprimée" });
-            })
-            .catch(error => {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
-            })
-            .finally(() => {
-                setIsDeleteDialogOpen(false);
-            });
+        batch.delete(docRef);
+
+        const logRef = doc(collection(db, 'activityLogs'));
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: currentUser.uid,
+            actorName: `${currentUser.lastName} ${currentUser.firstName}`,
+            action: 'announcement_deleted',
+            entityType: 'announcement',
+            entityId: editingAnnouncement.id,
+            timestamp: new Date().toISOString(),
+            details: `A supprimé l'annonce: "${editingAnnouncement.title || 'Sans titre'}"`,
+        };
+        batch.set(logRef, log);
+        
+        try {
+            await batch.commit();
+            toast({ title: "Annonce supprimée" });
+        } catch (error) {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
+        } finally {
+            setIsDeleteDialogOpen(false);
+        }
     }
     
     const pageIsLoading = loading || userLoading;

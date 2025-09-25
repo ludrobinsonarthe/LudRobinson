@@ -276,9 +276,12 @@ export interface StaffAttendance {
 }
 
 export type ActivityLogAction = 
-    | 'create' | 'update' | 'delete' | 'login' | 'logout' 
-    | 'payment_validation' | 'payment_rejection' | 'grade_update'
-    | 'user_creation' | 'user_deletion' | 'role_update' | 'settings_change';
+    | 'user_created' | 'user_updated' | 'user_deleted'
+    | 'student_created' | 'student_updated' | 'student_deleted'
+    | 'announcement_created' | 'announcement_updated' | 'announcement_deleted'
+    | 'role_updated' | 'role_deleted'
+    | 'payment_validated' | 'payment_rejected' 
+    | 'login' | 'logout' | 'grade_update' | 'settings_change';
 
 export interface ActivityLog {
     id: string;
@@ -289,6 +292,4 @@ export interface ActivityLog {
     entityId: string;
     timestamp: string;
     details: string; // Human-readable description
-    previousState?: any;
-    newState?: any;
 }

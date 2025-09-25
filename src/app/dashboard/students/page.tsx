@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance, FeeStructure } from "@/lib/types";
+import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance, FeeStructure, ActivityLog } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText, ClipboardList } from "lucide-react";
 import { format } from 'date-fns';
@@ -47,7 +47,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser, allUsers: users, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
+    const { user: adminUser, allUsers, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
@@ -89,16 +89,16 @@ export default function StudentsPage() {
     }, []);
 
     const studentsFromUsers = useMemo(() => {
-        return (users || [])
+        return (allUsers || [])
             .filter(u => u.role === 'student')
             .sort((a, b) => {
                 const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
                 const nameB = `${b.lastName} ${b.firstName}`.toLowerCase();
                 return nameA.localeCompare(nameB);
             });
-    }, [users]);
+    }, [allUsers]);
 
-    const parents = useMemo(() => (users || []).filter(u => u.role === 'parent'), [users]);
+    const parents = useMemo(() => (allUsers || []).filter(u => u.role === 'parent'), [allUsers]);
     const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
     const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
@@ -164,10 +164,12 @@ export default function StudentsPage() {
     }
 
     const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => {
+        if (!adminUser) return;
         const batch = writeBatch(db);
         const isNewStudent = !selectedStudent;
         let studentUid = selectedStudent?.uid || doc(collection(db, "users")).id;
         let photoUrl = studentData.photoUrl || selectedStudent?.photoUrl;
+        const studentFullName = `${studentData.lastName} ${studentData.firstName}`;
 
         try {
             if (photoFile && photoFile instanceof Blob) {
@@ -222,6 +224,19 @@ export default function StudentsPage() {
 
 
             batch.set(studentRef, finalStudentData);
+            
+            // Activity Log
+            const logRef = doc(collection(db, 'activityLogs'));
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: adminUser.uid,
+                actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+                action: isNewStudent ? 'student_created' : 'student_updated',
+                entityType: 'student',
+                entityId: studentUid,
+                timestamp: new Date().toISOString(),
+                details: `${isNewStudent ? 'A créé' : 'A mis à jour'} l'étudiant: ${studentFullName} (Matricule: ${finalStudentData.student?.matricule})`,
+            };
+            batch.set(logRef, log);
 
             if (isNewStudent && finalStudentData.student) {
                 // Create the registration fee payment
@@ -285,9 +300,10 @@ export default function StudentsPage() {
     }
     
     const confirmDelete = async () => {
-        if (!selectedStudent) return;
+        if (!selectedStudent || !adminUser) return;
         
         const studentId = selectedStudent.uid;
+        const studentName = `${selectedStudent.lastName} ${selectedStudent.firstName}`;
         const batch = writeBatch(db);
     
         try {
@@ -336,6 +352,19 @@ export default function StudentsPage() {
                     }
                 }
             }
+
+            // 6. Log the deletion
+            const logRef = doc(collection(db, 'activityLogs'));
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: adminUser.uid,
+                actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+                action: 'student_deleted',
+                entityType: 'student',
+                entityId: studentId,
+                timestamp: new Date().toISOString(),
+                details: `A supprimé l'étudiant: ${studentName} (Matricule: ${selectedStudent.student?.matricule})`,
+            };
+            batch.set(logRef, log);
     
             await batch.commit();
             toast({ title: "Étudiant et données associées supprimés" });

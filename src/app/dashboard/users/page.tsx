@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, AdminRole, TeacherSalary } from "@/lib/types";
+import { User, UserRole, AdminRole, TeacherSalary, ActivityLog } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote, FileDown } from "lucide-react";
 import { format } from 'date-fns';
@@ -57,7 +57,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { allUsers: users, loading, roles, settings } = useUser();
+    const { allUsers, loading, roles, settings, user: adminUser } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -69,8 +69,8 @@ export default function UsersPage() {
     const [roleFilter, setRoleFilter] = useState('all');
     
     const employees = useMemo(() => {
-        return users.filter(user => user.role === 'admin' || user.role === 'teacher');
-    }, [users]);
+        return allUsers.filter(user => user.role === 'admin' || user.role === 'teacher');
+    }, [allUsers]);
 
     const filteredEmployees = useMemo(() => {
         return employees.filter(employee => 
@@ -104,15 +104,18 @@ export default function UsersPage() {
     }
 
     const handleSave = async (userData: Partial<User>, photoFile?: File | Blob) => {
-        if (!userData.email) {
-            toast({ variant: "destructive", title: "Erreur", description: "L'e-mail est requis." });
+        if (!userData.email || !adminUser) {
+            toast({ variant: "destructive", title: "Erreur", description: "L'e-mail est requis et vous devez être administrateur." });
             return;
         }
 
         try {
+            const batch = writeBatch(db);
+            const logRef = doc(collection(db, 'activityLogs'));
+            let userName = `${userData.lastName} ${userData.firstName}`;
+
             if (selectedUser) {
                 // --- UPDATE EXISTING USER ---
-                // For updates, we don't touch auth. We just update Firestore.
                 let photoUrl = selectedUser.photoUrl;
                 if (photoFile) {
                     const photoRef = ref(storage, `avatars/${selectedUser.uid}`);
@@ -120,20 +123,23 @@ export default function UsersPage() {
                     photoUrl = await getDownloadURL(photoRef);
                 }
 
-                const updatedUser: User = {
-                    ...selectedUser,
-                    ...userData,
-                    photoUrl: photoUrl || selectedUser.photoUrl,
-                } as User;
+                const updatedUser: User = { ...selectedUser, ...userData, photoUrl: photoUrl || selectedUser.photoUrl } as User;
                 
                 const userDocRef = doc(db, "users", selectedUser.uid);
-                await setDoc(userDocRef, updatedUser, { merge: true });
+                batch.update(userDocRef, updatedUser);
+
+                const log: Omit<ActivityLog, 'id'> = {
+                    actorId: adminUser.uid, actorName: `${adminUser.lastName} ${adminUser.firstName}`, action: 'user_updated',
+                    entityType: 'user', entityId: selectedUser.uid, timestamp: new Date().toISOString(),
+                    details: `A mis à jour le profil de: ${userName}`,
+                };
+                batch.set(logRef, log);
                 toast({ title: "Profil mis à jour" });
 
             } else {
                 // --- CREATE NEW USER ---
-                // This is where we create both the Auth user and the Firestore user.
                 const defaultPassword = "password";
+                // This part should ideally be a backend function for security reasons
                 const userCredential = await createUserWithEmailAndPassword(auth, userData.email, defaultPassword);
                 const uid = userCredential.user.uid;
     
@@ -145,50 +151,56 @@ export default function UsersPage() {
                 }
     
                 const newUser: User = {
-                    ...userData,
-                    uid,
-                    photoUrl,
-                    role: userData.role as UserRole,
-                    createdAt: new Date().toISOString(),
-                    status: 'active',
+                    ...userData, uid, photoUrl, role: userData.role as UserRole,
+                    createdAt: new Date().toISOString(), status: 'active',
                 } as User;
-    
-                await setDoc(doc(db, "users", uid), newUser);
+                
+                batch.set(doc(db, "users", uid), newUser);
+                
+                const log: Omit<ActivityLog, 'id'> = {
+                    actorId: adminUser.uid, actorName: `${adminUser.lastName} ${adminUser.firstName}`, action: 'user_created',
+                    entityType: 'user', entityId: uid, timestamp: new Date().toISOString(),
+                    details: `A créé un nouveau compte pour: ${userName} (Rôle: ${userData.role})`,
+                };
+                batch.set(logRef, log);
+
                 toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut 'password'." });
             }
+            await batch.commit();
         } catch (error: any) {
             console.error("Error saving user:", error);
             if (error.code === 'auth/email-already-in-use') {
                 toast({
-                    variant: "destructive",
-                    title: "Erreur : E-mail déjà utilisé",
-                    description: "Cette adresse e-mail est déjà associée à un compte d'authentification. Veuillez en utiliser une autre ou modifier l'utilisateur existant.",
+                    variant: "destructive", title: "Erreur : E-mail déjà utilisé",
+                    description: "Cette adresse e-mail est déjà associée à un compte. Veuillez en utiliser une autre.",
                 });
             } else {
-                toast({
-                    variant: "destructive",
-                    title: "Erreur de sauvegarde",
-                    description: error.message || "Impossible de sauvegarder l'utilisateur.",
-                });
+                toast({ variant: "destructive", title: "Erreur de sauvegarde", description: error.message || "Impossible de sauvegarder l'utilisateur." });
             }
         }
     };
     
     const confirmDelete = async () => {
-        if(!selectedUser) return;
+        if(!selectedUser || !adminUser) return;
         
         const userId = selectedUser.uid;
+        const userName = `${selectedUser.lastName} ${selectedUser.firstName}`;
         const batch = writeBatch(db);
         
         try {
-            // Note: Deleting from Auth should be done in a secure backend environment (Firebase Function)
-            // For this client-side app, we will only delete the Firestore data.
-            // The auth account will remain but will lose its link to the app data.
-
-            // 1. Delete user document from Firestore
+            // Note: Deleting from Auth should be done in a secure backend environment
             batch.delete(doc(db, "users", userId));
 
-            // 2. Query and delete related data if they are a teacher
+            // Log the deletion
+            const logRef = doc(collection(db, 'activityLogs'));
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: adminUser.uid, actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+                action: 'user_deleted', entityType: 'user', entityId: userId,
+                timestamp: new Date().toISOString(), details: `A supprimé le compte de: ${userName}`,
+            };
+            batch.set(logRef, log);
+
+            // Query and delete related data if they are a teacher
             if (selectedUser.role === 'teacher') {
                 const qSalaries = query(collection(db, "teacherSalaries"), where("teacherId", "==", userId));
                 const salariesSnapshot = await getDocs(qSalaries);
@@ -199,7 +211,7 @@ export default function UsersPage() {
                 attendancesSnapshot.forEach(doc => batch.delete(doc.ref));
             }
             
-            // 3. Delete avatar from storage
+            // Delete avatar from storage
              if (selectedUser.photoUrl && selectedUser.photoUrl.includes('firebasestorage')) {
                  try {
                     const photoRef = ref(storage, selectedUser.photoUrl);
