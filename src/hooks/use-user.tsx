@@ -142,9 +142,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setupSubscription('cashTransactions', setCashTransactions);
       setupSubscription('officialDocuments', setOfficialDocuments);
     } else {
-      // Non-admins still need the list of all users for messaging.
+      // Non-admins still need the list of all users and courses for messaging and schedule.
       setupSubscription('users', setUsers);
       setupSubscription('courses', setCourses);
+      // For non-admin, also load their specific attendances for their view
+      if (currentUser.role === 'teacher' || currentUser.role === 'student') {
+        setupSubscription('attendances', setAttendances);
+      }
     }
     
     const initialLoadTimer = setTimeout(() => setLoading(false), 500);
