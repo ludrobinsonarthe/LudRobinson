@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
@@ -78,7 +79,7 @@ function ShareSessionContent() {
     };
   }, [mode, qrSessionId, router, toast]);
 
-  const handleDisplayQrCode = async () => {
+  const handleDisplayQrCode = () => {
     setLoading(true);
     const sessionId = doc(collection(db, 'qr_sessions')).id;
     const sessionData = { 
@@ -130,7 +131,7 @@ function ShareSessionContent() {
         toast({ title: "Validation réussie", description: "L'autre appareil est maintenant en train de se connecter." });
     } catch(error: any) {
         if(error.code === 'permission-denied') {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sessionRef.path, operation: 'get' }));
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sessionRef.path, operation: 'update' }));
         } else {
              toast({ variant: "destructive", title: "Erreur de validation", description: error.message || "Impossible de valider la session." });
         }

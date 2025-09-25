@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -41,7 +42,7 @@ export default function MessagesPage() {
     return () => unsubscribe();
   }, [user]);
   
-  const handleNewMessage = async (newMessageData: Omit<Message, 'id' | 'createdAt'>) => {
+  const handleNewMessage = (newMessageData: Omit<Message, 'id' | 'createdAt'>) => {
     const messagePayload = {
       ...newMessageData,
       createdAt: new Date().toISOString(),

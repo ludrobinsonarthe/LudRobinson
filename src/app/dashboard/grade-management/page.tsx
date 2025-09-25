@@ -57,7 +57,7 @@ function GradeManagementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
-    const { users, loading: usersLoading, settings, courses: allCourses, user } = useUser();
+    const { allUsers: users, loading: usersLoading, settings, courses: allCourses, user } = useUser();
     const { toast } = useToast();
 
     const [course, setCourse] = useState<Course | null>(null);
@@ -240,7 +240,7 @@ function GradeManagementContent() {
                 if(!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
             })
             .catch(error => {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'create', requestResourceData: gradeDataTemplate }));
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'write', requestResourceData: gradeDataTemplate }));
             })
             .finally(() => {
                 setIsEvalDialogOpen(false);

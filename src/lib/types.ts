@@ -280,7 +280,7 @@ export type ActivityLogAction =
     | 'student_created' | 'student_updated' | 'student_deleted'
     | 'announcement_created' | 'announcement_updated' | 'announcement_deleted'
     | 'role_updated' | 'role_deleted'
-    | 'payment_validated' | 'payment_rejected' 
+    | 'payment_validation' | 'payment_rejection' 
     | 'login' | 'logout' | 'grade_update' | 'settings_change';
 
 export interface ActivityLog {

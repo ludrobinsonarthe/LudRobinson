@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -71,7 +72,7 @@ export default function DashboardPage() {
         setIsDeleteDialogOpen(true);
     };
     
-    const confirmDelete = async () => {
+    const confirmDelete = () => {
         if (!editingAnnouncement || !currentUser) return;
         
         const batch = writeBatch(db);
@@ -90,14 +91,16 @@ export default function DashboardPage() {
         };
         batch.set(logRef, log);
         
-        try {
-            await batch.commit();
+        batch.commit()
+        .then(() => {
             toast({ title: "Annonce supprimée" });
-        } catch (error) {
+        })
+        .catch((error) => {
              errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'delete' }));
-        } finally {
+        })
+        .finally(() => {
             setIsDeleteDialogOpen(false);
-        }
+        });
     }
     
     const pageIsLoading = loading || userLoading;

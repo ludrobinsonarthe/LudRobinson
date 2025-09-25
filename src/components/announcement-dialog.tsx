@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -78,72 +79,73 @@ export default function AnnouncementDialog({ isOpen, setIsOpen, announcement }: 
       return null;
   }
 
-  const onSubmit = async (data: AnnouncementFormValues) => {
+  const onSubmit = (data: AnnouncementFormValues) => {
     if (!user) {
         toast({ variant: "destructive", title: "Erreur", description: "Utilisateur non authentifié."});
         return;
     }
     setSubmitting(true);
     
-    try {
-        const batch = writeBatch(db);
-        const logRef = doc(collection(db, 'activityLogs'));
-        
-        if (announcement) {
-            const docRef = doc(db, "announcements", announcement.id);
-            const updatedData = {
-                ...announcement, 
-                receiverId: data.receiverId,
-                title: data.title,
-                content: data.content,
-            };
-            batch.set(docRef, updatedData, { merge: true });
+    const batch = writeBatch(db);
+    const logRef = doc(collection(db, 'activityLogs'));
+    
+    if (announcement) {
+        const docRef = doc(db, "announcements", announcement.id);
+        const updatedData = {
+            ...announcement, 
+            receiverId: data.receiverId,
+            title: data.title,
+            content: data.content,
+        };
+        batch.set(docRef, updatedData, { merge: true });
 
-            const log: Omit<ActivityLog, 'id'> = {
-                actorId: user.uid,
-                actorName: `${user.lastName} ${user.firstName}`,
-                action: 'announcement_updated',
-                entityType: 'announcement',
-                entityId: announcement.id,
-                timestamp: new Date().toISOString(),
-                details: `A modifié l'annonce: "${data.title || 'Sans titre'}"`,
-            };
-            batch.set(logRef, log);
-            toast({ title: "Annonce modifiée" });
-        } else {
-            const docRef = doc(collection(db, "announcements"));
-            const newAnnouncement = {
-                ...data,
-                senderId: user.uid,
-                type: 'announcement',
-                createdAt: new Date().toISOString(),
-            };
-            batch.set(docRef, newAnnouncement);
-            
-            const log: Omit<ActivityLog, 'id'> = {
-                actorId: user.uid,
-                actorName: `${user.lastName} ${user.firstName}`,
-                action: 'announcement_created',
-                entityType: 'announcement',
-                entityId: docRef.id,
-                timestamp: new Date().toISOString(),
-                details: `A créé une annonce: "${data.title || 'Sans titre'}"`,
-            };
-            batch.set(logRef, log);
-            toast({ title: "Annonce publiée" });
-        }
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: user.uid,
+            actorName: `${user.lastName} ${user.firstName}`,
+            action: 'announcement_updated',
+            entityType: 'announcement',
+            entityId: announcement.id,
+            timestamp: new Date().toISOString(),
+            details: `A modifié l'annonce: "${data.title || 'Sans titre'}"`,
+        };
+        batch.set(logRef, log);
+    } else {
+        const docRef = doc(collection(db, "announcements"));
+        const newAnnouncement = {
+            ...data,
+            senderId: user.uid,
+            type: 'announcement',
+            createdAt: new Date().toISOString(),
+        };
+        batch.set(docRef, newAnnouncement);
         
-        await batch.commit();
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: user.uid,
+            actorName: `${user.lastName} ${user.firstName}`,
+            action: 'announcement_created',
+            entityType: 'announcement',
+            entityId: docRef.id,
+            timestamp: new Date().toISOString(),
+            details: `A créé une annonce: "${data.title || 'Sans titre'}"`,
+        };
+        batch.set(logRef, log);
+    }
+    
+    batch.commit()
+    .then(() => {
+        toast({ title: announcement ? "Annonce modifiée" : "Annonce publiée" });
         setIsOpen(false);
-    } catch (error) {
+    })
+    .catch((error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: announcement ? `announcements/${announcement.id}` : 'announcements',
             operation: announcement ? 'update' : 'create',
             requestResourceData: data,
         }));
-    } finally {
+    })
+    .finally(() => {
         setSubmitting(false);
-    }
+    });
   };
 
   return (
