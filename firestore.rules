@@ -3,94 +3,41 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
     function isAdmin() {
-      // Check if the user document exists and has the admin role.
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Check if the user has an 'admin' role in their user document.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for collections
+    // Global read access for authenticated users, write access for admins.
+    // This allows the app to function while securing write operations.
+    match /{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Specific write rules
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if isOwner(userId) || isAdmin();
+      allow update: if request.auth.uid == userId || isAdmin(); // Users can update their own profile, admins can too.
+      allow create, delete: if isAdmin();
     }
 
-    match /adminRoles/{roleId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
+    // Admins have write access to all other collections
+    match /adminRoles/{docId} { allow write: if isAdmin(); }
+    match /courses/{docId} { allow write: if isAdmin(); }
+    match /feeStructures/{docId} { allow write: if isAdmin(); }
+    match /payments/{docId} { allow write: if isAdmin(); }
+    match /teacherSalaries/{docId} { allow write: if isAdmin(); }
+    match /cashTransactions/{docId} { allow write: if isAdmin(); }
+    match /grades/{docId} { allow write: if isAdmin(); }
+    match /announcements/{docId} { allow write: if isAdmin(); }
+    match /private_messages/{docId} { 
+      allow create: if request.auth.uid == request.resource.data.senderId;
+      allow read, update, delete: if request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId;
     }
-    
-    match /settings/system {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /sectors/{sectorId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /fields/{fieldId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /courses/{courseId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /grades/{gradeId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /payments/{paymentId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /teacherSalaries/{salaryId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /cashTransactions/{transactionId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /announcements/{announcementId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /private_messages/{messageId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin() || isOwner(request.resource.data.senderId);
-    }
-    
-    match /officialDocuments/{docId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /attendances/{attendanceId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    match /staffAttendances/{attendanceId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-
-    match /qr_sessions/{sessionId} {
-      allow read, write: if request.auth != null;
-    }
+    match /attendances/{docId} { allow write: if isAdmin(); }
+    match /staffAttendances/{docId} { allow write: if isAdmin(); }
+    match /officialDocuments/{docId} { allow write: if isAdmin(); }
+    match /settings/{docId} { allow write: if isAdmin(); }
+    match /sectors/{docId} { allow write: if isAdmin(); }
+    match /fields/{docId} { allow write: if isAdmin(); }
   }
 }
