@@ -47,11 +47,10 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser, allUsers, loading: loadingUsers, setUsers, settings, fields, sectors } = useUser();
+    const { user: adminUser, allUsers, loading: loadingUsers, setUsers, settings, fields, sectors, allCourses } = useUser();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [documents, setDocuments] = useState<OfficialDocument[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
-    const [courses, setCourses] = useState<Course[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -73,7 +72,6 @@ export default function StudentsPage() {
         setLoadingData(true);
         const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
         const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course)));
         const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
         const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), snapshot => setFeeStructures(snapshot.docs.map(doc => doc.data() as FeeStructure)));
 
@@ -82,7 +80,6 @@ export default function StudentsPage() {
         return () => {
             unsubPayments();
             unsubGrades();
-            unsubCourses();
             unsubAttendances();
             unsubFeeStructures();
         };
@@ -390,7 +387,7 @@ export default function StudentsPage() {
 
     const getCoursesForStudent = (student: User) => {
         if (!student.student) return [];
-        return courses.filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
+        return (allCourses || []).filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
     }
 
     const getExportData = () => {
@@ -693,7 +690,7 @@ export default function StudentsPage() {
             
             // Grades Table
             const studentGrades = grades.filter(g => g.studentId === student.uid);
-            const coursesById = courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
+            const coursesById = (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
             
             const tableColumn = ["Matière", "Crédit", "Devoir Classe", "Devoir Recherche", "Examen", "Moyenne /20"];
             const tableRows: (string | number)[][] = [];
@@ -898,7 +895,7 @@ export default function StudentsPage() {
                                                 <AvatarFallback>{getInitials(student.firstName, student.lastName)}</AvatarFallback>
                                             </Avatar>
                                             <div className="grid gap-0.5">
-                                                <span className="font-semibold">{student.lastName} {student.firstName}</span>
+                                                <span className="font-semibold">{student.lastName} ${student.firstName}</span>
                                                 <span className="text-sm text-muted-foreground">{student.email}</span>
                                             </div>
                                         </div>

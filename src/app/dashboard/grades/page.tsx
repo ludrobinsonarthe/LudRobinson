@@ -26,7 +26,7 @@ interface CourseWithGrades extends Course {
 }
 
 export default function GradesPage() {
-    const { user: currentUser, users, courses: allCourses, settings, fields } = useUser();
+    const { user: currentUser, allUsers: users, allCourses, settings, fields } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const studentIdFromParams = searchParams.get('studentId');
@@ -40,13 +40,13 @@ export default function GradesPage() {
 
      const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];
-        return users.filter(u => currentUser.parent?.childrenUids.includes(u.uid));
+        return (users || []).filter(u => currentUser.parent?.childrenUids.includes(u.uid));
     }, [currentUser, users]);
 
     const studentToView = useMemo(() => {
         if (currentUser?.role === 'student') return currentUser;
-        if (currentUser?.role === 'admin' && studentIdFromParams) return users.find(u => u.uid === studentIdFromParams);
-        if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedStudentId);
+        if (currentUser?.role === 'admin' && studentIdFromParams) return (users || []).find(u => u.uid === studentIdFromParams);
+        if (currentUser?.role === 'parent') return (users || []).find(u => u.uid === selectedStudentId);
         return null;
     }, [currentUser, users, selectedStudentId, studentIdFromParams]);
     
@@ -78,7 +78,7 @@ export default function GradesPage() {
     }, [studentToView]);
 
     const coursesWithGrades = useMemo((): CourseWithGrades[] => {
-        if (grades.length === 0 || allCourses.length === 0) return [];
+        if (grades.length === 0 || !allCourses || allCourses.length === 0) return [];
 
         const courseMap: { [key: string]: CourseWithGrades } = {};
 
