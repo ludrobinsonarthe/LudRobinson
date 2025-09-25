@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ArrowRight, UserCheck, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap, Eye, UserX } from "lucide-react";
-import { format, startOfWeek, addDays, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, eachDayOf, getMonth, getYear, subMonths, addMonths } from 'date-fns';
+import { format, startOfWeek, addDays, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, eachDayOf, getMonth, getYear, subMonths, addMonths, getDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus, StaffAttendance, StaffMemberAttendance } from '@/lib/types';
@@ -37,7 +37,7 @@ const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().pad
 
 
 function StudentAttendanceContent() {
-    const { user, allUsers: users, loading: usersLoading, settings, allCourses: courses, fields, sectors, attendances } = useUser();
+    const { user, allUsers: users, loading: usersLoading, settings, allCourses, fields, sectors, attendances } = useUser();
     const { toast } = useToast();
 
     // Filters state
@@ -50,7 +50,7 @@ function StudentAttendanceContent() {
     const [isReportOpen, setIsReportOpen] = useState(false);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const coursesById = useMemo(() => (courses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+    const coursesById = useMemo(() => (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [allCourses]);
 
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
@@ -79,8 +79,8 @@ function StudentAttendanceContent() {
     
     const studentSchedule = useMemo(() => {
         if (!selectedStudent || !selectedStudent.student) return null;
-        return courses.filter(c => c.fieldId === selectedStudent.student!.fieldId && c.level === selectedStudent.student!.level);
-    }, [selectedStudent, courses]);
+        return allCourses.filter(c => c.fieldId === selectedStudent.student!.fieldId && c.level === selectedStudent.student!.level);
+    }, [selectedStudent, allCourses]);
 
     const scheduleGrid = useMemo(() => {
         const grid: { [key: string]: { [key: string]: Course | null } } = {};
@@ -387,7 +387,7 @@ function StudentAttendanceContent() {
 }
 
 function TeacherAttendanceContent() {
-    const { user: currentUser, allUsers: users, loading: usersLoading, settings, allCourses: courses, attendances } = useUser();
+    const { user: currentUser, allUsers: users, loading: usersLoading, settings, allCourses, attendances } = useUser();
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [isReportOpen, setIsReportOpen] = useState(false);
@@ -403,11 +403,11 @@ function TeacherAttendanceContent() {
         return () => clearTimeout(timer);
     }, []);
 
-    const coursesById = useMemo(() => (courses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+    const coursesById = useMemo(() => (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [allCourses]);
 
     const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse', course?: Course }[] => {
         const dateStr = format(day, 'yyyy-MM-dd');
-        const teacherCoursesOnDay = courses.filter(c => c.teacherId === teacherId && c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
+        const teacherCoursesOnDay = allCourses.filter(c => c.teacherId === teacherId && c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
         
         if (teacherCoursesOnDay.length === 0) return [{ status: 'nocourse' }];
 
@@ -458,8 +458,8 @@ function TeacherAttendanceContent() {
 
     const teacherSchedule = useMemo(() => {
         if (!selectedTeacher) return null;
-        return courses.filter(c => c.teacherId === selectedTeacher.uid);
-    }, [selectedTeacher, courses]);
+        return allCourses.filter(c => c.teacherId === selectedTeacher.uid);
+    }, [selectedTeacher, allCourses]);
 
     const scheduleGrid = useMemo(() => {
         const grid: { [key: string]: { [key: string]: Course | null } } = {};
@@ -659,26 +659,18 @@ function TeacherAttendanceContent() {
 }
 
 function StaffAttendanceContent() {
-    const { user: currentUser, allUsers: users, loading: usersLoading, settings } = useUser();
+    const { user: currentUser, allUsers: users, loading: usersLoading, settings, staffAttendances } = useUser();
     const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
     const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
-    const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
     const { toast } = useToast();
 
     const adminStaff = useMemo(() => {
         return users.filter(u => u.role === 'admin').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
     }, [users]);
     
-    useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'staffAttendances'), snapshot => {
-            setStaffAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as StaffAttendance));
-        });
-        return () => unsub();
-    }, []);
-    
     const getStatusForDay = (staffId: string, day: Date): StaffMemberAttendance['status'] | 'weekend' => {
-        const dayOfWeek = getMonth(day);
-        if (dayOfWeek === 0) return 'weekend'; // Sunday
+        const dayOfWeek = getDay(day); // Sunday = 0, Monday = 1, ...
+        if (dayOfWeek === 0) return 'weekend'; // Sunday is a weekend day
         
         const dateStr = format(day, 'yyyy-MM-dd');
         const attendanceRecord = staffAttendances.find(a => a.id === dateStr);
