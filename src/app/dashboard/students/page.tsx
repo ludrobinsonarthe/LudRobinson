@@ -47,12 +47,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser, allUsers, loading: loadingUsers, setUsers, settings, fields, sectors, allCourses } = useUser();
-    const [payments, setPayments] = useState<Payment[]>([]);
-    const [documents, setDocuments] = useState<OfficialDocument[]>([]);
-    const [grades, setGrades] = useState<Grade[]>([]);
-    const [attendances, setAttendances] = useState<Attendance[]>([]);
-    const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+    const { user: adminUser, allUsers, loading: loadingUsers, setUsers, settings, fields, sectors, allCourses, grades, payments, feeStructures } = useUser();
     const [loadingData, setLoadingData] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -69,21 +64,8 @@ export default function StudentsPage() {
     const [nationalityFilter, setNationalityFilter] = useState("all");
     
     useEffect(() => {
-        setLoadingData(true);
-        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
-        const unsubGrades = onSnapshot(collection(db, 'grades'), snapshot => setGrades(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Grade)));
-        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance)));
-        const unsubFeeStructures = onSnapshot(collection(db, 'feeStructures'), snapshot => setFeeStructures(snapshot.docs.map(doc => doc.data() as FeeStructure)));
-
-        
-        setLoadingData(false);
-        return () => {
-            unsubPayments();
-            unsubGrades();
-            unsubAttendances();
-            unsubFeeStructures();
-        };
-    }, []);
+        setLoadingData(loadingUsers);
+    }, [loadingUsers]);
 
     const studentsFromUsers = useMemo(() => {
         return (allUsers || [])
@@ -96,13 +78,13 @@ export default function StudentsPage() {
     }, [allUsers]);
 
     const parents = useMemo(() => (allUsers || []).filter(u => u.role === 'parent'), [allUsers]);
-    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
-    const sectorsById = useMemo(() => sectors.reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
+    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
+    const sectorsById = useMemo(() => (sectors || []).reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
     const studentBalances = useMemo(() => {
         const balances: Record<string, number> = {};
         studentsFromUsers.forEach(student => {
-            const studentPayments = payments.filter(p => p.studentId === student.uid && p.status === 'validated');
+            const studentPayments = (payments || []).filter(p => p.studentId === student.uid && p.status === 'validated');
             const totalPaid = studentPayments.reduce((acc, p) => acc + p.amountPaid, 0);
             const totalExpected = studentPayments.reduce((acc, p) => acc + p.amountExpected, 0);
             balances[student.uid] = totalExpected - totalPaid;
@@ -113,7 +95,7 @@ export default function StudentsPage() {
 
     const availableFields = useMemo(() => {
         if (sectorFilter === 'all') return fields;
-        return fields.filter(f => f.sectorId === sectorFilter);
+        return (fields || []).filter(f => f.sectorId === sectorFilter);
     }, [sectorFilter, fields]);
 
     useEffect(() => {
@@ -224,7 +206,7 @@ export default function StudentsPage() {
             
             // Activity Log
             const logRef = doc(collection(db, 'activityLogs'));
-            const log: Omit<ActivityLog, 'id'> = {
+            const log: Omit<ActivityLog, 'id' | 'action'> & { action: ActivityLog['action'] } = {
                 actorId: adminUser.uid,
                 actorName: `${adminUser.lastName} ${adminUser.firstName}`,
                 action: isNewStudent ? 'student_created' : 'student_updated',
@@ -237,7 +219,7 @@ export default function StudentsPage() {
 
             if (isNewStudent && finalStudentData.student) {
                 // Create the registration fee payment
-                const feeStructure = feeStructures.find(fs => fs.level === finalStudentData.student?.level && fs.cycle === finalStudentData.student?.cycle);
+                const feeStructure = (feeStructures || []).find(fs => fs.level === finalStudentData.student?.level && fs.cycle === finalStudentData.student?.cycle);
                 if (feeStructure && feeStructure.registration > 0) {
                     const registrationPaymentRef = doc(collection(db, "payments"));
                     const cashTransactionRef = doc(collection(db, 'cashTransactions'));
@@ -321,7 +303,7 @@ export default function StudentsPage() {
             const attendancesSnapshot = await getDocs(collection(db, 'attendances'));
             attendancesSnapshot.forEach(attendanceDoc => {
                 const attendance = attendanceDoc.data() as Attendance;
-                const studentAttendances = attendance.studentAttendances.filter(sa => sa.studentId !== studentId);
+                const studentAttendances = (attendance.studentAttendances || []).filter(sa => sa.studentId !== studentId);
                 if (studentAttendances.length < attendance.studentAttendances.length) {
                     batch.update(attendanceDoc.ref, { studentAttendances });
                 }
@@ -352,7 +334,7 @@ export default function StudentsPage() {
 
             // 6. Log the deletion
             const logRef = doc(collection(db, 'activityLogs'));
-            const log: Omit<ActivityLog, 'id'> = {
+            const log: Omit<ActivityLog, 'id' | 'action'> & { action: ActivityLog['action'] } = {
                 actorId: adminUser.uid,
                 actorName: `${adminUser.lastName} ${adminUser.firstName}`,
                 action: 'student_deleted',
@@ -392,7 +374,7 @@ export default function StudentsPage() {
 
     const getExportData = () => {
         return filteredStudents.map(student => {
-            const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student.parentUid) : null;
+            const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student!.parentUid) : null;
             return {
                 "Nom": student.lastName,
                 "Prénom": student.firstName,
@@ -436,7 +418,7 @@ export default function StudentsPage() {
             return;
         }
         const tableColumn = Object.keys(exportData[0]);
-        const tableRows = exportData.map(row => Object.values(row));
+        const tableRows = exportData.map(row => Object.values(row).map(v => v !== undefined ? String(v) : ''));
 
         autoTable(doc, {
             head: [tableColumn],
@@ -495,10 +477,10 @@ export default function StudentsPage() {
 
                 for (const studentRow of importedStudentsData) {
                     const studentId = doc(collection(db, 'users')).id;
-                    const fieldId = fields.find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
+                    const fieldId = (fields || []).find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
                     const studentLevel = studentRow['Niveau'];
 
-                    if (!fieldId || !studentLevel || !settings?.levels.some(l => l.value === studentLevel)) {
+                    if (!fieldId || !studentLevel || !(settings?.levels || []).some(l => l.value === studentLevel)) {
                         console.warn(`Skipping student due to invalid field or level: ${studentRow['Nom']}`);
                         continue;
                     }
@@ -528,7 +510,7 @@ export default function StudentsPage() {
                     batch.set(userDocRef, newUser);
 
                      // Create registration fee payment
-                    const feeStructure = feeStructures.find(fs => fs.level === studentLevel && fs.cycle === studentCycle);
+                    const feeStructure = (feeStructures || []).find(fs => fs.level === studentLevel && fs.cycle === studentCycle);
                     if (feeStructure && feeStructure.registration > 0) {
                         const registrationPaymentRef = doc(collection(db, "payments"));
                         const cashTransactionRef = doc(collection(db, 'cashTransactions'));
@@ -575,6 +557,7 @@ export default function StudentsPage() {
     };
 
     const generateAndStoreDocument = async (student: User, type: 'certificat' | 'bulletin', docGenerator: (student: User) => Promise<Blob>) => {
+        if(!adminUser) return;
         try {
             const blob = await docGenerator(student);
             const fileName = `${type}_${student.lastName}_${student.firstName}_${Date.now()}.pdf`;
@@ -587,7 +570,7 @@ export default function StudentsPage() {
                 studentId: student.uid,
                 type: type,
                 fileUrl: fileUrl,
-                issuedBy: adminUser?.uid || 'system-admin',
+                issuedBy: adminUser.uid,
                 issuedAt: new Date().toISOString(),
             };
             await addDoc(collection(db, "officialDocuments"), newDoc);
@@ -689,7 +672,7 @@ export default function StudentsPage() {
             doc.text(`Filière: ${student.student?.fieldId && fieldsById[student.student.fieldId] ? fieldsById[student.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
             
             // Grades Table
-            const studentGrades = grades.filter(g => g.studentId === student.uid);
+            const studentGrades = (grades || []).filter(g => g.studentId === student.uid);
             const coursesById = (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>);
             
             const tableColumn = ["Matière", "Crédit", "Devoir Classe", "Devoir Recherche", "Examen", "Moyenne /20"];
@@ -825,7 +808,7 @@ export default function StudentsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
-                                {settings?.levels.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                                {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={genderFilter} onValueChange={setGenderFilter}>
@@ -853,7 +836,7 @@ export default function StudentsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les secteurs</SelectItem>
-                                {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                {(sectors || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
@@ -862,7 +845,7 @@ export default function StudentsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Toutes les filières</SelectItem>
-                                {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                                {(availableFields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -895,7 +878,7 @@ export default function StudentsPage() {
                                                 <AvatarFallback>{getInitials(student.firstName, student.lastName)}</AvatarFallback>
                                             </Avatar>
                                             <div className="grid gap-0.5">
-                                                <span className="font-semibold">{student.lastName} ${student.firstName}</span>
+                                                <span className="font-semibold">{student.lastName} {student.firstName}</span>
                                                 <span className="text-sm text-muted-foreground">{student.email}</span>
                                             </div>
                                         </div>
@@ -937,7 +920,7 @@ export default function StudentsPage() {
                                                     </DropdownMenuSubTrigger>
                                                     <DropdownMenuPortal>
                                                         <DropdownMenuSubContent>
-                                                            {studentCourses.map(course => (
+                                                            {(studentCourses || []).map(course => (
                                                                 <DropdownMenuItem key={course.id} asChild>
                                                                     <Link href={`/dashboard/grade-management?courseId=${course.id}`}>
                                                                         {course.name}
