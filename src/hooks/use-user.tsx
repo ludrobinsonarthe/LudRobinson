@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance, Payment, TeacherSalary, CashTransaction, OfficialDocument, StaffAttendance } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, doc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -24,6 +24,11 @@ type UserContextType = {
   courses: Course[];
   grades: Grade[];
   attendances: Attendance[];
+  staffAttendances: StaffAttendance[];
+  payments: Payment[];
+  teacherSalaries: TeacherSalary[];
+  cashTransactions: CashTransaction[];
+  officialDocuments: OfficialDocument[];
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
 };
@@ -47,12 +52,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // All data collections
+  const [users, setUsers] = useState<User[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [teacherSalaries, setTeacherSalaries] = useState<TeacherSalary[]>([]);
+  const [cashTransactions, setCashTransactions] = useState<CashTransaction[]>([]);
+  const [officialDocuments, setOfficialDocuments] = useState<OfficialDocument[]>([]);
+
 
   useEffect(() => {
     if (authLoading) return;
@@ -116,16 +129,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     );
     unsubs.push(settingsUnsub);
-
-    // Load all data for admins.
+    
+    // For admins, load everything. For others, data is fetched on demand in pages.
     if (currentUser.role === 'admin') {
       setupSubscription('users', setUsers);
       setupSubscription('courses', setCourses);
       setupSubscription('grades', setGrades);
       setupSubscription('attendances', setAttendances);
+      setupSubscription('staffAttendances', setStaffAttendances);
+      setupSubscription('payments', setPayments);
+      setupSubscription('teacherSalaries', setTeacherSalaries);
+      setupSubscription('cashTransactions', setCashTransactions);
+      setupSubscription('officialDocuments', setOfficialDocuments);
     } else {
-      // For non-admin, load all users (for messaging) and all courses (for schedules).
-      // Other data is fetched on-demand in their respective pages.
+      // Non-admins still need the list of all users for messaging.
       setupSubscription('users', setUsers);
       setupSubscription('courses', setCourses);
     }
@@ -173,6 +190,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       courses,
       grades,
       attendances,
+      staffAttendances,
+      payments,
+      teacherSalaries,
+      cashTransactions,
+      officialDocuments,
       users,
       setUsers,
   };
