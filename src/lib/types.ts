@@ -57,7 +57,6 @@ export interface User {
   };
   student?: {
     matricule: string;
-    programId: string;
     cycle?: Cycle;
     level?: string;
     fieldId?: string;
