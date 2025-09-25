@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, doc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -101,13 +101,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(unsubscribe);
     };
     
-    if (currentUser.role === 'admin') {
-        setupSubscription('users', setUsers);
-        setupSubscription('courses', setCourses);
-        setupSubscription('grades', setGrades);
-        setupSubscription('attendances', setAttendances);
-    }
-
+    // Always load these small, essential collections
     setupSubscription('adminRoles', setRoles);
     setupSubscription('sectors', setSectors);
     setupSubscription('fields', setFields);
@@ -119,6 +113,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     );
     unsubs.push(settingsUnsub);
+
+    // Conditionally load larger collections only for admin users
+    if (currentUser.role === 'admin') {
+        setupSubscription('users', setUsers);
+        setupSubscription('courses', setCourses);
+        setupSubscription('grades', setGrades);
+        setupSubscription('attendances', setAttendances);
+    } else {
+        // For non-admin users, we still need all courses for schedule/grades display
+        // And we need all users for messaging
+        setupSubscription('courses', setCourses);
+        setupSubscription('users', setUsers);
+    }
     
     const initialLoadTimer = setTimeout(() => setLoading(false), 500);
     unsubs.push(() => clearTimeout(initialLoadTimer));
