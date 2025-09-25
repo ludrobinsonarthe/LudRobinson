@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -13,17 +12,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 
 export default function CoursesPage() {
-    const { user: currentUser, users, allCourses, loading } = useUser();
+    const { user: currentUser, allUsers: users, allCourses, loading } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [pageLoading, setPageLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
     const children = useMemo(() => {
-        if (currentUser?.role !== 'parent') return [];
+        if (currentUser?.role !== 'parent' || !users) return [];
         return users.filter(u => currentUser.parent?.childrenUids.includes(u.uid));
     }, [currentUser, users]);
 
     const userToView = useMemo(() => {
+        if (!users) return null;
         if (currentUser?.role === 'student' || currentUser?.role === 'teacher') return currentUser;
         if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedChildId);
         return null;
@@ -35,7 +35,7 @@ export default function CoursesPage() {
         }
     }, [currentUser, children, selectedChildId]);
 
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const teachers = useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
 
     const getTeacherName = (teacherId?: string) => {
         if (!teacherId) return "N/A";
