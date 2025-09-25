@@ -1,9 +1,12 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser, signOut as firebaseSignOut } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface AuthContextType {
     user: FirebaseUser | null;
@@ -20,6 +23,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setUser(user);
+            setLoading(false);
+        }, (error) => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: `Firebase Authentication`,
+                operation: 'get',
+                requestResourceData: 'onAuthStateChanged listener',
+            }));
+            console.error("Auth state change error:", error);
             setLoading(false);
         });
 

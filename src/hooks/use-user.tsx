@@ -1,14 +1,15 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Announcement, Attendance, StaffAttendance } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance, StaffAttendance } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where, or } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 type UserContextType = {
   user: User | null;
@@ -79,8 +80,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         signOut();
       }
     }, (error) => {
-      console.error("Error fetching user document:", error);
-      toast({ variant: 'destructive', title: "Erreur de profil", description: "Impossible de charger votre profil." });
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'get' }));
       signOut();
     });
 
@@ -98,7 +98,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const q = query(collection(db, collectionName));
         const unsubscribe = onSnapshot(q, 
             (snapshot) => setter(snapshot.docs.map(d => ({...d.data(), id: d.id}))),
-            (error) => console.error(`Error fetching ${collectionName}:`, error)
+            (error) => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
+                console.error(`Error fetching ${collectionName}:`, error);
+            }
         );
         unsubs.push(unsubscribe);
     };
@@ -113,7 +116,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
-        (error) => console.error("Error fetching settings:", error)
+        (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'settings/system', operation: 'get' }));
+            console.error("Error fetching settings:", error)
+        }
     );
     unsubs.push(settingsUnsub);
     
@@ -121,24 +127,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     let gradesQuery;
     if (currentUser.role === 'admin') {
         gradesQuery = query(collection(db, 'grades'));
-    } else {
-        const studentId = currentUser.role === 'student' 
-            ? currentUser.uid 
-            : (currentUser.role === 'parent' && currentUser.parent?.childrenUids.length > 0 ? currentUser.parent.childrenUids[0] : null);
-        
-        if (studentId) {
-            gradesQuery = query(collection(db, 'grades'), where('studentId', '==', studentId));
-        }
+    } else if (currentUser.role === 'student') {
+        gradesQuery = query(collection(db, 'grades'), where('studentId', '==', currentUser.uid));
+    } else if (currentUser.role === 'parent' && currentUser.parent?.childrenUids.length > 0) {
+        gradesQuery = query(collection(db, 'grades'), where('studentId', 'in', currentUser.parent.childrenUids));
     }
     
     if (gradesQuery) {
         unsubs.push(onSnapshot(gradesQuery, 
             (snap) => setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade)),
-            (error) => console.error("Error fetching grades:", error)
+            (error) => {
+                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'list' }));
+                 console.error("Error fetching grades:", error);
+            }
         ));
     }
 
-    // This is a rough way to know when initial data is loaded.
     const initialLoadTimer = setTimeout(() => setLoading(false), 1500);
     unsubs.push(() => clearTimeout(initialLoadTimer));
     
