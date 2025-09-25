@@ -96,8 +96,10 @@ export default function CourseManagementPage() {
     }, [sectorFilter, fields]);
 
     useEffect(() => {
-        setFieldFilter("all");
-    }, [sectorFilter]);
+        if (!availableFields.some(f => f.id === fieldFilter)) {
+            setFieldFilter("all");
+        }
+    }, [sectorFilter, availableFields, fieldFilter]);
 
     const filteredCourses = useMemo(() => {
         return courses.filter(course => {
@@ -292,7 +294,7 @@ export default function CourseManagementPage() {
                                 {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all' && fieldFilter !== 'all'}>
+                        <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
                             <SelectTrigger className="w-[240px]">
                                 <SelectValue placeholder="Filtrer par filière" />
                             </SelectTrigger>

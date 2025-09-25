@@ -8,6 +8,7 @@ import {
   ChevronsRight,
   CornerUpLeft,
   Loader2,
+  MessageSquare,
   MessageSquarePlus,
   Mic,
   Paperclip,
@@ -289,7 +290,7 @@ export default function ChatLayout({
                             locale: fr,
                           })}
                         </p>
-                        {message.content.length > 200 && <MessageSummarizer message={message.content} />}
+                         {message.content.length > 200 && <MessageSummarizer message={message.content} />}
                       </div>
                        {message.senderId === currentUser?.uid && currentUser && (
                         <Avatar className="h-8 w-8 border">
@@ -346,10 +347,16 @@ export default function ChatLayout({
               </form>
             </>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2">
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+              <MessageSquare className="h-12 w-12 text-muted-foreground" />
+              <h3 className="text-xl font-bold">Bienvenue dans la messagerie</h3>
               <p className="text-muted-foreground">
-                Sélectionnez une conversation pour commencer à discuter.
+                Sélectionnez une conversation pour commencer à discuter <br/> ou démarrez une nouvelle discussion.
               </p>
+               <Button onClick={() => setIsNewMessageDialogOpen(true)}>
+                <MessageSquarePlus className="mr-2 h-4 w-4"/>
+                Nouveau message
+               </Button>
             </div>
           )}
         </div>

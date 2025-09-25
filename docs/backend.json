@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -34,6 +35,7 @@
             "cycle": { "type": "string", "enum": ["local", "international", "entrepreneur"] },
             "level": { "type": "string" },
             "fieldId": { "type": "string" },
+            "sectorId": { "type": "string" },
             "enrollmentDate": { "type": "string", "format": "date-time" },
             "endDate": { "type": "string", "format": "date-time" },
             "parentUid": { "type": "string" },
