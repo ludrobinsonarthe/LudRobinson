@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck, Upload, Users } from "lucide-react";
-import { Settings, Field, Sector, User } from "@/lib/types";
+import { Settings, Field, Sector, User, ActivityLog } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
@@ -50,7 +50,7 @@ type StructureFormValues = z.infer<typeof structureFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors } = useUser();
+    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors, user: adminUser } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -235,9 +235,28 @@ export default function AdminManagementPage() {
     };
     
     const confirmDeleteField = async () => {
-        if(!fieldToDelete) return;
+        if(!fieldToDelete || !adminUser) return;
+        
+        const batch = writeBatch(db);
+        
         try {
-            await deleteDoc(doc(db, 'fields', fieldToDelete.id));
+            const fieldRef = doc(db, 'fields', fieldToDelete.id);
+            batch.delete(fieldRef);
+
+            const logRef = doc(collection(db, 'activityLogs'));
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: adminUser.uid,
+                actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+                action: 'user_deleted', // Consider adding a 'field_deleted' action type
+                entityType: 'field',
+                entityId: fieldToDelete.id,
+                timestamp: new Date().toISOString(),
+                details: `A supprimé la filière: "${fieldToDelete.name}"`,
+            };
+            batch.set(logRef, log);
+
+            await batch.commit();
+            
             const fieldIndex = fieldFields.findIndex(f => f.id === fieldToDelete.id);
             if (fieldIndex > -1) {
                 removeField(fieldIndex);
