@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee } from "lucide-react";
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
@@ -27,9 +27,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 
-function CourseAttendanceContent() {
+function StudentAttendanceContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { user: currentUser, users, loading: usersLoading, settings, courses, fields, sectors } = useUser();
@@ -389,6 +390,97 @@ function CourseAttendanceContent() {
     );
 }
 
+function TeacherAttendanceContent() {
+    const { users, loading: usersLoading, settings, courses } = useUser();
+    const [attendances, setAttendances] = useState<Attendance[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
+    const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    const { toast } = useToast();
+    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
+    
+    useEffect(() => {
+        setLoadingData(true);
+        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
+            setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance));
+            setLoadingData(false);
+        });
+        return () => unsubAttendances();
+    }, []);
+
+    const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+
+    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse' | 'pending', courseName?: string }[] => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const teacherCoursesOnDay = courses.filter(c => c.teacherId === teacherId && c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
+        
+        if (teacherCoursesOnDay.length === 0) return [{ status: 'nocourse' }];
+
+        return teacherCoursesOnDay.map(course => {
+            const attendance = attendances.find(a => a.date === dateStr && a.courseId === course.id);
+            if (attendance) {
+                return { status: attendance.teacherStatus, courseName: course.name };
+            }
+            return { status: 'pending', courseName: course.name };
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Présence des Professeurs</CardTitle>
+                        <CardDescription>Vue hebdomadaire de l'assiduité des enseignants.</CardDescription>
+                    </div>
+                     <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="font-semibold text-sm text-center min-w-[200px]">
+                            Semaine du {format(currentWeek, 'd MMMM', { locale: fr })}
+                        </span>
+                        <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, 7))}>
+                            <ArrowRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-lg overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[250px] font-semibold">Professeur</TableHead>
+                                {weekDays.map(day => <TableHead key={day.toISOString()} className="text-center">{format(day, 'EEEE d', { locale: fr })}</TableHead>)}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {teachers.map(teacher => (
+                                <TableRow key={teacher.uid}>
+                                    <TableCell className="font-medium">{teacher.lastName} {teacher.firstName}</TableCell>
+                                    {weekDays.map(day => (
+                                        <TableCell key={day.toISOString()} className="text-center">
+                                            {getAttendanceStatusForTeacher(teacher.uid, day).map((s, i) => (
+                                                <div key={i} className="flex items-center justify-center gap-2">
+                                                    {s.status === 'present' && <Badge className="bg-green-500 w-full justify-center" title={s.courseName}>Présent</Badge>}
+                                                    {s.status === 'absent' && <Badge variant="destructive" className="w-full justify-center" title={s.courseName}>Absent</Badge>}
+                                                    {s.status === 'pending' && <Badge variant="secondary" className="w-full justify-center" title={s.courseName}>Non noté</Badge>}
+                                                    {s.status === 'nocourse' && <span className="text-muted-foreground text-xs">-</span>}
+                                                </div>
+                                            ))}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 function StaffAttendanceContent() {
     const { user: currentUser, users, loading: usersLoading, settings } = useUser();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -599,17 +691,23 @@ function AttendancePage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold font-headline tracking-tight">Suivi des Présences</h1>
-                <p className="text-muted-foreground">Enregistrez et consultez la présence pour les cours et le personnel.</p>
+                <p className="text-muted-foreground">Enregistrez et consultez la présence pour les cours, les professeurs et le personnel.</p>
             </div>
             
-             <Tabs defaultValue="courses" className="space-y-4">
+             <Tabs defaultValue="students" className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="courses"><Users className="mr-2 h-4 w-4"/> Cours (Étudiants/Professeurs)</TabsTrigger>
+                    <TabsTrigger value="students"><Users className="mr-2 h-4 w-4"/> Étudiants par Cours</TabsTrigger>
+                    <TabsTrigger value="teachers"><GraduationCap className="mr-2 h-4 w-4"/> Professeurs</TabsTrigger>
                     <TabsTrigger value="staff"><Briefcase className="mr-2 h-4 w-4"/> Personnel Administratif</TabsTrigger>
                 </TabsList>
-                <TabsContent value="courses">
+                <TabsContent value="students">
                     <Suspense fallback={<div className="flex items-center justify-center h-96"><Skeleton className="h-8 w-8 animate-spin" /></div>}>
-                        <CourseAttendanceContent />
+                        <StudentAttendanceContent />
+                    </Suspense>
+                </TabsContent>
+                <TabsContent value="teachers">
+                    <Suspense fallback={<div className="flex items-center justify-center h-96"><Skeleton className="h-8 w-8 animate-spin" /></div>}>
+                        <TeacherAttendanceContent />
                     </Suspense>
                 </TabsContent>
                  <TabsContent value="staff">
@@ -623,3 +721,6 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
+
+
+    
