@@ -90,5 +90,3 @@ export default function MessageSummarizer({ message }: { message: string }) {
     </>
   );
 }
-
-    
