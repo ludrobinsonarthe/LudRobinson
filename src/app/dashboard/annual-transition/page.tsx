@@ -53,7 +53,7 @@ type ListType = 'promus' | 'diplômés' | 'redoublants' | 'sans_notes';
 
 
 export default function AnnualTransitionPage() {
-    const { allUsers: users, loading, settings, setUsers, allCourses: courses, grades } = useUser();
+    const { allUsers: users, loading, settings, setUsers, allCourses, grades, fields } = useUser();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isListDialogOpen, setIsListDialogOpen] = useState(false);
     const [listToShow, setListToShow] = useState<StudentWithAverage[]>([]);
@@ -62,7 +62,8 @@ export default function AnnualTransitionPage() {
     const router = useRouter();
 
     const activeStudents = useMemo(() => users.filter(u => u.role === 'student' && u.status === 'active'), [users]);
-    
+    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, any>), [fields]);
+
     const getOverallAverage = (studentId: string, studentCourses: Course[]): { average: number, hasGrades: boolean } => {
         const studentGrades = grades.filter(g => g.studentId === studentId);
         if (studentGrades.length === 0 || studentCourses.length === 0) return { average: 0, hasGrades: false };
@@ -123,9 +124,24 @@ export default function AnnualTransitionPage() {
         const studentsToGraduate: StudentWithAverage[] = [];
         const studentsWithNoGrades: StudentWithAverage[] = [];
 
+        if (!allCourses || !grades) {
+            return { studentsToPromote, studentsToRepeat, studentsToGraduate, studentsWithNoGrades };
+        }
+
         activeStudents.forEach(student => {
              if (student.student?.fieldId && student.student?.level) {
-                const studentCourses = courses.filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
+                const field = fieldsById[student.student.fieldId];
+                const sectorId = field?.sectorId;
+
+                const studentCourses = allCourses.filter(c => 
+                    c.level === student.student.level && (
+                        // Course is specific to the student's field
+                        c.fieldId === student.student.fieldId || 
+                        // Course is a common core for the student's sector
+                        (c.sectorId === sectorId && !c.fieldId)
+                    )
+                );
+
                 const { average, hasGrades } = getOverallAverage(student.uid, studentCourses);
                 const studentWithAvg = { ...student, average, hasGrades };
 
@@ -149,7 +165,7 @@ export default function AnnualTransitionPage() {
         
         return { studentsToPromote, studentsToRepeat, studentsToGraduate, studentsWithNoGrades };
 
-    }, [activeStudents, courses, grades, settings]);
+    }, [activeStudents, allCourses, grades, settings, fieldsById]);
 
 
     const handleShowList = (type: ListType) => {
@@ -434,3 +450,4 @@ export default function AnnualTransitionPage() {
         </div>
     );
 }
+
