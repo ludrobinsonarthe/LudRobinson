@@ -7,15 +7,14 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap } from "lucide-react";
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap, Eye } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance, StudentAttendance, Field, StaffAttendance, StaffMemberAttendance } from '@/lib/types';
-import { collection, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus } from '@/lib/types';
+import { collection, doc, getDoc, setDoc, onSnapshot, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import AttendanceDialog from '@/components/attendance-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -30,15 +29,17 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
+const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
 
 
 function StudentAttendanceContent() {
     const { users, loading: usersLoading, settings, courses, fields, sectors, attendances } = useUser();
-    const router = useRouter();
     const { toast } = useToast();
 
     // Filters state
@@ -47,6 +48,8 @@ function StudentAttendanceContent() {
     const [selectedFieldId, setSelectedFieldId] = useState('all');
     const [nameFilter, setNameFilter] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+    const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    const [isReportOpen, setIsReportOpen] = useState(false);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
     const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
@@ -75,57 +78,135 @@ function StudentAttendanceContent() {
         }).sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
     }, [students, nameFilter, selectedLevel, selectedSectorId, selectedFieldId, fields, sectors]);
     
-    const studentAttendanceHistory = useMemo(() => {
-        if (!selectedStudent) return [];
-        return attendances
-            .filter(att => att.studentAttendances.some(sa => sa.studentId === selectedStudent.uid))
-            .map(att => {
-                const studentAtt = att.studentAttendances.find(sa => sa.studentId === selectedStudent.uid)!;
-                return {
-                    date: att.date,
-                    course: coursesById[att.courseId],
-                    status: studentAtt.status,
-                    comment: studentAtt.comment,
-                }
-            })
-            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [selectedStudent, attendances, coursesById]);
+    
+    const studentSchedule = useMemo(() => {
+        if (!selectedStudent || !selectedStudent.student) return null;
+        return courses.filter(c => c.fieldId === selectedStudent.student!.fieldId && c.level === selectedStudent.student!.level);
+    }, [selectedStudent, courses]);
 
-    const handleExportStudentPDF = async () => {
+    const scheduleGrid = useMemo(() => {
+        const grid: { [key: string]: { [key: string]: Course | null } } = {};
+        daysOfWeek.forEach(day => {
+            grid[day] = {};
+            timeSlots.forEach(slot => grid[day][slot] = null);
+        });
+
+        studentSchedule?.forEach(course => {
+            course.schedule?.forEach(slot => {
+                const startTimeHour = parseInt(slot.start.split(':')[0]);
+                const timeSlotKey = `${startTimeHour.toString().padStart(2, '0')}:00`;
+                if (grid[slot.day] && grid[slot.day][timeSlotKey] === null) {
+                    grid[slot.day][timeSlotKey] = course;
+                }
+            });
+        });
+        return grid;
+    }, [studentSchedule]);
+    
+    const getStudentAttendanceForSlot = (course: Course, day: Date): StudentAttendanceStatus => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const attendance = attendances.find(a => a.date === dateStr && a.courseId === course.id);
+        const studentStatus = attendance?.studentAttendances.find(sa => sa.studentId === selectedStudent?.uid);
+        return studentStatus?.status || 'absent';
+    }
+    
+    const handleStudentStatusChange = async (course: Course, day: Date, newStatus: StudentAttendanceStatus) => {
+        if (!selectedStudent) return;
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const attendanceId = `${dateStr}-${course.id}`;
+        const attendanceRef = doc(db, 'attendances', attendanceId);
+
+        try {
+            const docSnap = await getDoc(attendanceRef);
+            if (docSnap.exists()) {
+                const existingData = docSnap.data() as Attendance;
+                const studentAttendances = existingData.studentAttendances.filter(sa => sa.studentId !== selectedStudent.uid);
+                studentAttendances.push({ studentId: selectedStudent.uid, status: newStatus });
+                await updateDoc(attendanceRef, { studentAttendances, updatedAt: new Date().toISOString() });
+            } else {
+                const batch = writeBatch(db);
+                const newAttendance: Attendance = {
+                    id: attendanceId, date: dateStr, courseId: course.id, teacherId: course.teacherId,
+                    teacherStatus: 'pending', studentAttendances: [{ studentId: selectedStudent.uid, status: newStatus }],
+                    validatedBy: 'system', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+                };
+                batch.set(attendanceRef, newAttendance);
+                await batch.commit();
+            }
+            toast({ title: 'Présence mise à jour', duration: 1500 });
+        } catch (error) {
+            console.error("Error updating student attendance:", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la présence.' });
+        }
+    };
+    
+    const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
+    const statusOptions: { value: StudentAttendanceStatus; label: string; icon: React.ElementType, className: string }[] = [
+        { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-500 hover:bg-green-600 text-white' },
+        { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 hover:bg-red-600 text-white' },
+        { value: 'justified', label: 'Justifié', icon: UserX, className: 'bg-gray-400 hover:bg-gray-500 text-white' },
+    ];
+    
+    const weeklyReportData = useMemo(() => {
+        if (!selectedStudent || !studentSchedule) return { summary: { present: 0, absent: 0, justified: 0 }, details: [] };
+        
+        const details: {date: Date, courseName: string, status: StudentAttendanceStatus}[] = [];
+        let present = 0, absent = 0, justified = 0;
+
+        weekDays.forEach(day => {
+            studentSchedule.forEach(course => {
+                if (course.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr }))) {
+                    const status = getStudentAttendanceForSlot(course, day);
+                    details.push({ date: day, courseName: course.name, status });
+                    if (status === 'present') present++;
+                    else if (status === 'absent') absent++;
+                    else if (status === 'justified') justified++;
+                }
+            });
+        });
+        
+        return { summary: { present, absent, justified }, details };
+    }, [selectedStudent, studentSchedule, weekDays, attendances]);
+
+    const handleExportPDF = async () => {
         if (!selectedStudent || !settings) return;
 
         const doc = new jsPDF();
         const studentName = `${selectedStudent.lastName} ${selectedStudent.firstName}`;
+        const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
+        const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
+
         try {
             const logoDataUrl = await imageToDataUrl(settings.logoUrl);
             if(logoDataUrl) doc.addImage(logoDataUrl, logoDataUrl.split(';')[0].split('/')[1].toUpperCase(), 14, 10, 20, 20);
         } catch (error) { console.error(error); }
         
-        doc.setFontSize(18);
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(14);
-        doc.text(`Fiche de Présence Individuelle`, 40, 25);
+        doc.setFontSize(18); doc.text(settings.schoolName, 40, 18);
+        doc.setFontSize(14); doc.text(`Rapport de Présence Hebdomadaire`, 40, 25);
         doc.setFontSize(12);
-        doc.text(`Étudiant: ${studentName}`, 14, 40);
-        doc.text(`Matricule: ${selectedStudent.student?.matricule}`, 14, 47);
+        doc.text(`Étudiant: ${studentName} (${selectedStudent.student?.matricule})`, 14, 40);
+        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 14, 47);
 
-        const statusText: Record<StudentAttendance['status'], string> = { present: 'Présent(e)', absent: 'Absent(e)', justified: 'Absence justifiée' };
+        const statusText: Record<StudentAttendanceStatus, string> = { present: 'Présent(e)', absent: 'Absent(e)', justified: 'Absence justifiée' };
         
         const tableColumn = ["Date", "Cours", "Statut"];
-        const tableRows = studentAttendanceHistory.map(att => [
-            format(new Date(att.date), 'd MMMM yyyy', { locale: fr }),
-            att.course?.name || 'N/A',
+        const tableRows = weeklyReportData.details.map(att => [
+            format(att.date, 'eeee d MMMM', { locale: fr }),
+            att.courseName,
             statusText[att.status],
         ]);
 
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 55,
-        });
+        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 55 });
+        
+        const finalY = (doc as any).lastAutoTable.finalY || 100;
+        doc.setFontSize(12);
+        doc.text(`Total Présences: ${weeklyReportData.summary.present}`, 14, finalY + 10);
+        doc.text(`Total Absences: ${weeklyReportData.summary.absent}`, 14, finalY + 17);
+        doc.text(`Total Justifiées: ${weeklyReportData.summary.justified}`, 14, finalY + 24);
 
-        doc.save(`presence_${selectedStudent.lastName}.pdf`);
+        doc.save(`rapport_presence_${selectedStudent.lastName}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
         toast({ title: 'Exportation PDF réussie' });
+        setIsReportOpen(false);
     }
 
     if (selectedStudent) {
@@ -136,38 +217,103 @@ function StudentAttendanceContent() {
                         <div className="flex items-center gap-4">
                             <Button variant="outline" size="icon" onClick={() => setSelectedStudent(null)}><ArrowLeft className="h-4 w-4"/></Button>
                             <div>
-                                <CardTitle>Relevé de présence de {selectedStudent.lastName} {selectedStudent.firstName}</CardTitle>
-                                <CardDescription>Matricule: {selectedStudent.student?.matricule}</CardDescription>
+                                <CardTitle>Présence de {selectedStudent.lastName} {selectedStudent.firstName}</CardTitle>
+                                <CardDescription>Emploi du temps interactif de la semaine.</CardDescription>
                             </div>
                         </div>
-                        <Button variant="outline" onClick={handleExportStudentPDF}><FileDown className="mr-2 h-4 w-4"/> Exporter la fiche</Button>
+                         <div className="flex items-center gap-2">
+                             <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline"><Eye className="mr-2 h-4 w-4"/> Aperçu du Rapport</Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle>Rapport de présence de {selectedStudent.lastName}</DialogTitle>
+                                        <DialogDescription>Semaine du {format(currentWeek, 'd MMMM yyyy', { locale: fr })}</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid grid-cols-3 gap-4 text-center my-4">
+                                        <div className="bg-green-100 p-2 rounded-lg"><p className="font-bold text-lg">{weeklyReportData.summary.present}</p><p className="text-sm text-green-800">Présences</p></div>
+                                        <div className="bg-red-100 p-2 rounded-lg"><p className="font-bold text-lg">{weeklyReportData.summary.absent}</p><p className="text-sm text-red-800">Absences</p></div>
+                                        <div className="bg-gray-100 p-2 rounded-lg"><p className="font-bold text-lg">{weeklyReportData.summary.justified}</p><p className="text-sm text-gray-800">Justifiées</p></div>
+                                    </div>
+                                    <Table>
+                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Cours</TableHead><TableHead>Statut</TableHead></TableRow></TableHeader>
+                                        <TableBody>
+                                            {weeklyReportData.details.map((item, i) => (
+                                                <TableRow key={i}>
+                                                    <TableCell>{format(item.date, 'eeee dd/MM', { locale: fr })}</TableCell>
+                                                    <TableCell>{item.courseName}</TableCell>
+                                                    <TableCell><Badge variant={item.status === 'present' ? 'default' : item.status === 'absent' ? 'destructive' : 'secondary'} className={cn(item.status === 'present' && 'bg-green-600')}>{item.status}</Badge></TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsReportOpen(false)}>Fermer</Button>
+                                        <Button onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Télécharger en PDF</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                             </Dialog>
+                            <Button variant="outline" onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Exporter PDF</Button>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}><ArrowLeft className="h-4 w-4" /></Button>
+                                <span>{format(currentWeek, 'd MMM', { locale: fr })}</span>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, 7))}><ArrowRight className="h-4 w-4" /></Button>
+                            </div>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Cours</TableHead>
-                                <TableHead>Statut</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {studentAttendanceHistory.length > 0 ? studentAttendanceHistory.map((att, i) => (
-                                <TableRow key={`${att.date}-${i}`}>
-                                    <TableCell>{format(new Date(att.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
-                                    <TableCell>{att.course?.name || 'Cours inconnu'}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={att.status === 'present' ? 'default' : att.status === 'absent' ? 'destructive' : 'secondary'} className={cn(att.status === 'present' && 'bg-green-600')}>
-                                            {att.status === 'present' ? 'Présent' : att.status === 'absent' ? 'Absent' : 'Justifié'}
-                                        </Badge>
-                                    </TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow><TableCell colSpan={3} className="text-center h-24">Aucun enregistrement de présence pour cet étudiant.</TableCell></TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                     <div className="border rounded-lg overflow-hidden">
+                        <Table className="min-w-full border-collapse">
+                            <TableHeader><TableRow>
+                                <TableHead className="w-[100px] border-r">Heure</TableHead>
+                                {weekDays.map((day, index) => (
+                                    <TableHead key={day.toISOString()} className="border-r text-center p-1">
+                                        <div className="flex flex-col items-center">
+                                            <span>{format(day, 'EEEE', { locale: fr })}</span>
+                                            <span className="text-xs text-muted-foreground">{format(day, 'dd/MM')}</span>
+                                        </div>
+                                    </TableHead>
+                                ))}
+                            </TableRow></TableHeader>
+                            <TableBody>
+                                {timeSlots.map(slot => (
+                                    <TableRow key={slot} className="h-28"><TableCell className="font-medium align-top pt-3 border-r">{slot}</TableCell>
+                                        {weekDays.map((day, dayIndex) => {
+                                            const course = scheduleGrid[format(day, 'EEEE', { locale: fr })]?.[slot];
+                                            if (!course) return <TableCell key={day.toISOString()} className="p-1 align-top border-r"></TableCell>;
+                                            
+                                            const status = getStudentAttendanceForSlot(course, day);
+                                            const statusInfo = statusOptions.find(o => o.value === status);
+                                            
+                                            return (
+                                            <TableCell key={day.toISOString()} className="p-1 align-top border-r">
+                                                 <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs cursor-pointer", statusInfo?.className.replace('text-white', ''))}>
+                                                            <p className="font-bold truncate">{course.name}</p>
+                                                            <p>{statusInfo?.label}</p>
+                                                        </div>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-2">
+                                                        <div className="flex flex-col gap-2">
+                                                            {statusOptions.map(option => (
+                                                                <Button key={option.value} size="sm" variant="outline" className={option.className} onClick={() => handleStudentStatusChange(course, day, option.value)}>
+                                                                    <option.icon className="mr-2 h-4 w-4" /> {option.label}
+                                                                </Button>
+                                                            ))}
+                                                        </div>
+                                                    </PopoverContent>
+                                                 </Popover>
+                                            </TableCell>
+                                            );
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         )
@@ -177,7 +323,7 @@ function StudentAttendanceContent() {
         <Card>
             <CardHeader>
                 <CardTitle>Liste des Étudiants</CardTitle>
-                <CardDescription>Sélectionnez un étudiant pour voir son historique de présence détaillé.</CardDescription>
+                <CardDescription>Sélectionnez un étudiant pour voir et gérer son assiduité hebdomadaire.</CardDescription>
                 <div className="flex flex-wrap items-center gap-4 pt-4">
                     <Input placeholder="Rechercher par nom..." value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} className="max-w-sm"/>
                     <Select value={selectedLevel} onValueChange={setSelectedLevel}>
@@ -259,7 +405,7 @@ function TeacherAttendanceContent() {
 
     const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
-    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse' | 'pending', course?: Course }[] => {
+    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'pending' | 'nocourse', course?: Course }[] => {
         const dateStr = format(day, 'yyyy-MM-dd');
         const teacherCoursesOnDay = courses.filter(c => c.teacherId === teacherId && c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
         
@@ -287,21 +433,22 @@ function TeacherAttendanceContent() {
 
             if (docSnap.exists()) {
                 updatedData = { teacherStatus: newStatus, updatedAt: new Date().toISOString() };
+                await updateDoc(attendanceRef, updatedData);
             } else {
-                updatedData = {
+                 updatedData = {
+                    teacherStatus: newStatus,
+                    updatedAt: new Date().toISOString(),
                     id: attendanceId,
                     date: dateStr,
                     courseId: course.id,
                     teacherId: teacherId,
-                    teacherStatus: newStatus,
-                    studentAttendances: [], // Leave students empty for now
+                    studentAttendances: [], 
                     validatedBy: currentUser.uid,
                     createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
                 };
+                await setDoc(attendanceRef, updatedData);
             }
             
-            await setDoc(attendanceRef, updatedData, { merge: true });
             toast({ title: 'Présence du professeur mise à jour', duration: 2000 });
         } catch (error) {
             console.error("Error updating teacher attendance:", error);
@@ -338,8 +485,8 @@ function TeacherAttendanceContent() {
             weekDays.forEach(day => {
                 const statuses = getAttendanceStatusForTeacher(teacher.uid, day);
                 const cellText = statuses.map(s => {
-                     if (s.status === 'nocourse') return '-';
-                     return `${statusText[s.status]} (${s.course?.name.substring(0, 10)}...)`;
+                     if (s.status === 'nocourse' || !s.course) return '-';
+                     return `${statusText[s.status]} (${s.course.name.substring(0, 10)}...)`;
                 }).join('\n');
                 row.push(cellText);
             });
@@ -444,7 +591,7 @@ function TeacherAttendanceContent() {
 function StaffAttendanceContent() {
     const { user: currentUser, users, loading: usersLoading, settings } = useUser();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
+    const [staffAttendances, setStaffAttendances] = useState<any[]>([]);
     const { toast } = useToast();
 
     const adminStaff = useMemo(() => {
@@ -455,7 +602,7 @@ function StaffAttendanceContent() {
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'staffAttendances'), snapshot => {
-            setStaffAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as StaffAttendance));
+            setStaffAttendances(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as any));
         });
         return () => unsub();
     }, []);
@@ -464,20 +611,20 @@ function StaffAttendanceContent() {
         return staffAttendances.find(a => a.id === formattedDate);
     }, [staffAttendances, formattedDate]);
 
-    const getStatusForStaff = (staffId: string): StaffMemberAttendance['status'] => {
-        return todaysAttendance?.staffStatus.find(s => s.staffId === staffId)?.status || 'absent';
+    const getStatusForStaff = (staffId: string): any['status'] => {
+        return todaysAttendance?.staffStatus.find((s:any) => s.staffId === staffId)?.status || 'absent';
     }
 
-    const handleStatusChange = async (staffId: string, status: StaffMemberAttendance['status']) => {
-        const newRecord: StaffMemberAttendance = { staffId, status };
+    const handleStatusChange = async (staffId: string, status: any['status']) => {
+        const newRecord: any = { staffId, status };
         
         try {
             const docRef = doc(db, 'staffAttendances', formattedDate);
             const docSnap = await getDoc(docRef);
 
             if (docSnap.exists()) {
-                const existingData = docSnap.data() as StaffAttendance;
-                const existingIndex = existingData.staffStatus.findIndex(s => s.staffId === staffId);
+                const existingData = docSnap.data() as any;
+                const existingIndex = existingData.staffStatus.findIndex((s:any) => s.staffId === staffId);
                 const newStaffStatus = [...existingData.staffStatus];
                 if (existingIndex > -1) {
                     newStaffStatus[existingIndex] = newRecord;
@@ -486,7 +633,7 @@ function StaffAttendanceContent() {
                 }
                 await setDoc(docRef, { ...existingData, staffStatus: newStaffStatus, updatedAt: new Date().toISOString() }, { merge: true });
             } else {
-                const newAttendanceRecord: StaffAttendance = {
+                const newAttendanceRecord: any = {
                     id: formattedDate,
                     date: formattedDate,
                     staffStatus: [newRecord],
@@ -530,7 +677,7 @@ function StaffAttendanceContent() {
         doc.setFontSize(12);
         doc.text(`Date: ${format(selectedDate, 'd MMMM yyyy', { locale: fr })}`, 14, 35);
         
-        const statusTranslation: Record<StaffMemberAttendance['status'], string> = {
+        const statusTranslation: Record<any['status'], string> = {
             present: 'Présent(e)',
             absent: 'Absent(e)',
             leave: 'En Congé'
@@ -553,7 +700,7 @@ function StaffAttendanceContent() {
         toast({ title: "Exportation réussie", description: "Le rapport de présence du personnel a été téléchargé." });
     };
 
-    const statusOptions: { value: StaffMemberAttendance['status']; label: string; icon: React.ElementType, className: string, hoverClassName: string }[] = [
+    const statusOptions: { value: any['status']; label: string; icon: React.ElementType, className: string, hoverClassName: string }[] = [
         { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-600 text-white', hoverClassName: 'hover:bg-green-700' },
         { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 text-white', hoverClassName: 'hover:bg-red-600' },
         { value: 'leave', label: 'Congé', icon: Coffee, className: 'bg-yellow-500 text-white', hoverClassName: 'hover:bg-yellow-600' },
