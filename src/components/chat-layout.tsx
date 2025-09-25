@@ -76,7 +76,6 @@ export default function ChatLayout({
     
     const conversationPartners = new Set<string>();
     
-    // Add partners from existing messages
     messages.forEach(msg => {
       if (msg.senderId === currentUser.uid) {
         conversationPartners.add(msg.receiverId);
@@ -86,8 +85,7 @@ export default function ChatLayout({
       }
     });
 
-    // Add all potential users to the list, even if no conversation exists yet
-     users.forEach(user => {
+    users.forEach(user => {
         if(user.uid !== currentUser.uid && (user.role === 'admin' || user.role === 'teacher')) {
             conversationPartners.add(user.uid);
         }
@@ -295,7 +293,7 @@ export default function ChatLayout({
                             locale: fr,
                           })}
                         </p>
-                         {message.content.length > 200 && <MessageSummarizer message={message.content} />}
+                        {message.content.length > 200 && <MessageSummarizer message={message.content} />}
                       </div>
                        {message.senderId === currentUser?.uid && currentUser && (
                         <Avatar className="h-8 w-8 border">

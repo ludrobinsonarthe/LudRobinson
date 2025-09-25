@@ -2,9 +2,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance, StaffAttendance } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, onSnapshot, doc, setDoc, writeBatch, getDoc, updateDoc, where, or } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
@@ -13,7 +13,6 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 type UserContextType = {
   user: User | null;
-  setUser: (user: User) => void;
   loading: boolean;
   roles: AdminRole[];
   settings: Settings | null;
@@ -22,7 +21,12 @@ type UserContextType = {
   hasPermission: (permission: AdminPermission) => boolean;
   sectors: Sector[];
   fields: Field[];
-}
+  courses: Course[];
+  grades: Grade[];
+  attendances: Attendance[];
+  users: User[];
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+};
 
 const defaultSettings: Settings = {
     id: 'system',
@@ -45,6 +49,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [fields, setFields] = useState<Field[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -88,11 +96,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             (snapshot) => setter(snapshot.docs.map(d => ({...d.data(), id: d.id}))),
             (error) => {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
-                console.error(`Error fetching ${collectionName}:`, error);
             }
         );
         unsubs.push(unsubscribe);
     };
+    
+    if (currentUser.role === 'admin') {
+        setupSubscription('users', setUsers);
+        setupSubscription('courses', setCourses);
+        setupSubscription('grades', setGrades);
+        setupSubscription('attendances', setAttendances);
+    }
 
     setupSubscription('adminRoles', setRoles);
     setupSubscription('sectors', setSectors);
@@ -102,12 +116,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
         (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'settings/system', operation: 'get' }));
-            console.error("Error fetching settings:", error)
         }
     );
     unsubs.push(settingsUnsub);
     
-    const initialLoadTimer = setTimeout(() => setLoading(false), 1500);
+    const initialLoadTimer = setTimeout(() => setLoading(false), 500);
     unsubs.push(() => clearTimeout(initialLoadTimer));
     
     return () => unsubs.forEach(unsub => unsub());
@@ -133,17 +146,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return userPermissions.includes(permission);
   }
 
-  const setUser = (user: User) => {
-      setCurrentUser(user);
-  };
-
   const handleSetSettings = (newSettings: Settings) => {
     setSettings(newSettings);
   };
   
   const value: UserContextType = { 
       user: currentUser, 
-      setUser, 
       loading,
       roles,
       userPermissions,
@@ -152,6 +160,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setSettings: handleSetSettings,
       sectors,
       fields,
+      courses,
+      grades,
+      attendances,
+      users,
+      setUsers,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

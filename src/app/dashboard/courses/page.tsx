@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 export default function CoursesPage() {
     const { user: currentUser } = useUser();
     const [users, setUsers] = useState<User[]>([]);
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -23,7 +24,13 @@ export default function CoursesPage() {
         const unsub = onSnapshot(collection(db, 'users'), snapshot => {
             setUsers(snapshot.docs.map(doc => doc.data() as User));
         });
-        return () => unsub();
+        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
+            setAllCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
+        });
+        return () => {
+            unsub();
+            unsubCourses();
+        };
     }, []);
 
     const children = useMemo(() => {
@@ -59,42 +66,17 @@ export default function CoursesPage() {
         }
 
         setLoading(true);
-        let q;
+        let userCourses: Course[] = [];
         if (userToView.role === 'student' && userToView.student) {
-            const studentClauses = [];
-            if(userToView.student.fieldId) {
-                studentClauses.push(where("fieldId", "==", userToView.student.fieldId))
-            }
-             if(userToView.student.sectorId) {
-                 studentClauses.push(where("sectorId", "==", userToView.student.sectorId))
-            }
-            if (studentClauses.length === 0) {
-                 setLoading(false);
-                 setCourses([]);
-                 return;
-            }
-            
-            q = query(
-                collection(db, "courses"),
-                where("level", "==", userToView.student.level),
-                or(...studentClauses)
-            );
+            userCourses = allCourses.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || c.sectorId === userToView.student!.sectorId));
         } else if (userToView.role === 'teacher') {
-            q = query(collection(db, "courses"), where("teacherId", "==", userToView.uid));
-        } else {
-             setLoading(false);
-             setCourses([]);
-             return;
+            userCourses = allCourses.filter(c => c.teacherId === userToView.uid);
         }
-
-        const unsubscribe = onSnapshot(q, snapshot => {
-            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
         
-    }, [userToView]);
+        setCourses(userCourses);
+        setLoading(false);
+        
+    }, [userToView, allCourses]);
 
     const handleChildChange = (studentId: string) => {
         setSelectedChildId(studentId);

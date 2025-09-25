@@ -6,9 +6,9 @@ import { useUser } from '@/hooks/use-user';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { User as UserIcon } from 'lucide-react';
+import { User as UserIcon, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { User } from '@/lib/types';
 
 
@@ -18,28 +18,31 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 
 export default function PromotionPage() {
     const { user: currentUser, fields, loading: userLoading } = useUser();
-    const [users, setUsers] = useState<User[]>([]);
+    const [classmates, setClassmates] = useState<User[]>([]);
+    const [loadingClassmates, setLoadingClassmates] = useState(true);
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
-            setUsers(snapshot.docs.map(doc => doc.data() as User));
-        });
-        return () => unsub();
-    }, []);
-
-    const classmates = useMemo(() => {
         if (!currentUser || currentUser.role !== 'student' || !currentUser.student?.fieldId || !currentUser.student?.level) {
-            return [];
+            setLoadingClassmates(false);
+            return;
         }
-
-        const { fieldId, level } = currentUser.student;
-        return users.filter(user => 
-            user.uid !== currentUser.uid &&
-            user.role === 'student' &&
-            user.student?.fieldId === fieldId &&
-            user.student?.level === level
+        
+        setLoadingClassmates(true);
+        const q = query(
+            collection(db, 'users'),
+            where('role', '==', 'student'),
+            where('student.fieldId', '==', currentUser.student.fieldId),
+            where('student.level', '==', currentUser.student.level)
         );
-    }, [currentUser, users]);
+
+        const unsub = onSnapshot(q, snapshot => {
+            const users = snapshot.docs.map(doc => doc.data() as User);
+            setClassmates(users.filter(u => u.uid !== currentUser.uid));
+            setLoadingClassmates(false);
+        });
+        
+        return () => unsub();
+    }, [currentUser]);
 
     const currentField = useMemo(() => {
         if (!currentUser?.student?.fieldId) return null;
@@ -48,8 +51,10 @@ export default function PromotionPage() {
 
     const title = `Promotion ${currentUser?.student?.level} - ${currentField?.name || ''}`;
 
-    if (userLoading) {
-        return <div>Chargement de la promotion...</div>;
+    const isLoading = userLoading || loadingClassmates;
+
+    if (isLoading) {
+        return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
     
     if (currentUser?.role !== 'student') {
@@ -113,5 +118,3 @@ export default function PromotionPage() {
         </div>
     );
 }
-
-    

@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -22,6 +21,12 @@ export const adminPermissions = {
 
 
 export type AdminPermission = keyof typeof adminPermissions;
+
+export type SecurityRuleContext = {
+  path: string;
+  operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
+  requestResourceData?: any;
+};
 
 export interface AdminRole {
   id: string;

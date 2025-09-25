@@ -12,11 +12,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Loader2, PlusCircle, Trash2, UserCog, ShieldCheck, Upload, Users } from "lucide-react";
-import { Settings, Field, Sector } from "@/lib/types";
+import { Settings, Field, Sector, User } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useUser } from "@/hooks/use-user";
-import { doc, setDoc, updateDoc, writeBatch, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, writeBatch, deleteDoc, collection, onSnapshot } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import Image from "next/image";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -50,15 +50,23 @@ type StructureFormValues = z.infer<typeof structureFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { users, settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors } = useUser();
+    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [fieldToDelete, setFieldToDelete] = useState<Field | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const [students, setStudents] = useState<User[]>([]);
     
+    useEffect(() => {
+        const q = collection(db, 'users');
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const allUsers = snapshot.docs.map(doc => doc.data() as User);
+            setStudents(allUsers.filter(u => u.role === 'student'));
+        });
+        return () => unsubscribe();
+    }, []);
+
     const studentCountByField = useMemo(() => {
         const counts: Record<string, number> = {};
         students.forEach(student => {
@@ -527,8 +535,3 @@ export default function AdminManagementPage() {
         </div>
     );
 }
-    
-
-      
-
-    
