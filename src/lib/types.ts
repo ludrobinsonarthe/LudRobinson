@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -85,11 +86,11 @@ export interface Program {
 
 export interface Class {
   id: string;
-  programId: string;
   name: string;
   academicYear: string;
   students: string[]; // student_uids
   createdAt: string;
+  fieldId: string;
 }
 
 export interface Sector {

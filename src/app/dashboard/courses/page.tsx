@@ -13,25 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 
 export default function CoursesPage() {
-    const { user: currentUser } = useUser();
-    const [users, setUsers] = useState<User[]>([]);
-    const [allCourses, setAllCourses] = useState<Course[]>([]);
+    const { user: currentUser, users, allCourses, loading } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [pageLoading, setPageLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-
-    useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
-            setUsers(snapshot.docs.map(doc => doc.data() as User));
-        });
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => {
-            setAllCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-        });
-        return () => {
-            unsub();
-            unsubCourses();
-        };
-    }, []);
 
     const children = useMemo(() => {
         if (currentUser?.role !== 'parent') return [];
@@ -59,24 +44,26 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
+        if (loading) return;
+
         if (!userToView) {
-            setLoading(false);
+            setPageLoading(false);
             setCourses([]);
             return;
         }
 
-        setLoading(true);
+        setPageLoading(true);
         let userCourses: Course[] = [];
         if (userToView.role === 'student' && userToView.student) {
-            userCourses = allCourses.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || c.sectorId === userToView.student!.sectorId));
+            userCourses = allCourses.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || (!c.fieldId && c.sectorId === userToView.student!.sectorId)));
         } else if (userToView.role === 'teacher') {
             userCourses = allCourses.filter(c => c.teacherId === userToView.uid);
         }
         
         setCourses(userCourses);
-        setLoading(false);
+        setPageLoading(false);
         
-    }, [userToView, allCourses]);
+    }, [userToView, allCourses, loading]);
 
     const handleChildChange = (studentId: string) => {
         setSelectedChildId(studentId);
@@ -148,7 +135,7 @@ export default function CoursesPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   {loading ? (
+                   {pageLoading ? (
                         <div className="flex items-center justify-center h-48">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>

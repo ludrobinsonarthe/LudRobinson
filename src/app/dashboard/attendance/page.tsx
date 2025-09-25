@@ -37,7 +37,7 @@ const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().pad
 
 
 function StudentAttendanceContent() {
-    const { users, loading: usersLoading, settings, courses, fields, sectors, attendances } = useUser();
+    const { user, users, loading: usersLoading, settings, courses, fields, sectors, attendances } = useUser();
     const { toast } = useToast();
 
     // Filters state
@@ -109,7 +109,11 @@ function StudentAttendanceContent() {
     }
     
     const handleStudentStatusChange = async (course: Course, day: Date, newStatus: StudentAttendanceStatus) => {
-        if (!selectedStudent) return;
+        if (!selectedStudent || user?.role !== 'admin') {
+            toast({ variant: 'destructive', title: 'Action non autorisée', description: "Vous n'avez pas les droits pour modifier la présence." });
+            return;
+        }
+
         const dateStr = format(day, 'yyyy-MM-dd');
         const attendanceId = `${dateStr}-${course.id}`;
         const attendanceRef = doc(db, 'attendances', attendanceId);
@@ -287,8 +291,8 @@ function StudentAttendanceContent() {
                                             return (
                                             <TableCell key={day.toISOString()} className="p-1 align-top border-r">
                                                  <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs cursor-pointer", statusInfo?.className.replace('text-white', ''))}>
+                                                    <PopoverTrigger asChild disabled={user?.role !== 'admin'}>
+                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", user?.role === 'admin' && 'cursor-pointer', statusInfo?.className.replace('text-white', ''))}>
                                                             <p className="font-bold truncate">{course.name}</p>
                                                             <p>{statusInfo?.label}</p>
                                                         </div>
@@ -414,7 +418,10 @@ function TeacherAttendanceContent() {
     };
 
     const handleTeacherStatusChange = async (teacherId: string, course: Course, day: Date, newStatus: 'present' | 'absent') => {
-        if (!currentUser) return;
+        if (!currentUser || currentUser.role !== 'admin') {
+            toast({ variant: 'destructive', title: 'Action non autorisée', description: "Vous n'avez pas les droits pour modifier la présence." });
+            return;
+        }
         
         const dateStr = format(day, 'yyyy-MM-dd');
         const attendanceId = `${dateStr}-${course.id}`;
@@ -592,8 +599,8 @@ function TeacherAttendanceContent() {
                                             return (
                                             <TableCell key={day.toISOString()} className="p-1 align-top border-r">
                                                  <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs cursor-pointer", statusInfo.className)}>
+                                                    <PopoverTrigger asChild disabled={currentUser?.role !== 'admin'}>
+                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", currentUser?.role === 'admin' && 'cursor-pointer', statusInfo.className)}>
                                                             <p className="font-bold truncate">{course.name}</p>
                                                             <p>{statusInfo.label}</p>
                                                         </div>
@@ -680,7 +687,11 @@ function StaffAttendanceContent() {
     }
 
     const handleStatusChange = async (staffId: string, day: Date, status: StaffMemberAttendance['status']) => {
-        if (!currentUser) return;
+        if (!currentUser || currentUser.role !== 'admin') {
+            toast({ variant: 'destructive', title: 'Action non autorisée', description: "Vous n'avez pas les droits pour modifier la présence." });
+            return;
+        }
+
         const dateStr = format(day, 'yyyy-MM-dd');
         const newRecord: StaffMemberAttendance = { staffId, status };
         
@@ -785,9 +796,9 @@ function StaffAttendanceContent() {
                             const isWeekend = status === 'weekend';
                             return (
                                 <Popover key={day.toString()}>
-                                    <PopoverTrigger asChild disabled={isWeekend}>
-                                        <div className={cn("p-2 rounded-lg border text-center cursor-pointer", 
-                                            isWeekend ? 'bg-muted/50' : 'hover:bg-muted',
+                                    <PopoverTrigger asChild disabled={isWeekend || currentUser?.role !== 'admin'}>
+                                        <div className={cn("p-2 rounded-lg border text-center", 
+                                            isWeekend ? 'bg-muted/50' : (currentUser?.role === 'admin' ? 'cursor-pointer hover:bg-muted' : ''),
                                             status === 'present' && 'bg-green-100 border-green-200',
                                             status === 'absent' && 'bg-red-100 border-red-200',
                                             status === 'leave' && 'bg-yellow-100 border-yellow-200'

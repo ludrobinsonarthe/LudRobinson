@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -26,7 +27,7 @@ const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
 
 function ScheduleContent() {
-    const { user: currentUser, users, loading: userLoading, settings, fields, sectors } = useUser();
+    const { user: currentUser, users, loading: userLoading, settings, fields, sectors, allCourses } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
     const { toast } = useToast();
@@ -49,6 +50,7 @@ function ScheduleContent() {
             const studentField = fields.find(f => f.id === studentFieldId);
             if (studentField) {
                 setSelectedSectorId(studentField.sectorId);
+                setSelectedFieldId(studentField.id);
             }
         }
         if(fieldIdFromParams) {
@@ -61,13 +63,11 @@ function ScheduleContent() {
     }, [fieldIdFromParams, currentUser, fields]);
 
     useEffect(() => {
-        setLoading(true);
-        const unsub = onSnapshot(collection(db, 'courses'), snapshot => {
-            setCourses(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Course));
+        if (!userLoading) {
+            setCourses(allCourses);
             setLoading(false);
-        });
-        return () => unsub();
-    }, []);
+        }
+    }, [allCourses, userLoading]);
     
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const availableFields = useMemo(() => {
@@ -76,8 +76,11 @@ function ScheduleContent() {
     }, [selectedSectorId, fields]);
     
     useEffect(() => {
-        setSelectedFieldId('all');
-    }, [selectedSectorId]);
+        // Reset field filter if the selected sector changes and the field is no longer valid
+        if (!availableFields.some(f => f.id === selectedFieldId)) {
+            setSelectedFieldId('all');
+        }
+    }, [selectedSectorId, availableFields, selectedFieldId]);
 
     const filteredCourses = useMemo(() => {
         let filtered = courses;
@@ -150,7 +153,7 @@ function ScheduleContent() {
         if (selectedTeacherId !== 'all') {
             const teacher = teachers.find(t => t.uid === selectedTeacherId);
             titleName = `Emploi du temps - ${teacher?.lastName} ${teacher?.firstName}`;
-        } else if (selectedFieldId !== 'all') {
+        } else if (selectedFieldId !== 'all' && selectedFieldId !== 'common_core') {
              const fieldName = fieldsById[selectedFieldId]?.name || '';
              titleName = `Emploi du temps - ${fieldName} (${levelName})`;
         } else if (selectedSectorId !== 'all') {
@@ -236,7 +239,7 @@ function ScheduleContent() {
                          <div>
                             <CardTitle>Grille de la semaine</CardTitle>
                             <CardDescription>
-                               {isStudentView ? `Emploi du temps pour ${currentUser.student?.level}` : "Vue hebdomadaire des cours planifiés."}
+                               {isStudentView && currentUser.student ? `Emploi du temps pour ${currentUser.student.level}` : "Vue hebdomadaire des cours planifiés."}
                             </CardDescription>
                          </div>
                         <div className="flex items-center gap-4 flex-wrap">
@@ -275,6 +278,7 @@ function ScheduleContent() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Toutes les filières</SelectItem>
+                                         <SelectItem value="common_core">Tronc Commun</SelectItem>
                                         {(availableFields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
@@ -364,5 +368,3 @@ export default function SchedulePage() {
         </Suspense>
     );
 }
-
-    
