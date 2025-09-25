@@ -18,6 +18,7 @@ export default function MessagesPage() {
     if (!user) return;
     setLoading(true);
 
+    // This query fetches all private messages where the current user is either the sender or the receiver.
     const q = query(
       collection(db, "private_messages"),
       or(

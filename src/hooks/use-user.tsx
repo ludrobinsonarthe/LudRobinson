@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -90,67 +91,60 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser) return;
 
     setLoading(true);
+    
+    const unsubs: (() => void)[] = [];
 
-    const collectionsToFetch = [
-      { name: 'users', setter: setAllUsers },
-      { name: 'adminRoles', setter: setRoles },
-      { name: 'sectors', setter: setSectors },
-      { name: 'fields', setter: setFields },
-      { name: 'courses', setter: setCourses },
-      { name: 'grades', setter: setGrades },
-      { name: 'attendances', setter: setAttendances },
-      { name: 'staffAttendances', setter: setStaffAttendances },
-    ];
+    const setupSubscription = (collectionName: string, setter: React.Dispatch<React.SetStateAction<any[]>>) => {
+        const q = query(collection(db, collectionName));
+        const unsubscribe = onSnapshot(q, 
+            (snapshot) => setter(snapshot.docs.map(d => ({...d.data(), id: d.id}))),
+            (error) => console.error(`Error fetching ${collectionName}:`, error)
+        );
+        unsubs.push(unsubscribe);
+    };
 
-    const promises = collectionsToFetch.map(c => getDocs(collection(db, c.name)));
-    const settingsPromise = getDoc(doc(db, 'settings', 'system'));
+    setupSubscription('users', setAllUsers);
+    setupSubscription('adminRoles', setRoles);
+    setupSubscription('sectors', setSectors);
+    setupSubscription('fields', setFields);
+    setupSubscription('courses', setCourses);
+    setupSubscription('attendances', setAttendances);
+    setupSubscription('staffAttendances', setStaffAttendances);
 
-    Promise.all([...promises, settingsPromise]).then((results) => {
-        const snapshots = results.slice(0, -1) as any[];
-        const settingsSnap = results.slice(-1)[0] as any;
-
-        snapshots.forEach((snapshot, index) => {
-            const { setter } = collectionsToFetch[index];
-            const docs = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-            setter(docs);
-        });
+    const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
+        (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
+        (error) => console.error("Error fetching settings:", error)
+    );
+    unsubs.push(settingsUnsub);
+    
+    // Conditional subscription for grades
+    let gradesQuery;
+    if (currentUser.role === 'admin') {
+        gradesQuery = query(collection(db, 'grades'));
+    } else {
+        const studentId = currentUser.role === 'student' 
+            ? currentUser.uid 
+            : (currentUser.role === 'parent' && currentUser.parent?.childrenUids.length > 0 ? currentUser.parent.childrenUids[0] : null);
         
-        setSettings(settingsSnap.exists() ? settingsSnap.data() as Settings : defaultSettings);
-        
-        const unsubs: (() => void)[] = [];
-
-        unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => ({id: d.id, ...d.data()}) as User))));
-        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings)));
-        unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()}) as Sector))));
-        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()}) as Field))));
-        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => ({...d.data(), id: d.id}) as Course))));
-        unsubs.push(onSnapshot(collection(db, 'attendances'), snap => setAttendances(snap.docs.map(d => ({...d.data(), id: d.id}) as Attendance))));
-        unsubs.push(onSnapshot(collection(db, 'staffAttendances'), snap => setStaffAttendances(snap.docs.map(d => ({...d.data(), id: d.id}) as StaffAttendance))));
-        
-        if (currentUser.role === 'admin') {
-            unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade))));
-        } else {
-            const studentId = currentUser.role === 'student' ? currentUser.uid : (currentUser.role === 'parent' ? currentUser.parent?.childrenUids[0] : null);
-            if (studentId) {
-                unsubs.push(onSnapshot(query(collection(db, 'grades'), where('studentId', '==', studentId)), snap => {
-                    setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade));
-                }));
-            }
+        if (studentId) {
+            gradesQuery = query(collection(db, 'grades'), where('studentId', '==', studentId));
         }
-        
-        unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => ({id: d.id, ...d.data()}) as AdminRole))));
+    }
+    
+    if (gradesQuery) {
+        unsubs.push(onSnapshot(gradesQuery, 
+            (snap) => setGrades(snap.docs.map(d => ({...d.data(), id: d.id}) as Grade)),
+            (error) => console.error("Error fetching grades:", error)
+        ));
+    }
 
-        setLoading(false); 
-        
-        return () => unsubs.forEach(unsub => unsub());
+    // This is a rough way to know when initial data is loaded.
+    const initialLoadTimer = setTimeout(() => setLoading(false), 1500);
+    unsubs.push(() => clearTimeout(initialLoadTimer));
+    
+    return () => unsubs.forEach(unsub => unsub());
 
-    }).catch(error => {
-        console.error("Error fetching initial data:", error);
-        toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger les données initiales." });
-        setLoading(false);
-    });
-
-  }, [currentUser, toast]);
+  }, [currentUser]);
   
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];

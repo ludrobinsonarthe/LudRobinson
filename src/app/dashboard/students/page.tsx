@@ -121,8 +121,10 @@ export default function StudentsPage() {
     }, [sectorFilter, fields]);
 
     useEffect(() => {
-        setFieldFilter("all");
-    }, [sectorFilter]);
+        if (!availableFields.some(f => f.id === fieldFilter)) {
+            setFieldFilter('all');
+        }
+    }, [sectorFilter, availableFields, fieldFilter]);
     
     const nationalities = useMemo(() => {
         const allNationalities = studentsFromUsers.map(s => s.nationality).filter(Boolean);
@@ -493,7 +495,6 @@ export default function StudentsPage() {
                            level: studentLevel,
                            fieldId: fieldId,
                            cycle: studentCycle,
-                           programId: 'prog01', 
                            enrollmentDate: new Date().toISOString(),
                            endDate: ''
                         }

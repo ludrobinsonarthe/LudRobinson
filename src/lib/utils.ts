@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -20,7 +21,24 @@ export async function imageToDataUrl(url: string | null | undefined): Promise<st
         
         if (!response.ok) {
             console.error(`Failed to fetch image via proxy from ${url}. Status: ${response.statusText}`);
-            return null;
+            // Attempt to fetch directly as a fallback
+            try {
+                const directResponse = await fetch(url);
+                if(!directResponse.ok) {
+                    console.error(`Direct fetch for image ${url} also failed. Status: ${directResponse.statusText}`);
+                    return null;
+                }
+                const blob = await directResponse.blob();
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch(directError) {
+                console.error(`Direct fetch for image ${url} threw an error.`, directError);
+                return null;
+            }
         }
         
         const blob = await response.blob();

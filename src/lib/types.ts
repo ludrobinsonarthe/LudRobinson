@@ -53,7 +53,6 @@ export interface User {
     cycle?: Cycle;
     level?: string;
     fieldId?: string;
-    sectorId?: string;
     enrollmentDate: string;
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user
@@ -189,17 +188,6 @@ export interface Message {
   title?: string;
   content: string;
   type: 'announcement' | 'private';
-  attachments?: string[];
-  createdAt: string;
-}
-
-export interface Announcement {
-  id: string;
-  senderId: string;
-  receiverId: string;
-  title?: string;
-  content: string;
-  type: 'announcement';
   attachments?: string[];
   createdAt: string;
 }
