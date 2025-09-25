@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap, Eye } from "lucide-react";
+import { ArrowLeft, ArrowRight, UserCheck, CalendarOff, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap, Eye, UserX } from "lucide-react";
 import { format, startOfWeek, addDays, eachDayOfInterval, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
