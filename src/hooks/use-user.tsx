@@ -84,7 +84,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [authUser, authLoading, signOut, toast]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+        setLoading(false);
+        return;
+    };
 
     setLoading(true);
     
@@ -114,16 +117,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
 
-    // Load all data for admins, otherwise load specific data for others.
+    // Load all data for admins.
     if (currentUser.role === 'admin') {
       setupSubscription('users', setUsers);
       setupSubscription('courses', setCourses);
-      // These collections are not directly needed in the context for admins,
-      // pages fetch them directly. This keeps the initial load lighter.
-      // setupSubscription('grades', setGrades);
-      // setupSubscription('attendances', setAttendances);
+      setupSubscription('grades', setGrades);
+      setupSubscription('attendances', setAttendances);
     } else {
-      // For non-admin, load all users for messaging and all courses for schedules.
+      // For non-admin, load all users (for messaging) and all courses (for schedules).
       // Other data is fetched on-demand in their respective pages.
       setupSubscription('users', setUsers);
       setupSubscription('courses', setCourses);
