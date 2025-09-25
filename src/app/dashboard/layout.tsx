@@ -202,21 +202,19 @@ function MainSidebar() {
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
-            {user?.role === 'student' && (
-                <Sheet>
-                    <SheetTrigger asChild>
-                        <SidebarMenuItem>
-                        <SidebarMenuButton tooltip={"Tuteur IA"}>
-                            <Bot />
-                            <span>Tuteur IA</span>
-                        </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    </SheetTrigger>
-                    <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
-                        <TutorPage />
-                    </SheetContent>
-                </Sheet>
-            )}
+             <Sheet>
+                <SheetTrigger asChild>
+                    <SidebarMenuItem>
+                    <SidebarMenuButton tooltip={"Tuteur IA"}>
+                        <Bot />
+                        <span>Tuteur IA</span>
+                    </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SheetTrigger>
+                <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
+                    <TutorPage />
+                </SheetContent>
+            </Sheet>
              <SidebarMenuItem>
                  <SidebarMenuButton
                     asChild
