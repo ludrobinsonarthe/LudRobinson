@@ -1,8 +1,8 @@
 
-'use client';
+"use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, CornerDownLeft, Loader2 } from 'lucide-react';
+import { Bot, CornerDownLeft, Loader2, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,9 +16,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
-import { useTheme } from "next-themes";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useTheme } from "next-themes";
+import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
 
 interface MessageWithQuiz extends TutorMessage {
     quiz?: TutorOutput['quiz'];
@@ -83,7 +83,7 @@ const QuizComponent = ({ quiz }: { quiz: NonNullable<TutorOutput['quiz']> }) => 
     );
 };
 
-export default function TutorPage() {
+export default function TutorPanel() {
     const { user } = useUser();
     const { theme } = useTheme();
     const [messages, setMessages] = useState<MessageWithQuiz[]>([

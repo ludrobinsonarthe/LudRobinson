@@ -61,7 +61,7 @@ import React, { useEffect, useState } from "react";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
-import TutorPage from "./tutor/page";
+import TutorPanel from "@/app/dashboard/tutor/page";
 import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 
 function AppLogo() {
@@ -85,6 +85,7 @@ function MainSidebar() {
   const pathname = usePathname();
   const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
+  const [isTutorOpen, setIsTutorOpen] = React.useState(false);
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -185,25 +186,12 @@ function MainSidebar() {
 
   const commonFooter = (
       <SidebarMenu>
-            <Sheet>
-                <SheetTrigger asChild>
-                    <SidebarMenuItem>
-                    <SidebarMenuButton tooltip={"Tuteur IA"}>
-                        <Bot />
-                        <span>Tuteur IA</span>
-                    </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SheetTrigger>
-                <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
-                    <SheetHeader className="p-0 m-0 h-0">
-                        <SheetTitle className="sr-only">Tuteur IA</SheetTitle>
-                        <SheetDescription className="sr-only">
-                        Un tuteur basé sur l'IA pour répondre aux questions des étudiants et générer des quiz.
-                        </SheetDescription>
-                    </SheetHeader>
-                    <TutorPage />
-                </SheetContent>
-            </Sheet>
+            <SidebarMenuItem>
+            <SidebarMenuButton tooltip={"Tuteur IA"} onClick={() => setIsTutorOpen(true)}>
+                <Bot />
+                <span>Tuteur IA</span>
+            </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
                 <SidebarMenuButton
                     asChild
@@ -236,6 +224,7 @@ function MainSidebar() {
 
 
   return (
+      <>
       <Sidebar>
         <SidebarHeader className="hidden md:flex">
           <AppLogo />
@@ -267,6 +256,18 @@ function MainSidebar() {
           {commonFooter}
         </SidebarFooter>
       </Sidebar>
+      <Sheet open={isTutorOpen} onOpenChange={setIsTutorOpen}>
+          <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
+              <SheetHeader className="p-0 m-0 h-0">
+                  <SheetTitle className="sr-only">Tuteur IA</SheetTitle>
+                  <SheetDescription className="sr-only">
+                  Un tuteur basé sur l'IA pour répondre aux questions des étudiants et générer des quiz.
+                  </SheetDescription>
+              </SheetHeader>
+              <TutorPanel />
+          </SheetContent>
+      </Sheet>
+      </>
   );
 }
 
