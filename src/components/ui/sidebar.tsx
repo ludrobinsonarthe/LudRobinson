@@ -771,5 +771,8 @@ export {
   useSidebar,
   Sheet,
   SheetContent,
-  SheetTrigger
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
 }

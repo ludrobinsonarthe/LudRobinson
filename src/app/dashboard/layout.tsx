@@ -20,7 +20,10 @@ import {
   SidebarInput,
   Sheet,
   SheetContent,
-  SheetTrigger
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription
 } from "@/components/ui/sidebar";
 import {
   Home,
@@ -212,6 +215,12 @@ function MainSidebar() {
                     </SidebarMenuItem>
                 </SheetTrigger>
                 <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
+                    <SheetHeader className="p-0 m-0 h-0">
+                      <SheetTitle className="sr-only">Tuteur IA</SheetTitle>
+                      <SheetDescription className="sr-only">
+                        Un tuteur basé sur l'IA pour répondre aux questions des étudiants et générer des quiz.
+                      </SheetDescription>
+                    </SheetHeader>
                     <TutorPage />
                 </SheetContent>
             </Sheet>
