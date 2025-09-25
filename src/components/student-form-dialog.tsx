@@ -259,7 +259,6 @@ const StudentFormDialog = React.forwardRef<HTMLDivElement, StudentFormDialogProp
             sectorId: field?.sectorId,
             lastDiploma: data.lastDiploma,
             parentalLink: data.parentalLink,
-            programId: student?.student?.programId || 'prog01', // Keep existing or default
             enrollmentDate: student?.student?.enrollmentDate || new Date().toISOString(),
             endDate: student?.student?.endDate || '',
         } as User['student']

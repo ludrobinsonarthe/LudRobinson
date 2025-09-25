@@ -102,8 +102,8 @@ export default function CourseManagementPage() {
     const filteredCourses = useMemo(() => {
         return courses.filter(course => {
             const courseField = course.fieldId ? fieldsById[course.fieldId] : null;
-            const courseSectorId = courseField ? courseField.sectorId : course.sectorId;
-
+            const courseSectorId = course.sectorId || courseField?.sectorId;
+    
             return (
                 (nameFilter === "" || course.name.toLowerCase().includes(nameFilter.toLowerCase())) &&
                 (levelFilter === "all" || course.level === levelFilter) &&

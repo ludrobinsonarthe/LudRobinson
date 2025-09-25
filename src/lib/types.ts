@@ -1,12 +1,4 @@
 
-
-
-
-
-
-
-
-
 export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 export type UserStatus = 'active' | 'suspended' | 'graduated';
 export type Cycle = 'local' | 'international' | 'entrepreneur';
@@ -58,10 +50,10 @@ export interface User {
   };
   student?: {
     matricule: string;
-    programId: string;
     cycle?: Cycle;
     level?: string;
     fieldId?: string;
+    sectorId?: string;
     enrollmentDate: string;
     endDate: string;
     parentUid?: string; // UID of the parent/guardian user

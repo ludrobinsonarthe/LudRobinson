@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -56,7 +57,7 @@ export default function CoursesPage() {
             if(userToView.student.fieldId) {
                 studentClauses.push(where("fieldId", "==", userToView.student.fieldId))
             }
-            if(userToView.student.sectorId) {
+             if(userToView.student.sectorId) {
                  studentClauses.push(where("sectorId", "==", userToView.student.sectorId))
             }
             if (studentClauses.length === 0) {
