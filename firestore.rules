@@ -1,31 +1,96 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Admins can do anything
+
+    // Helper functions
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Check if the user document exists and has the admin role.
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
+    // Rules for collections
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if isOwner(userId) || isAdmin();
     }
 
-    // Allow authenticated users to read most collections
-    match /{collection}/{docId}
-    where collection in ['users', 'courses', 'settings', 'adminRoles', 'sectors', 'fields', 'payments', 'grades', 'announcements', 'private_messages', 'attendances', 'officialDocuments', 'teacherSalaries', 'cashTransactions', 'staffAttendances'] {
-        allow read: if request.auth != null;
+    match /adminRoles/{roleId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
     
-    // Users can update their own document
-    match /users/{userId} {
-        allow update: if request.auth.uid == userId;
+    match /settings/system {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /sectors/{sectorId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /fields/{fieldId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /courses/{courseId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /grades/{gradeId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /payments/{paymentId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /teacherSalaries/{salaryId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /cashTransactions/{transactionId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /private_messages/{messageId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin() || isOwner(request.resource.data.senderId);
+    }
+    
+    match /officialDocuments/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /attendances/{attendanceId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    match /staffAttendances/{attendanceId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
-    // Admins can write to most collections
-    match /{collection}/{docId}
-     where collection in ['users', 'courses', 'settings', 'adminRoles', 'sectors', 'fields', 'payments', 'grades', 'announcements', 'private_messages', 'attendances', 'officialDocuments', 'teacherSalaries', 'cashTransactions', 'staffAttendances'] {
-      allow write: if isAdmin();
+    match /qr_sessions/{sessionId} {
+      allow read, write: if request.auth != null;
     }
   }
 }
