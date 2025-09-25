@@ -57,7 +57,7 @@ function GradeManagementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
-    const { allUsers: users, loading: usersLoading, settings, courses: allCourses, user } = useUser();
+    const { allUsers: users, loading: usersLoading, settings, allCourses = [], user } = useUser();
     const { toast } = useToast();
 
     const [course, setCourse] = useState<Course | null>(null);
@@ -408,7 +408,7 @@ function GradeManagementContent() {
                                          <Select value={newEvalCourseId} onValueChange={setNewEvalCourseId}>
                                             <SelectTrigger><SelectValue placeholder="Sélectionner un cours..."/></SelectTrigger>
                                             <SelectContent>
-                                                {allCourses.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.level})</SelectItem>)}
+                                                {(allCourses || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.level})</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>
