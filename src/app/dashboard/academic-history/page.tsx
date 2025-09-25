@@ -36,7 +36,7 @@ const categoryTitles: Record<DataType, string> = {
 };
 
 export default function AcademicHistoryPage() {
-    const { settings, allUsers: users, courses } = useUser();
+    const { settings, allUsers: users, allCourses: courses } = useUser();
     const { toast } = useToast();
     const [allData, setAllData] = useState<{
         payments: Payment[],
@@ -93,7 +93,7 @@ export default function AcademicHistoryPage() {
     }, [selectedYear]);
     
     const usersById = useMemo(() => users.reduce((acc, u) => ({...acc, [u.uid]: u}), {} as Record<string, User>), [users]);
-    const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+    const coursesById = useMemo(() => (courses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
 
     const handleExportPDF = async () => {
         if (!activeView || !settings || allData[activeView].length === 0) {
