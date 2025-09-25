@@ -28,42 +28,29 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+
+const getInitials = (firstName: string = '', lastName: string = '') => {
+    return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
+};
 
 
 function StudentAttendanceContent() {
-    const searchParams = useSearchParams();
+    const { users, loading: usersLoading, settings, courses, fields, sectors, attendances } = useUser();
     const router = useRouter();
-    const { user: currentUser, users, loading: usersLoading, settings, courses, fields, sectors } = useUser();
-    
-    // States
-    const [attendances, setAttendances] = useState<Attendance[]>([]);
-    const [loadingData, setLoadingData] = useState(true);
-    const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const { toast } = useToast();
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
     // Filters state
     const [selectedLevel, setSelectedLevel] = useState('all');
     const [selectedSectorId, setSelectedSectorId] = useState('all');
     const [selectedFieldId, setSelectedFieldId] = useState('all');
+    const [nameFilter, setNameFilter] = useState('');
+    const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
 
-    useEffect(() => {
-        setLoadingData(true);
-        const unsubAttendances = onSnapshot(collection(db, 'attendances'), snapshot => {
-            setAttendances(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Attendance));
-            setLoadingData(false);
-        });
-        
-        return () => unsubAttendances();
-    }, []);
-    
-
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
-    
+    const coursesById = useMemo(() => courses.reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [courses]);
+
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
         return fields.filter(f => f.sectorId === selectedSectorId);
@@ -75,322 +62,181 @@ function StudentAttendanceContent() {
         }
     }, [selectedSectorId, availableFields, selectedFieldId]);
 
-    
-    const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
-
-    const filteredCourses = useMemo(() => {
-        let filtered = courses;
-
-        if (selectedLevel !== 'all') {
-            filtered = filtered.filter(c => c.level === selectedLevel);
-        }
-        
-        if (selectedSectorId !== 'all') {
-            const fieldsInSector = fields.filter(f => f.sectorId === selectedSectorId).map(f => f.id);
-
-            if (selectedFieldId === 'all') {
-                // All courses in the sector (common core + specific fields)
-                filtered = filtered.filter(c => 
-                    (c.sectorId === selectedSectorId && !c.fieldId) || // Common core
-                    (c.fieldId && fieldsInSector.includes(c.fieldId))  // Field in sector
-                );
-            } else if (selectedFieldId === 'common_core') {
-                // Only common core courses
-                filtered = filtered.filter(c => c.sectorId === selectedSectorId && !c.fieldId);
-            } else {
-                // Specific field
-                filtered = filtered.filter(c => c.fieldId === selectedFieldId);
-            }
-        }
-        
-        return filtered;
-    }, [courses, selectedLevel, selectedSectorId, selectedFieldId, fields]);
-
-
-    const scheduleByDay = useMemo(() => {
-        const schedule: { [key: string]: any[] } = {};
-        
-        weekDays.forEach(day => {
-            const dayName = format(day, 'EEEE', { locale: fr });
-            const coursesOnDay = filteredCourses.filter(c => 
-                c.schedule?.some(s => s.day === dayName)
+    const filteredStudents = useMemo(() => {
+        return students.filter(s => {
+            const studentField = s.student?.fieldId ? fields.find(f => f.id === s.student!.fieldId) : null;
+            const studentSector = studentField ? sectors.find(sec => sec.id === studentField.sectorId) : null;
+            return (
+                (nameFilter === '' || `${s.lastName} ${s.firstName}`.toLowerCase().includes(nameFilter.toLowerCase())) &&
+                (selectedLevel === 'all' || s.student?.level === selectedLevel) &&
+                (selectedSectorId === 'all' || studentSector?.id === selectedSectorId) &&
+                (selectedFieldId === 'all' || s.student?.fieldId === selectedFieldId)
             );
-            
-            schedule[format(day, 'yyyy-MM-dd')] = coursesOnDay.flatMap(c => 
-                c.schedule!.filter(s => s.day === dayName).map(s => ({
-                    ...c,
-                    scheduleInfo: s,
-                    teacher: teachers.find(t => t.uid === c.teacherId),
-                }))
-            ).sort((a,b) => a.scheduleInfo.start.localeCompare(b.scheduleInfo.start));
-        });
-        return schedule;
-    }, [filteredCourses, weekDays, teachers]);
-
-    const handleManageAttendance = (course: Course, date: string) => {
-        setSelectedCourse(course);
-        setSelectedDate(date);
-        setIsDialogOpen(true);
-    };
-
-    const handleSaveAttendance = async (data: { teacherStatus: 'present' | 'absent', studentAttendances: StudentAttendance[]}) => {
-        if (!selectedCourse || !selectedDate || !users.length) return;
-        
-        const attendanceId = `${selectedDate}-${selectedCourse.id}`;
-        const user = users.find(u => u.role === 'admin');
-        const attendanceRef = doc(db, 'attendances', attendanceId);
-        
-        try {
-            const docSnap = await getDoc(attendanceRef);
-            const newAttendanceRecord: Attendance = {
-                ...data,
-                id: attendanceId,
-                date: selectedDate,
-                courseId: selectedCourse.id,
-                teacherId: selectedCourse.teacherId,
-                validatedBy: user?.uid || 'system',
-                createdAt: docSnap.exists() ? docSnap.data().createdAt : new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            }
-            await setDoc(attendanceRef, newAttendanceRecord, { merge: true });
-            toast({ title: 'Présences enregistrées', description: 'La fiche de présence a été mise à jour.' });
-        } catch (error) {
-            console.error("Error saving attendance: ", error);
-            toast({ variant: "destructive", title: 'Erreur', description: 'Impossible d\'enregistrer la fiche de présence.' });
-        } finally {
-            setIsDialogOpen(false);
-        }
-    };
+        }).sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
+    }, [students, nameFilter, selectedLevel, selectedSectorId, selectedFieldId, fields, sectors]);
     
-    const getAttendanceForCourse = useCallback((courseId: string, date: string): Attendance | undefined => {
-        const id = `${date}-${courseId}`;
-        return attendances.find(a => a.id === id);
-    }, [attendances]);
-    
-    const existingAttendance = selectedCourse && selectedDate ? getAttendanceForCourse(selectedCourse.id, selectedDate) : undefined;
+    const studentAttendanceHistory = useMemo(() => {
+        if (!selectedStudent) return [];
+        return attendances
+            .filter(att => att.studentAttendances.some(sa => sa.studentId === selectedStudent.uid))
+            .map(att => {
+                const studentAtt = att.studentAttendances.find(sa => sa.studentId === selectedStudent.uid)!;
+                return {
+                    date: att.date,
+                    course: coursesById[att.courseId],
+                    status: studentAtt.status,
+                    comment: studentAtt.comment,
+                }
+            })
+            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [selectedStudent, attendances, coursesById]);
 
-    const getStudentsForCourse = useCallback((course: Course | null): User[] => {
-        if (!course) return [];
-        // Handle common core courses linked to a sector
-        if (course.sectorId && !course.fieldId) {
-            const fieldsInSector = fields.filter(f => f.sectorId === course.sectorId).map(f => f.id);
-            return students.filter(s => 
-                s.student?.level === course.level &&
-                fieldsInSector.includes(s.student?.fieldId || '')
-            );
-        }
-        // Handle courses linked to a specific field
-        return students.filter(s => 
-            s.student?.fieldId === course.fieldId && 
-            s.student.level === course.level
-        );
-    }, [students, fields]);
+    const handleExportStudentPDF = async () => {
+        if (!selectedStudent || !settings) return;
 
-    const studentsForSelectedCourse = useMemo(() => {
-        if(!selectedCourse) return [];
-        return getStudentsForCourse(selectedCourse);
-    }, [selectedCourse, getStudentsForCourse]);
-
-    const handleExportPDF = async () => {
-        if (!settings) {
-            toast({ variant: "destructive", title: "Erreur", description: "Paramètres de l'école non chargés." });
-            return;
-        }
-
-        const doc = new jsPDF({ orientation: 'landscape' });
-        const teacher = teachers.find(t => t.uid === 'all'); // Changed to avoid error, logic needs review
-        const title = `Rapport de Présence Hebdomadaire`;
-        
-        let subtitle = `Semaine du ${format(currentWeek, 'd MMMM yyyy', { locale: fr })}`;
-        if(selectedLevel !== 'all') subtitle += ` | Niveau: ${selectedLevel}`;
-        if(selectedSectorId !== 'all') subtitle += ` | Secteur: ${sectors.find(s=>s.id === selectedSectorId)?.name}`;
-        if(selectedFieldId !== 'all') subtitle += ` | Filière: ${fields.find(f=>f.id === selectedFieldId)?.name}`;
-
-
+        const doc = new jsPDF();
+        const studentName = `${selectedStudent.lastName} ${selectedStudent.firstName}`;
         try {
             const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Error adding logo to PDF", error);
-        }
+            if(logoDataUrl) doc.addImage(logoDataUrl, logoDataUrl.split(';')[0].split('/')[1].toUpperCase(), 14, 10, 20, 20);
+        } catch (error) { console.error(error); }
         
         doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
         doc.text(settings.schoolName, 40, 18);
         doc.setFontSize(14);
-        doc.setFont('helvetica', 'normal');
-        doc.text(title, 40, 25);
-        doc.setFontSize(10);
-        doc.text(subtitle, 14, 40);
+        doc.text(`Fiche de Présence Individuelle`, 40, 25);
+        doc.setFontSize(12);
+        doc.text(`Étudiant: ${studentName}`, 14, 40);
+        doc.text(`Matricule: ${selectedStudent.student?.matricule}`, 14, 47);
 
-        const tableData: any[] = [];
-        weekDays.forEach(day => {
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const coursesOnDay = scheduleByDay[dateStr] || [];
-            
-            if (coursesOnDay.length > 0) {
-                coursesOnDay.forEach(course => {
-                    const attendance = getAttendanceForCourse(course.id, dateStr);
-                    const studentsForCourse = getStudentsForCourse(course);
-                    const presentStudents = attendance?.studentAttendances.filter(s => s.status === 'present').length || 0;
-                    const totalStudents = studentsForCourse.length;
-                    const teacher = users.find(u => u.uid === course.teacherId);
-
-                    tableData.push([
-                        format(day, 'EEEE dd/MM', { locale: fr }),
-                        `${course.scheduleInfo.start} - ${course.scheduleInfo.end}`,
-                        course.name,
-                        teacher ? `${teacher.lastName} ${teacher.firstName}` : 'N/A',
-                        attendance?.teacherStatus === 'present' ? 'Présent' : (attendance ? 'Absent' : 'N/R'),
-                        `${presentStudents} / ${totalStudents}`
-                    ]);
-                });
-            } else {
-                 tableData.push([format(day, 'EEEE dd/MM', { locale: fr }), '-', 'Aucun cours', '-', '-', '-']);
-            }
-        });
+        const statusText: Record<StudentAttendance['status'], string> = { present: 'Présent(e)', absent: 'Absent(e)', justified: 'Absence justifiée' };
+        
+        const tableColumn = ["Date", "Cours", "Statut"];
+        const tableRows = studentAttendanceHistory.map(att => [
+            format(new Date(att.date), 'd MMMM yyyy', { locale: fr }),
+            att.course?.name || 'N/A',
+            statusText[att.status],
+        ]);
 
         autoTable(doc, {
-            head: [['Jour', 'Heure', 'Cours', 'Professeur', 'Statut Professeur', 'Présence Étudiants']],
-            body: tableData,
-            startY: 45,
-            theme: 'striped',
+            head: [tableColumn],
+            body: tableRows,
+            startY: 55,
         });
 
-        doc.save(`rapport_presence_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
-        toast({ title: "Rapport PDF exporté", description: "Le rapport de présence a été téléchargé." });
-    };
+        doc.save(`presence_${selectedStudent.lastName}.pdf`);
+        toast({ title: 'Exportation PDF réussie' });
+    }
 
-    const loading = usersLoading || loadingData;
+    if (selectedStudent) {
+        return (
+            <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <Button variant="outline" size="icon" onClick={() => setSelectedStudent(null)}><ArrowLeft className="h-4 w-4"/></Button>
+                            <div>
+                                <CardTitle>Relevé de présence de {selectedStudent.lastName} {selectedStudent.firstName}</CardTitle>
+                                <CardDescription>Matricule: {selectedStudent.student?.matricule}</CardDescription>
+                            </div>
+                        </div>
+                        <Button variant="outline" onClick={handleExportStudentPDF}><FileDown className="mr-2 h-4 w-4"/> Exporter la fiche</Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Cours</TableHead>
+                                <TableHead>Statut</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {studentAttendanceHistory.length > 0 ? studentAttendanceHistory.map((att, i) => (
+                                <TableRow key={`${att.date}-${i}`}>
+                                    <TableCell>{format(new Date(att.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
+                                    <TableCell>{att.course?.name || 'Cours inconnu'}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={att.status === 'present' ? 'default' : att.status === 'absent' ? 'destructive' : 'secondary'} className={cn(att.status === 'present' && 'bg-green-600')}>
+                                            {att.status === 'present' ? 'Présent' : att.status === 'absent' ? 'Absent' : 'Justifié'}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow><TableCell colSpan={3} className="text-center h-24">Aucun enregistrement de présence pour cet étudiant.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
-        <div className="space-y-6">
-             <Card>
-                <CardHeader>
-                   <div className="flex justify-between items-center flex-wrap gap-4">
-                        <div className="flex items-center gap-4 flex-wrap">
-                            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-                                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Niveau..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tous les Niveaux</SelectItem>
-                                    {settings?.levels?.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Select value={selectedSectorId} onValueChange={setSelectedSectorId}>
-                                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Secteur..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tous les Secteurs</SelectItem>
-                                    {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                             <Select value={selectedFieldId} onValueChange={setSelectedFieldId}>
-                                <SelectTrigger className="w-[240px]"><SelectValue placeholder="Filière..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Toutes les filières</SelectItem>
-                                     <SelectItem value="common_core">Tronc Commun</SelectItem>
-                                    {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Button variant="outline" onClick={handleExportPDF}>
-                                <FileDown className="mr-2 h-4 w-4" />
-                                Exporter PDF
-                            </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <span className="font-semibold text-sm text-center min-w-[200px]">
-                                Semaine du {format(currentWeek, 'd MMMM', { locale: fr })}
-                            </span>
-                            <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, 7))}>
-                                <ArrowRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                   </div>
-                </CardHeader>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {loading ? (
-                    Array.from({length: 3}).map((_, i) => (
-                        <Card key={i}>
-                            <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
-                            <CardContent className="space-y-4">
-                                <Skeleton className="h-24 w-full" />
-                                <Skeleton className="h-24 w-full" />
-                            </CardContent>
-                        </Card>
-                    ))
-                ) : weekDays.map(day => {
-                    const dateStr = format(day, 'yyyy-MM-dd');
-                    const coursesOnDay = scheduleByDay[dateStr] || [];
-
-                    return (
-                        <Card key={dateStr}>
-                            <CardHeader>
-                                <CardTitle className="capitalize">{format(day, 'EEEE d MMMM', { locale: fr })}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {coursesOnDay.length > 0 ? coursesOnDay.map((course: any) => {
-                                    const attendanceRecord = getAttendanceForCourse(course.id, dateStr);
-                                    const teacherStatus = attendanceRecord?.teacherStatus;
-                                    const studentAttendances = getStudentsForCourse(course);
-                                    const presentStudents = attendanceRecord?.studentAttendances.filter(sa => sa.status === 'present').length || 0;
-                                    const totalStudents = studentAttendances.length;
-
-                                    return (
-                                        <div key={course.id + course.scheduleInfo.start} className="p-3 border rounded-lg space-y-3">
-                                            <div>
-                                                <p className="font-semibold">{course.name}</p>
-                                                <p className="text-sm text-muted-foreground">{course.teacher?.lastName} {course.teacher?.firstName}</p>
-                                                <p className="text-sm text-muted-foreground">Heure: {course.scheduleInfo.start} - {course.scheduleInfo.end}</p>
-                                            </div>
-                                            <Button 
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleManageAttendance(course, dateStr)}
-                                                className="w-full"
-                                            >
-                                                <UserCheck className="mr-2 h-4 w-4" />
-                                                Gérer la présence
-                                            </Button>
-                                             {attendanceRecord && <div className="flex justify-between w-full text-xs mt-1 gap-1">
-                                                <Badge variant={teacherStatus === 'present' ? 'default' : teacherStatus === 'absent' ? 'destructive' : 'secondary'} className={cn('py-1 flex-1 justify-center', teacherStatus === 'present' && 'bg-green-600')}>
-                                                    Prof: {teacherStatus === 'present' ? 'Présent' : 'Absent'}
-                                                </Badge>
-                                                <Badge variant="outline" className="py-1 flex-1 justify-center">
-                                                    Étu: {presentStudents}/{totalStudents}
-                                                </Badge>
-                                            </div>}
-                                        </div>
-                                    );
-                                }) : (
-                                    <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-24">
-                                        <CalendarOff className="h-8 w-8 mb-2" />
-                                        <p className="text-sm">Aucun cours planifié</p>
+        <Card>
+            <CardHeader>
+                <CardTitle>Liste des Étudiants</CardTitle>
+                <CardDescription>Sélectionnez un étudiant pour voir son historique de présence détaillé.</CardDescription>
+                <div className="flex flex-wrap items-center gap-4 pt-4">
+                    <Input placeholder="Rechercher par nom..." value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} className="max-w-sm"/>
+                    <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                        <SelectTrigger className="w-[180px]"><SelectValue placeholder="Niveau..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Tous les Niveaux</SelectItem>
+                            {settings?.levels?.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Select value={selectedSectorId} onValueChange={setSelectedSectorId}>
+                        <SelectTrigger className="w-[180px]"><SelectValue placeholder="Secteur..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Tous les Secteurs</SelectItem>
+                            {sectors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                     <Select value={selectedFieldId} onValueChange={setSelectedFieldId} disabled={selectedSectorId === 'all'}>
+                        <SelectTrigger className="w-[240px]"><SelectValue placeholder="Filière..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Toutes les filières</SelectItem>
+                            {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </CardHeader>
+            <CardContent>
+                 <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Étudiant</TableHead>
+                            <TableHead>Niveau</TableHead>
+                            <TableHead>Filière</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {usersLoading ? (
+                            Array.from({length: 5}).map((_, i) => <TableRow key={i}><TableCell colSpan={3}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                        ) : filteredStudents.length > 0 ? filteredStudents.map(student => (
+                             <TableRow key={student.uid} onClick={() => setSelectedStudent(student)} className="cursor-pointer">
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-9 w-9">
+                                            <AvatarImage src={student.photoUrl} alt={student.firstName} />
+                                            <AvatarFallback>{getInitials(student.firstName, student.lastName)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="font-medium">{student.lastName} {student.firstName}</div>
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )
-                })}
-            </div>
-
-            <AttendanceDialog
-                isOpen={isDialogOpen}
-                setIsOpen={setIsDialogOpen}
-                onSave={handleSaveAttendance}
-                course={selectedCourse}
-                date={selectedDate}
-                students={studentsForSelectedCourse}
-                existingAttendance={existingAttendance}
-            />
-        </div>
-    );
+                                </TableCell>
+                                <TableCell>{student.student?.level}</TableCell>
+                                <TableCell>{fields.find(f => f.id === student.student?.fieldId)?.name || 'N/A'}</TableCell>
+                            </TableRow>
+                        )) : (
+                            <TableRow><TableCell colSpan={3} className="text-center h-24">Aucun étudiant trouvé pour les filtres sélectionnés.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                 </Table>
+            </CardContent>
+        </Card>
+    )
 }
 
 function TeacherAttendanceContent() {
@@ -810,7 +656,7 @@ function AttendancePage() {
             
              <Tabs defaultValue="students" className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="students"><Users className="mr-2 h-4 w-4"/> Étudiants par Cours</TabsTrigger>
+                    <TabsTrigger value="students"><Users className="mr-2 h-4 w-4"/> Étudiants</TabsTrigger>
                     <TabsTrigger value="teachers"><GraduationCap className="mr-2 h-4 w-4"/> Professeurs</TabsTrigger>
                     <TabsTrigger value="staff"><Briefcase className="mr-2 h-4 w-4"/> Personnel Administratif</TabsTrigger>
                 </TabsList>
