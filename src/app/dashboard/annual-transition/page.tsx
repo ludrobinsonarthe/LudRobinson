@@ -53,7 +53,7 @@ type ListType = 'promus' | 'diplômés' | 'redoublants' | 'sans_notes';
 
 
 export default function AnnualTransitionPage() {
-    const { allUsers: users, loading, settings, setUsers, courses, grades } = useUser();
+    const { allUsers: users, loading, settings, setUsers, allCourses: courses, grades } = useUser();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isListDialogOpen, setIsListDialogOpen] = useState(false);
     const [listToShow, setListToShow] = useState<StudentWithAverage[]>([]);
