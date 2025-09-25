@@ -482,7 +482,7 @@ function TeacherAttendanceContent() {
         doc.setFontSize(10);
         doc.text(`Semaine du ${format(currentWeek, 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 14, 30, { align: 'right' });
 
-        const statusText = { present: 'P', absent: 'A', pending: '?', nocourse: '-' };
+        const statusText: Record<'present'|'absent'|'pending'|'nocourse', string> = { present: 'Présent', absent: 'Absent', pending: 'En attente', nocourse: '-' };
         const tableColumn = ['Professeur', ...weekDays.map(day => format(day, 'eeee d', { locale: fr }))];
         const tableRows = teachers.map(teacher => {
             const row = [`${teacher.lastName} ${teacher.firstName}`];
@@ -545,21 +545,38 @@ function TeacherAttendanceContent() {
                                 <TableRow key={teacher.uid}>
                                     <TableCell className="font-medium">{teacher.lastName} {teacher.firstName}</TableCell>
                                     {weekDays.map(day => (
-                                        <TableCell key={day.toISOString()} className="text-center p-2">
+                                        <TableCell key={day.toISOString()} className="text-center p-1">
                                             <div className="flex flex-col items-center justify-center gap-2">
                                                 {getAttendanceStatusForTeacher(teacher.uid, day).map(({ status, course }, i) => {
                                                     if (status === 'nocourse' || !course) {
-                                                        return <div key={i} className="h-8 flex items-center justify-center"><span className="text-muted-foreground text-xs">-</span></div>;
+                                                        return <div key={i} className="h-10 flex items-center justify-center"><span className="text-muted-foreground text-xs">-</span></div>;
                                                     }
+
+                                                    const statusMap = {
+                                                        present: { text: "Présent", className: "bg-green-100 text-green-800 border-green-200" },
+                                                        absent: { text: "Absent", className: "bg-red-100 text-red-800 border-red-200" },
+                                                        pending: { text: "En attente", className: "bg-yellow-100 text-yellow-800 border-yellow-200" }
+                                                    };
+                                                    
                                                     return (
-                                                        <div key={`${course.id}-${i}`} className="w-full flex justify-center items-center gap-1 p-1 rounded-md" title={course.name}>
-                                                            <Button size="sm" variant={status === 'present' ? 'default' : 'outline'} className={cn('flex-1', status === 'present' && 'bg-green-600 hover:bg-green-700')} onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'present')}>
-                                                                <Check className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button size="sm" variant={status === 'absent' ? 'destructive' : 'outline'} className="flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'absent')}>
-                                                                <X className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
+                                                        <Popover key={`${course.id}-${i}`}>
+                                                            <PopoverTrigger asChild>
+                                                                <button className={cn("w-full text-xs p-1 rounded-md text-left hover:bg-muted/50", statusMap[status]?.className)}>
+                                                                    <p className="font-semibold truncate">{course.name}</p>
+                                                                    <p>{statusMap[status].text}</p>
+                                                                </button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-2">
+                                                                <div className="flex gap-2">
+                                                                    <Button size="sm" variant="outline" className="bg-green-500 hover:bg-green-600 text-white flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'present')}>
+                                                                        <Check className="h-4 w-4 mr-2" /> Présent
+                                                                    </Button>
+                                                                    <Button size="sm" variant="outline" className="bg-red-500 hover:bg-red-600 text-white flex-1" onClick={() => handleTeacherStatusChange(teacher.uid, course!, day, 'absent')}>
+                                                                        <X className="h-4 w-4 mr-2" /> Absent
+                                                                    </Button>
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
                                                     )
                                                 })}
                                             </div>
