@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ActivityLog } from "@/lib/types";
+import { ActivityLog, User } from "@/lib/types";
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
@@ -62,7 +62,7 @@ export default function ActivityHistoryPage() {
         return allUsers.reduce((acc, user) => {
             acc[user.uid] = user;
             return acc;
-        }, {} as Record<string, any>);
+        }, {} as Record<string, User>);
     }, [allUsers]);
 
     return (

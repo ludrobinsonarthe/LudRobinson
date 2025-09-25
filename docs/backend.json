@@ -142,6 +142,22 @@
         "token": { "type": "string" }
       },
       "required": ["status", "createdAt"]
+    },
+    "ActivityLog": {
+        "title": "Activity Log",
+        "description": "Records significant actions performed by users.",
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "actorId": { "type": "string" },
+          "actorName": { "type": "string" },
+          "action": { "type": "string" },
+          "entityType": { "type": "string" },
+          "entityId": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "details": { "type": "string" }
+        },
+        "required": ["id", "actorId", "action", "entityType", "entityId", "timestamp", "details"]
     }
   },
   "auth": {
@@ -175,6 +191,10 @@
     "/qr_sessions/{sessionId}": {
       "schema": { "$ref": "#/entities/QrSession" },
       "description": "Stores temporary sessions for QR code login."
+    },
+    "/activityLogs/{logId}": {
+        "schema": { "$ref": "#/entities/ActivityLog" },
+        "description": "Stores a log of all important user activities."
     }
   }
 }
