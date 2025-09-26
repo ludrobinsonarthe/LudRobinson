@@ -8,3 +8,4 @@ runConfig:
   # Set the timeout for the build step to 20 minutes (1200 seconds)
   # to accommodate larger applications.
   timeoutSeconds: 1200
+
