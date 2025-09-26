@@ -1,3 +1,4 @@
+"use client"
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -17,11 +18,6 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 
-export const metadata: Metadata = {
-  title: 'ISGI - Institut Supérieur de Gestion et d\'Ingénierie',
-  description: 'Plateforme de communication pour l\'Institut Supérieur de Gestion et d\'Ingénierie (ISGI)',
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,6 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+       <head>
+        <title>ISGI - Institut Supérieur de Gestion et d'Ingénierie</title>
+        <meta name="description" content="Plateforme de communication pour l'Institut Supérieur de Gestion et d'Ingénierie (ISGI)" />
+      </head>
       <body className={`${ptSans.variable} ${spaceGrotesk.variable} font-body antialiased`}>
         <ThemeProvider
             attribute="class"
