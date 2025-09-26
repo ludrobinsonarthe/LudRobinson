@@ -338,7 +338,7 @@ export default function UsersPage() {
                             <TableRow>
                                 <TableHead>Nom</TableHead>
                                 <TableHead>Rôle</TableHead>
-                                <TableHead className="hidden md:table-cell">Spécificité</TableHead>
+                                <TableHead className="hidden md:table-cell">Poste / Spécialité</TableHead>
                                 <TableHead className="hidden lg:table-cell">Statut</TableHead>
                                 <TableHead className="hidden lg:table-cell">Date d'ajout</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -369,7 +369,7 @@ export default function UsersPage() {
                                         <Badge variant="outline">{roleTranslation[user.role]}</Badge>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
-                                        {user.role === 'teacher' ? user.teacher?.specialty : rolesById[user.admin?.roleId || '']?.name || 'N/A'}
+                                        {user.role === 'teacher' ? user.teacher?.specialty : user.admin?.position || rolesById[user.admin?.roleId || '']?.name || 'N/A'}
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
                                         <Badge variant={statusVariant[user.status]}>{statusTranslation[user.status]}</Badge>
