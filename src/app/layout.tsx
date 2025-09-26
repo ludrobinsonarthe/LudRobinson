@@ -1,7 +1,6 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import 'react-image-crop/dist/ReactCrop.css';
 import { AuthProvider } from '@/hooks/use-auth';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PT_Sans, Space_Grotesk } from 'next/font/google'
@@ -45,5 +44,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    
