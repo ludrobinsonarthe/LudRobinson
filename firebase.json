@@ -1,4 +1,8 @@
+
 {
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "source": ".",
     "ignore": [
@@ -6,8 +10,11 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "frameworksBackend": {
-      "region": "us-central1"
-    }
+    "rewrites": [
+      {
+        "source": "**",
+        "function": "server"
+      }
+    ]
   }
 }
