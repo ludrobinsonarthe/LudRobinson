@@ -154,7 +154,7 @@ function MainSidebar() {
              { href: "/dashboard/admin-management", label: "Administration", icon: Building, permission: 'manage_admin_settings' },
              { href: "/dashboard/annual-transition", label: "Transition Annuelle", icon: ArrowRightLeft, permission: 'manage_admin_settings' },
              { href: "/dashboard/academic-history", label: "Historique Académique", icon: Archive, permission: 'manage_admin_settings' },
-             { href: "/dashboard/activity-history", label: "Historique Activités", icon: 'manage_admin_settings' },
+             { href: "/dashboard/activity-history", label: "Historique Activités", icon: History, permission: 'manage_admin_settings' },
         ]
     }
   ];
