@@ -4,15 +4,24 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useUser } from '@/hooks/use-user';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Course, CashTransaction, Payment, Field, User } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
-import FinancialMonthlyOverviewChart from '@/components/charts/financial-monthly-overview-chart';
 import PendingPaymentsCard from '@/components/pending-payments-card';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const FinancialMonthlyOverviewChart = dynamic(
+    () => import('@/components/charts/financial-monthly-overview-chart'),
+    { 
+        ssr: false,
+        loading: () => <Skeleton className="h-[250px] w-full" /> 
+    }
+);
+
 
 export default function ReportingPage() {
     const { settings, loading: userLoading } = useUser();
