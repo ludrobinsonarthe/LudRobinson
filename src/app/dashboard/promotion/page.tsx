@@ -23,7 +23,7 @@ export default function PromotionPage() {
     const [loadingClassmates, setLoadingClassmates] = useState(true);
 
     useEffect(() => {
-        if (!currentUser || currentUser.role !== 'student' || !currentUser.student?.fieldId || !currentUser.student?.level) {
+        if (!currentUser || currentUser.role !== 'student' || !currentUser.student || !currentUser.student.fieldId || !currentUser.student.level) {
             setLoadingClassmates(false);
             return;
         }
