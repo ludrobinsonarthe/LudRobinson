@@ -25,9 +25,6 @@ import { useUser } from "@/hooks/use-user";
 import StudentFormDialog from "@/components/student-form-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
@@ -142,6 +139,7 @@ export default function StudentsPage() {
     }
 
     const createCertificatePdf = async (student: User): Promise<Blob> => {
+        const { jsPDF } = await import('jspdf');
         const doc = new jsPDF();
         if(settings) {
             const schoolName = settings.schoolName;
@@ -427,6 +425,9 @@ export default function StudentsPage() {
     }
     
     const createTranscriptPdf = async (student: User): Promise<Blob> => {
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
+
         const doc = new jsPDF();
         
         if (settings) {
@@ -584,6 +585,8 @@ export default function StudentsPage() {
     }
 
     const handleExportPDF = async () => {
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF({ orientation: "landscape" });
 
         try {
@@ -621,7 +624,8 @@ export default function StudentsPage() {
         toast({ title: "Exportation PDF réussie", description: `${filteredStudents.length} étudiants exportés.` });
     };
     
-    const handleExportXLSX = () => {
+    const handleExportXLSX = async () => {
+        const XLSX = await import('xlsx');
         const exportData = getExportData();
         if (exportData.length === 0) {
             toast({ variant: "destructive", title: "Exportation impossible", description: "Aucun étudiant à exporter." });
@@ -646,6 +650,7 @@ export default function StudentsPage() {
         const reader = new FileReader();
         reader.onload = async (event) => {
             try {
+                const XLSX = await import('xlsx');
                 const bstr = event.target?.result;
                 const wb = XLSX.read(bstr, { type: 'binary' });
                 const wsname = wb.SheetNames[0];

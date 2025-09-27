@@ -26,8 +26,6 @@ import CourseFormDialog from "@/components/course-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { imageToDataUrl } from '@/lib/utils';
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -168,6 +166,8 @@ export default function CourseManagementPage() {
 
     const handleExportPDF = async () => {
         if (!settings) return;
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
 
         try {

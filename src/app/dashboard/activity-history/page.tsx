@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -23,8 +24,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileDown } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
 import { imageToDataUrl } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -85,6 +84,8 @@ export default function ActivityHistoryPage() {
             return;
         }
 
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         
         try {

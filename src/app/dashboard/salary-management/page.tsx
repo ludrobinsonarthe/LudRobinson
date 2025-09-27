@@ -4,8 +4,6 @@
 
 import { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import {
   Table,
   TableBody,
@@ -251,7 +249,8 @@ function SalaryManagementContent() {
             toast({ variant: 'destructive', title: 'Utilisateur ou paramètres introuvables' });
             return;
         }
-
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         
         try {
@@ -313,6 +312,8 @@ function SalaryManagementContent() {
 
     const handleExportPDF = async () => {
         if (!settings) return;
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         
         try {

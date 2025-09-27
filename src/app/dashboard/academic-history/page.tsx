@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -20,8 +21,6 @@ import {
 } from "@/components/ui/table";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
 import { imageToDataUrl } from '@/lib/utils';
 
@@ -116,6 +115,8 @@ export default function AcademicHistoryPage() {
             return;
         }
 
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         
         try {
@@ -325,5 +326,5 @@ export default function AcademicHistoryPage() {
                 </CardContent>
             </Card>
         </div>
-    )
+    );
 }

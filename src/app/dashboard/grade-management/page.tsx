@@ -30,9 +30,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { imageToDataUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -310,6 +307,8 @@ function GradeManagementContent() {
     const handleExportPDF = async () => {
         if (!course || !settings) return;
 
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF({ orientation: "landscape" });
         const { headers, data } = getExportData();
         
@@ -342,9 +341,9 @@ function GradeManagementContent() {
         toast({ title: "Exportation PDF réussie" });
     };
 
-    const handleExportXLSX = () => {
+    const handleExportXLSX = async () => {
         if (!course) return;
-        
+        const XLSX = await import('xlsx');
         const { headers, data } = getExportData();
         const exportData = [headers, ...data];
         

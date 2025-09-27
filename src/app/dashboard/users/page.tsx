@@ -31,8 +31,6 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { imageToDataUrl } from '@/lib/utils';
 
 
@@ -237,6 +235,8 @@ export default function UsersPage() {
 
     const handleExportPDF = async () => {
         if (!settings) return;
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         
         try {

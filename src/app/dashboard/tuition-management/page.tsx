@@ -26,11 +26,9 @@ import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import PaymentFormDialog from '@/components/payment-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
-import jsPDF from "jspdf";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { imageToDataUrl } from '@/lib/utils';
-import autoTable from 'jspdf-autotable';
 
 function TuitionManagementContent() {
     const { allUsers, loading: usersLoading, settings, user } = useUser();
@@ -172,6 +170,8 @@ function TuitionManagementContent() {
         const student = students.find(s => s.uid === payment.studentId);
         if (!student || !settings) return;
 
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         const schoolName = settings.schoolName;
         
@@ -221,6 +221,8 @@ function TuitionManagementContent() {
 
     const handleExportPDF = async () => {
         if (!settings) return;
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         
         try {

@@ -129,14 +129,14 @@ export default function AnnualTransitionPage() {
         }
 
         activeStudents.forEach(student => {
-             if (student.student?.fieldId && student.student?.level) {
+             if (student.student && student.student.fieldId && student.student.level) {
                 const field = fieldsById[student.student.fieldId];
                 const sectorId = field?.sectorId;
 
                 const studentCourses = allCourses.filter(c => 
-                    c.level === student.student.level && (
+                    c.level === student.student!.level && (
                         // Course is specific to the student's field
-                        c.fieldId === student.student.fieldId || 
+                        c.fieldId === student.student!.fieldId || 
                         // Course is a common core for the student's sector
                         (c.sectorId === sectorId && !c.fieldId)
                     )
@@ -450,4 +450,3 @@ export default function AnnualTransitionPage() {
         </div>
     );
 }
-
