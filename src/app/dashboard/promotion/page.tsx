@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -46,10 +45,8 @@ export default function PromotionPage() {
     }, [currentUser]);
 
     const currentField = useMemo(() => {
-        if (!currentUser || !currentUser.student || !fields) return null;
-        const student = currentUser.student;
-        if (!student.fieldId) return null;
-        return fields.find(f => f.id === student.fieldId);
+        if (!currentUser?.student || !currentUser.student.fieldId || !fields) return null;
+        return fields.find(f => f.id === currentUser.student!.fieldId);
     }, [currentUser, fields]);
 
     const title = `Promotion ${currentUser?.student?.level || ''} - ${currentField?.name || ''}`;
