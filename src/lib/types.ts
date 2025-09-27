@@ -269,6 +269,12 @@ export interface StaffAttendance {
     updatedAt: string;
 }
 
+export interface SecurityRuleContext {
+    path: string;
+    operation: 'get' | 'list' | 'create' | 'update' | 'delete';
+    requestResourceData?: any;
+}
+
 export interface ActivityLog {
     id: string;
     actorId: string; // Who performed the action

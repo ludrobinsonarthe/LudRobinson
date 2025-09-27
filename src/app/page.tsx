@@ -1,27 +1,8 @@
-"use client";
-
-import { useAuth } from '@/hooks/use-auth';
 import { redirect } from 'next/navigation';
-import { useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 
 export default function RootPage() {
-  const { user, loading } = useAuth();
-
-  useEffect(() => {
-    if (!loading) {
-      if (user) {
-        redirect('/dashboard');
-      } else {
-        redirect('/login');
-      }
-    }
-  }, [user, loading]);
-
-  // Affiche un indicateur de chargement pendant la vérification de l'authentification.
-  return (
-    <div className="flex h-screen w-full items-center justify-center">
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
-    </div>
-  );
+  // This is a server component, so we can directly redirect.
+  // The actual authentication check happens in the layout or middleware.
+  // This page simply acts as an entry point to guide the user.
+  redirect('/login');
 }
