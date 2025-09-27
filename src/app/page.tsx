@@ -1,23 +1,22 @@
 "use client";
 
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export default function RootPage() {
   const { user, loading } = useAuth();
-  const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
       if (user) {
-        router.replace('/dashboard');
+        redirect('/dashboard');
       } else {
-        router.replace('/login');
+        redirect('/login');
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   // Affiche un indicateur de chargement pendant la vérification de l'authentification.
   return (
