@@ -20,7 +20,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/hooks/use-user";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import { imageToDataUrl } from "@/lib/utils";
 
@@ -62,6 +61,7 @@ export default function CertificatesPage() {
     }, [studentsFromUsers, nameFilter, levelFilter, fieldFilter]);
 
     const createCertificatePdf = async (student: User) => {
+        const { jsPDF } = await import('jspdf');
         if (!settings) {
             toast({ variant: "destructive", title: "Erreur", description: "Les paramètres de l'établissement ne sont pas chargés." });
             return;

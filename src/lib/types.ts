@@ -23,12 +23,6 @@ export const adminPermissions = {
 
 export type AdminPermission = keyof typeof adminPermissions;
 
-export type SecurityRuleContext = {
-  path: string;
-  operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
-  requestResourceData?: any;
-};
-
 export interface AdminRole {
   id: string;
   name: string;
@@ -275,19 +269,11 @@ export interface StaffAttendance {
     updatedAt: string;
 }
 
-export type ActivityLogAction = 
-    | 'user_created' | 'user_updated' | 'user_deleted'
-    | 'student_created' | 'student_updated' | 'student_deleted'
-    | 'announcement_created' | 'announcement_updated' | 'announcement_deleted'
-    | 'role_updated' | 'role_deleted'
-    | 'payment_validation' | 'payment_rejection' 
-    | 'login' | 'logout' | 'grade_update' | 'settings_change';
-
 export interface ActivityLog {
     id: string;
     actorId: string; // Who performed the action
     actorName?: string; // Denormalized name
-    action: ActivityLogAction;
+    action: string;
     entityType: string; // e.g., 'payment', 'user', 'course'
     entityId: string;
     timestamp: string;

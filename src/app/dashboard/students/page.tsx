@@ -258,7 +258,7 @@ export default function StudentsPage() {
             
             // Activity Log
             const logRef = doc(collection(db, 'activityLogs'));
-            const log: Omit<ActivityLog, 'id' | 'action'> & { action: ActivityLog['action'] } = {
+            const log: Omit<ActivityLog, 'id' | 'action'> & { action: string } = {
                 actorId: adminUser.uid,
                 actorName: `${adminUser.lastName} ${adminUser.firstName}`,
                 action: isNewStudent ? 'student_created' : 'student_updated',
@@ -386,7 +386,7 @@ export default function StudentsPage() {
 
             // 6. Log the deletion
             const logRef = doc(collection(db, 'activityLogs'));
-            const log: Omit<ActivityLog, 'id' | 'action'> & { action: ActivityLog['action'] } = {
+            const log: Omit<ActivityLog, 'id' | 'action'> & { action: string } = {
                 actorId: adminUser.uid,
                 actorName: `${adminUser.lastName} ${adminUser.firstName}`,
                 action: 'student_deleted',
