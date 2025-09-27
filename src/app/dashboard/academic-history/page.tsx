@@ -324,8 +324,6 @@ export default function AcademicHistoryPage() {
                     </div>
                 </CardContent>
             </Card>
-
         </div>
     )
-
-    
+}
