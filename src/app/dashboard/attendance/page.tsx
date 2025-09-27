@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ArrowRight, UserCheck, Briefcase, FileDown, Users, Check, X, Coffee, GraduationCap, Eye, UserX } from "lucide-react";
-import { format, startOfWeek, addDays, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, eachDayOf, getMonth, getYear, subMonths, addMonths, getDay } from 'date-fns';
+import { format, startOfWeek, addDays, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, getMonth, getYear, subMonths, addMonths, getDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus, UnifiedSalary } from '@/lib/types';
@@ -674,5 +674,3 @@ function AttendancePage() {
 }
 
 export default AttendancePage;
-
-    
