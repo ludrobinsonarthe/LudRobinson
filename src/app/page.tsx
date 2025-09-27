@@ -1,11 +1,29 @@
-import { redirect } from 'next/navigation';
+
+"use client";
+
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export default function RootPage() {
-  // Cette page a pour seul rôle de rediriger l'utilisateur vers la page de connexion.
-  // La vérification de l'authentification et la redirection vers le tableau de bord
-  // sont gérées par les pages /dashboard et /login.
-  redirect('/login');
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  // Ce composant ne rendra jamais rien.
-  return null;
+  useEffect(() => {
+    if (!loading) {
+      if (user) {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/login');
+      }
+    }
+  }, [user, loading, router]);
+
+  // Affiche un indicateur de chargement pendant la vérification de l'authentification.
+  return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    </div>
+  );
 }
