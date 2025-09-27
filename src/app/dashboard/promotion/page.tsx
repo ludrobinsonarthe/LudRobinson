@@ -47,7 +47,9 @@ export default function PromotionPage() {
 
     const currentField = useMemo(() => {
         if (!currentUser || !currentUser.student || !fields) return null;
-        return fields.find(f => f.id === currentUser.student!.fieldId);
+        const student = currentUser.student;
+        if (!student.fieldId) return null;
+        return fields.find(f => f.id === student.fieldId);
     }, [currentUser, fields]);
 
     const title = `Promotion ${currentUser?.student?.level || ''} - ${currentField?.name || ''}`;
