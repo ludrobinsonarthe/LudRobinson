@@ -63,6 +63,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import TutorPanel from "@/components/tutor-panel";
 import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
+import { AdminPermission } from "@/lib/types";
+import { type LucideIcon } from "lucide-react";
+
 
 function AppLogo() {
   const { settings, loading } = useUser();
@@ -80,6 +83,18 @@ function AppLogo() {
     </Link>
   );
 }
+
+type AdminMenuItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  permission: AdminPermission;
+};
+
+type AdminMenuGroup = {
+  group: string;
+  items: AdminMenuItem[];
+};
 
 function MainSidebar() {
   const pathname = usePathname();
@@ -105,7 +120,7 @@ function MainSidebar() {
     { href: "/dashboard/payments", label: "Paiements", icon: Wallet },
   ];
   
-  const adminMenuGroups = [
+  const adminMenuGroups: AdminMenuGroup[] = [
     {
         group: 'ANALYSE',
         items: [
@@ -139,7 +154,7 @@ function MainSidebar() {
              { href: "/dashboard/admin-management", label: "Administration", icon: Building, permission: 'manage_admin_settings' },
              { href: "/dashboard/annual-transition", label: "Transition Annuelle", icon: ArrowRightLeft, permission: 'manage_admin_settings' },
              { href: "/dashboard/academic-history", label: "Historique Académique", icon: Archive, permission: 'manage_admin_settings' },
-             { href: "/dashboard/activity-history", label: "Historique Activités", icon: History, permission: 'manage_admin_settings' },
+             { href: "/dashboard/activity-history", label: "Historique Activités", icon: 'manage_admin_settings' },
         ]
     }
   ];
