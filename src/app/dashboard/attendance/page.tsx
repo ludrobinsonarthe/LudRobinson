@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
@@ -11,15 +10,13 @@ import { ArrowLeft, ArrowRight, UserCheck, Briefcase, FileDown, Users, Check, X,
 import { format, startOfWeek, addDays, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, eachDayOf, getMonth, getYear, subMonths, addMonths, getDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus, StaffAttendance, StaffMemberAttendance } from '@/lib/types';
+import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus, UnifiedSalary } from '@/lib/types';
 import { collection, doc, getDoc, setDoc, onSnapshot, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { imageToDataUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,7 +47,6 @@ function StudentAttendanceContent() {
     const [isReportOpen, setIsReportOpen] = useState(false);
 
     const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
-    const coursesById = useMemo(() => (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [allCourses]);
 
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
@@ -172,6 +168,8 @@ function StudentAttendanceContent() {
 
     const handleExportPDF = async () => {
         if (!selectedStudent || !settings) return;
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
 
         const doc = new jsPDF();
         const studentName = `${selectedStudent.lastName} ${selectedStudent.firstName}`;
@@ -269,7 +267,7 @@ function StudentAttendanceContent() {
                         <Table className="min-w-full border-collapse">
                             <TableHeader><TableRow>
                                 <TableHead className="w-[100px] border-r">Heure</TableHead>
-                                {weekDays.map((day, index) => (
+                                {weekDays.map((day) => (
                                     <TableHead key={day.toISOString()} className="border-r text-center p-1">
                                         <div className="flex flex-col items-center">
                                             <span>{format(day, 'EEEE', { locale: fr })}</span>
@@ -281,7 +279,7 @@ function StudentAttendanceContent() {
                             <TableBody>
                                 {timeSlots.map(slot => (
                                     <TableRow key={slot} className="h-28"><TableCell className="font-medium align-top pt-3 border-r">{slot}</TableCell>
-                                        {weekDays.map((day, dayIndex) => {
+                                        {weekDays.map((day) => {
                                             const course = scheduleGrid[format(day, 'EEEE', { locale: fr })]?.[slot];
                                             if (!course) return <TableCell key={day.toISOString()} className="p-1 align-top border-r"></TableCell>;
                                             
@@ -393,7 +391,6 @@ function TeacherAttendanceContent() {
     const [isReportOpen, setIsReportOpen] = useState(false);
     const { toast } = useToast();
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')), [users]);
-    const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
     const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
 
     useEffect(() => {
@@ -402,20 +399,6 @@ function TeacherAttendanceContent() {
         const timer = setTimeout(() => setLoadingData(false), 300);
         return () => clearTimeout(timer);
     }, []);
-
-    const coursesById = useMemo(() => (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [allCourses]);
-
-    const getAttendanceStatusForTeacher = (teacherId: string, day: Date): { status: 'present' | 'absent' | 'nocourse', course?: Course }[] => {
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const teacherCoursesOnDay = allCourses.filter(c => c.teacherId === teacherId && c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
-        
-        if (teacherCoursesOnDay.length === 0) return [{ status: 'nocourse' }];
-
-        return teacherCoursesOnDay.map(course => {
-            const attendance = attendances.find(a => a.date === dateStr && a.courseId === course.id);
-            return { status: attendance?.teacherStatus || 'absent', course: course };
-        });
-    };
 
     const handleTeacherStatusChange = async (teacherId: string, course: Course, day: Date, newStatus: 'present' | 'absent') => {
         if (!currentUser || currentUser.role !== 'admin') {
@@ -486,8 +469,12 @@ function TeacherAttendanceContent() {
         return attendance?.teacherStatus || 'absent';
     };
 
+    const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
+
     const handleExportPDF = async () => {
         if (!selectedTeacher || !settings) return;
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
 
         const doc = new jsPDF();
         const teacherName = `${selectedTeacher.lastName} ${selectedTeacher.firstName}`;
@@ -658,206 +645,6 @@ function TeacherAttendanceContent() {
     );
 }
 
-function StaffAttendanceContent() {
-    const { user: currentUser, allUsers: users, loading: usersLoading, settings, staffAttendances } = useUser();
-    const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
-    const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
-    const { toast } = useToast();
-
-    const adminStaff = useMemo(() => {
-        return users.filter(u => u.role === 'admin').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
-    }, [users]);
-    
-    const getStatusForDay = (staffId: string, day: Date): StaffMemberAttendance['status'] | 'weekend' => {
-        const dayOfWeek = getDay(day); // Sunday = 0, Monday = 1, ...
-        if (dayOfWeek === 0) return 'weekend'; // Sunday is a weekend day
-        
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const attendanceRecord = staffAttendances.find(a => a.id === dateStr);
-        const staffStatus = attendanceRecord?.staffStatus.find(s => s.staffId === staffId);
-        return staffStatus?.status || 'absent';
-    }
-
-    const handleStatusChange = async (staffId: string, day: Date, status: StaffMemberAttendance['status']) => {
-        if (!currentUser || currentUser.role !== 'admin') {
-            toast({ variant: 'destructive', title: 'Action non autorisée', description: "Vous n'avez pas les droits pour modifier la présence." });
-            return;
-        }
-
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const newRecord: StaffMemberAttendance = { staffId, status };
-        
-        try {
-            const docRef = doc(db, 'staffAttendances', dateStr);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const existingData = docSnap.data() as StaffAttendance;
-                const existingIndex = existingData.staffStatus.findIndex(s => s.staffId === staffId);
-                const newStaffStatus = [...existingData.staffStatus];
-                if (existingIndex > -1) {
-                    newStaffStatus[existingIndex] = newRecord;
-                } else {
-                    newStaffStatus.push(newRecord);
-                }
-                await setDoc(docRef, { ...existingData, staffStatus: newStaffStatus, updatedAt: new Date().toISOString() }, { merge: true });
-            } else {
-                const newAttendanceRecord: StaffAttendance = {
-                    id: dateStr,
-                    date: dateStr,
-                    staffStatus: [newRecord],
-                    validatedBy: currentUser.uid,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                };
-                await setDoc(docRef, newAttendanceRecord);
-            }
-             toast({ title: 'Présence mise à jour', duration: 1500 });
-        } catch (error) {
-            console.error("Error updating staff attendance:", error);
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la présence.' });
-        }
-    };
-
-    const handleExportPDF = async () => {
-        if (!settings || !selectedStaff) {
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Employé ou paramètres non disponibles.' });
-            return;
-        }
-
-        const doc = new jsPDF();
-        const monthName = format(currentMonthDate, 'MMMM yyyy', { locale: fr });
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 14, 10, 20, 20);
-        } catch (error) { console.error(error); }
-
-        doc.setFontSize(18); doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(14); doc.text(`Rapport de Présence - ${selectedStaff.lastName} ${selectedStaff.firstName}`, 40, 25);
-        doc.setFontSize(12); doc.text(`Mois: ${monthName}`, 14, 40);
-        
-        const statusTranslation: Record<StaffMemberAttendance['status'], string> = { present: 'Présent(e)', absent: 'Absent(e)', leave: 'En Congé' };
-        
-        const tableColumn = ["Date", "Statut"];
-        const tableRows = monthDays.map(day => [
-            format(day, 'eeee d MMMM yyyy', { locale: fr }),
-            statusTranslation[getStatusForDay(selectedStaff.uid, day) as StaffMemberAttendance['status']] || 'Weekend'
-        ]);
-
-        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 50 });
-        doc.save(`presence_${selectedStaff.lastName}_${format(currentMonthDate, 'yyyy-MM')}.pdf`);
-        toast({ title: "Rapport PDF généré" });
-    };
-
-    const statusOptions: { value: StaffMemberAttendance['status']; label: string; icon: React.ElementType, className: string }[] = [
-        { value: 'present', label: 'Présent', icon: Check, className: 'bg-green-500 hover:bg-green-600 text-white' },
-        { value: 'absent', label: 'Absent', icon: X, className: 'bg-red-500 hover:bg-red-600 text-white' },
-        { value: 'leave', label: 'Congé', icon: Coffee, className: 'bg-yellow-500 hover:bg-yellow-600 text-white' },
-    ];
-    
-    const monthDays = eachDayOfInterval({ start: startOfMonth(currentMonthDate), end: endOfMonth(currentMonthDate) });
-    
-    if (selectedStaff) {
-        return (
-             <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                            <Button variant="outline" size="icon" onClick={() => setSelectedStaff(null)}><ArrowLeft className="h-4 w-4"/></Button>
-                            <div>
-                                <CardTitle>Présence de {selectedStaff.lastName} {selectedStaff.firstName}</CardTitle>
-                                <CardDescription>Vue mensuelle de la présence.</CardDescription>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                             <Button variant="outline" onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Exporter en PDF</Button>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="icon" onClick={() => setCurrentMonthDate(subMonths(currentMonthDate, 1))}><ArrowLeft className="h-4 w-4" /></Button>
-                                <span className='font-semibold text-sm'>{format(currentMonthDate, 'MMMM yyyy', { locale: fr })}</span>
-                                <Button variant="outline" size="icon" onClick={() => setCurrentMonthDate(addMonths(currentMonthDate, 1))}><ArrowRight className="h-4 w-4" /></Button>
-                            </div>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-                        {monthDays.map(day => {
-                            const status = getStatusForDay(selectedStaff.uid, day);
-                            const statusInfo = statusOptions.find(o => o.value === status);
-                            const isWeekend = status === 'weekend';
-                            return (
-                                <Popover key={day.toString()}>
-                                    <PopoverTrigger asChild disabled={isWeekend || currentUser?.role !== 'admin'}>
-                                        <div className={cn("p-2 rounded-lg border text-center", 
-                                            isWeekend ? 'bg-muted/50' : (currentUser?.role === 'admin' ? 'cursor-pointer hover:bg-muted' : ''),
-                                            status === 'present' && 'bg-green-100 border-green-200',
-                                            status === 'absent' && 'bg-red-100 border-red-200',
-                                            status === 'leave' && 'bg-yellow-100 border-yellow-200'
-                                        )}>
-                                            <p className="font-bold">{format(day, 'd')}</p>
-                                            <p className="text-xs text-muted-foreground">{format(day, 'eee', { locale: fr })}</p>
-                                        </div>
-                                    </PopoverTrigger>
-                                     {!isWeekend && (
-                                        <PopoverContent className="w-auto p-2">
-                                            <div className="flex flex-col gap-2">
-                                                {statusOptions.map(option => (
-                                                    <Button key={option.value} size="sm" variant={status === option.value ? 'default' : 'outline'} className={status === option.value ? option.className : ''} onClick={() => handleStatusChange(selectedStaff.uid, day, option.value)}>
-                                                        <option.icon className="mr-2 h-4 w-4" /> {option.label}
-                                                    </Button>
-                                                ))}
-                                            </div>
-                                        </PopoverContent>
-                                     )}
-                                </Popover>
-                            );
-                        })}
-                    </div>
-                </CardContent>
-            </Card>
-        )
-    }
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Suivi du Personnel Administratif</CardTitle>
-                <CardDescription>Sélectionnez un membre du personnel pour voir et gérer sa présence mensuelle.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Personnel</TableHead>
-                            <TableHead>Poste</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {usersLoading ? (
-                             Array.from({length: 5}).map((_, i) => <TableRow key={i}><TableCell colSpan={2}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
-                        ) : adminStaff.map(staff => (
-                            <TableRow key={staff.uid} onClick={() => setSelectedStaff(staff)} className="cursor-pointer">
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-9 w-9">
-                                            <AvatarImage src={staff.photoUrl} alt={staff.firstName} />
-                                            <AvatarFallback>{getInitials(staff.firstName, staff.lastName)}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="font-medium">{staff.lastName} {staff.firstName}</div>
-                                    </div>
-                                </TableCell>
-                                <TableCell>{staff.admin?.position || 'N/A'}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    );
-}
-
-
 function AttendancePage() {
     return (
         <div className="space-y-6">
@@ -870,7 +657,6 @@ function AttendancePage() {
                 <TabsList>
                     <TabsTrigger value="students"><Users className="mr-2 h-4 w-4"/> Étudiants</TabsTrigger>
                     <TabsTrigger value="teachers"><GraduationCap className="mr-2 h-4 w-4"/> Professeurs</TabsTrigger>
-                    <TabsTrigger value="staff"><Briefcase className="mr-2 h-4 w-4"/> Personnel Administratif</TabsTrigger>
                 </TabsList>
                 <TabsContent value="students">
                     <Suspense fallback={<div className="flex items-center justify-center h-96"><Skeleton className="h-8 w-8 animate-spin" /></div>}>
@@ -882,14 +668,11 @@ function AttendancePage() {
                         <TeacherAttendanceContent />
                     </Suspense>
                 </TabsContent>
-                 <TabsContent value="staff">
-                    <Suspense fallback={<div className="flex items-center justify-center h-96"><Skeleton className="h-8 w-8 animate-spin" /></div>}>
-                        <StaffAttendanceContent />
-                    </Suspense>
-                </TabsContent>
             </Tabs>
         </div>
     );
 }
 
 export default AttendancePage;
+
+    
