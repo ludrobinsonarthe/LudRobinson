@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
@@ -298,11 +297,12 @@ function SalaryManagementContent() {
             styles: { fontSize: 10 },
             headStyles: { fillColor: [41, 128, 185], textColor: 255 },
             didDrawPage: function(data) {
-                // Total
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Salaire Net à Payer', data.settings.margin.left, data.cursor.y + 15);
-                doc.text(formatCurrency(salary.totalSalary, salary.currency), data.settings.margin.left + 100, data.cursor.y + 15);
+                if (data.cursor) {
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Salaire Net à Payer', data.settings.margin.left, data.cursor.y + 15);
+                    doc.text(formatCurrency(salary.totalSalary, salary.currency), data.settings.margin.left + 100, data.cursor.y + 15);
+                }
             }
         });
         
@@ -532,5 +532,7 @@ export default function SalaryManagementPage() {
         </Suspense>
     );
 }
+
+    
 
     
