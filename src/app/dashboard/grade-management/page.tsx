@@ -193,24 +193,26 @@ function GradeManagementContent() {
             toast({ variant: "destructive", title: "Erreur", description: "Veuillez sélectionner un cours." });
             return;
         }
-
+    
         const targetCourse = allCourses.find(c => c.id === targetCourseId);
         if (!targetCourse) {
             toast({ variant: "destructive", title: "Erreur", description: "Cours introuvable." });
             return;
         }
-
+    
         const targetStudents = users.filter(user => 
             user.role === 'student' &&
-            user.student?.fieldId === targetCourse.fieldId &&
-            user.student?.level === targetCourse.level
+            user.student?.level === targetCourse.level &&
+            (user.student?.fieldId === targetCourse.fieldId || 
+             (targetCourse.sectorId && !targetCourse.fieldId && user.student?.sectorId === targetCourse.sectorId))
         );
-
+    
         if (targetStudents.length === 0) {
             toast({ variant: "destructive", title: "Aucun étudiant", description: "Aucun étudiant n'est inscrit dans ce cours." });
+            setIsEvalDialogOpen(false);
             return;
         }
-
+    
         const batch = writeBatch(db);
         const gradeDataTemplate: Omit<Grade, 'id' | 'studentId'> = {
             courseId: targetCourseId,
@@ -218,10 +220,10 @@ function GradeManagementContent() {
             score: 0,
             total: newEvalTotal,
             coefficient: newEvalCoefficient,
-            academicYear: settings?.academicYear || "2024-2025",
+            academicYear: settings?.academicYear || new Date().getFullYear().toString(),
             createdAt: new Date().toISOString(),
         };
-
+    
         targetStudents.forEach(student => {
             const newGradeRef = doc(collection(db, "grades"));
             const gradeData: Omit<Grade, 'id'> = {
@@ -230,12 +232,12 @@ function GradeManagementContent() {
             };
             batch.set(newGradeRef, gradeData);
         });
-
+    
         try {
             await batch.commit();
             toast({ title: "Nouvelle évaluation ajoutée", description: "Vous pouvez maintenant saisir les notes." });
-            if(!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
-        } catch(error) {
+            if (!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
+        } catch (error) {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'create', requestResourceData: gradeDataTemplate }));
         } finally {
             setIsEvalDialogOpen(false);
@@ -598,6 +600,8 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+    
 
     
 

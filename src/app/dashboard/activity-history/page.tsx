@@ -29,7 +29,7 @@ import { imageToDataUrl } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import 'jspdf-autotable';
 
 
 const getInitials = (name: string = '') => {
@@ -116,7 +116,7 @@ export default function ActivityHistoryPage() {
             tableRows.push(logData);
         });
 
-        autoTable(doc, {
+        (doc as any).autoTable({
             head: [tableColumn],
             body: tableRows,
             startY: 40,
@@ -212,3 +212,5 @@ export default function ActivityHistoryPage() {
         </div>
     );
 }
+
+    
