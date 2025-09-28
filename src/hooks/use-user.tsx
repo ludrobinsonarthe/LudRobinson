@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance, Payment, TeacherSalary, CashTransaction, OfficialDocument, StaffAttendance } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance, Payment, TeacherSalary, CashTransaction, OfficialDocument, StaffAttendance, FeeStructure } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, doc, FirestoreError } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -31,6 +32,7 @@ type UserContextType = {
   officialDocuments: OfficialDocument[];
   allUsers: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  feeStructures: FeeStructure[];
 };
 
 const defaultSettings: Settings = {
@@ -65,6 +67,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [teacherSalaries, setTeacherSalaries] = useState<TeacherSalary[]>([]);
   const [cashTransactions, setCashTransactions] = useState<CashTransaction[]>([]);
   const [officialDocuments, setOfficialDocuments] = useState<OfficialDocument[]>([]);
+  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
 
 
   useEffect(() => {
@@ -129,6 +132,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setupSubscription('fields', setFields);
     setupSubscription('courses', setCourses);
     setupSubscription('users', setUsers);
+    setupSubscription('feeStructures', setFeeStructures);
     
     const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
@@ -203,6 +207,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       officialDocuments,
       allUsers,
       setUsers,
+      feeStructures,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
