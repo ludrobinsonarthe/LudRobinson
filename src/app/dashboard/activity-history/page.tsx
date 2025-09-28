@@ -28,7 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { imageToDataUrl } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import type { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 
@@ -85,7 +85,6 @@ export default function ActivityHistoryPage() {
             toast({ variant: 'destructive', title: 'Erreur', description: 'Les paramètres sont introuvables.' });
             return;
         }
-        const { jsPDF } = await import('jspdf');
         const doc = new jsPDF();
         
         try {

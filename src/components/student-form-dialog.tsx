@@ -69,7 +69,7 @@ const studentFormSchema = z.object({
     path: ["parentFirstName"]
 }).refine(data => {
     if (data.parentSelection === 'new' && data.parentEmail) {
-        return z.string().email("L'e-mail du tuteur est invalide.").optional().or(z.literal('')).safeParse(data.parentEmail).success;
+        return z.string().email().optional().or(z.literal('')).safeParse(data.parentEmail).success;
     }
     return true;
 },

@@ -231,17 +231,15 @@ function GradeManagementContent() {
             batch.set(newGradeRef, gradeData);
         });
 
-        batch.commit()
-            .then(() => {
-                toast({ title: "Nouvelle évaluation ajoutée", description: "Vous pouvez maintenant saisir les notes." });
-                if(!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
-            })
-            .catch(error => {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'write', requestResourceData: gradeDataTemplate }));
-            })
-            .finally(() => {
-                setIsEvalDialogOpen(false);
-            });
+        try {
+            await batch.commit();
+            toast({ title: "Nouvelle évaluation ajoutée", description: "Vous pouvez maintenant saisir les notes." });
+            if(!courseId) router.push(`/dashboard/grade-management?courseId=${targetCourseId}`);
+        } catch(error) {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'grades', operation: 'create', requestResourceData: gradeDataTemplate }));
+        } finally {
+            setIsEvalDialogOpen(false);
+        }
     };
     
     const handleScoreChange = (gradeId: string, newScore: string) => {
@@ -600,5 +598,7 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+    
 
     
