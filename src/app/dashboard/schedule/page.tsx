@@ -27,7 +27,7 @@ const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
 
 function ScheduleContent() {
-    const { user: currentUser, users, loading: userLoading, settings, fields, sectors, allCourses } = useUser();
+    const { user: currentUser, allUsers, loading: userLoading, settings, fields, sectors, allCourses } = useUser();
     const searchParams = useSearchParams();
     const fieldIdFromParams = searchParams.get('fieldId');
     const { toast } = useToast();
@@ -69,7 +69,7 @@ function ScheduleContent() {
         }
     }, [allCourses, userLoading]);
     
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const teachers = useMemo(() => allUsers.filter(u => u.role === 'teacher'), [allUsers]);
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
         return fields.filter(f => f.sectorId === selectedSectorId);
@@ -368,3 +368,5 @@ export default function SchedulePage() {
         </Suspense>
     );
 }
+
+    
