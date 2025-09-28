@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 
 export default function CoursesPage() {
-    const { user: currentUser, allUsers: users, allCourses, loading, sectors } = useUser();
+    const { user: currentUser, allUsers: users, allCourses, loading, fields } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [pageLoading, setPageLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export default function CoursesPage() {
         setPageLoading(true);
         let userCourses: Course[] = [];
         if (userToView.role === 'student' && userToView.student) {
-            const studentField = sectors.flatMap(s => s.fields).find(f => f.id === userToView.student!.fieldId);
+            const studentField = fields.find(f => f.id === userToView.student!.fieldId);
             const studentSectorId = userToView.student.sectorId || studentField?.sectorId;
             userCourses = allCourses.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || (!c.fieldId && c.sectorId === studentSectorId)));
         } else if (userToView.role === 'teacher') {
@@ -65,7 +65,7 @@ export default function CoursesPage() {
         setCourses(userCourses);
         setPageLoading(false);
         
-    }, [userToView, allCourses, loading, sectors]);
+    }, [userToView, allCourses, loading, fields]);
 
     const handleChildChange = (studentId: string) => {
         setSelectedChildId(studentId);
