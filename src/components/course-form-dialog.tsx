@@ -178,7 +178,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         finalCourseData.sectorId = undefined;
     }
     
-    if (newDocumentFile) {
+    if (newDocumentFile && newDocumentFile.name) {
         toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
         const courseId = course?.id || `course_${Date.now()}`;
         const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
@@ -257,37 +257,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                     </FormItem>
                 )}/>
 
-                 <div className="space-y-4">
-                    <FormLabel>Documents du cours (PDF)</FormLabel>
-                     {(form.watch('documents') || []).map((docUrl, index) => (
-                        <div key={index} className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted">
-                            <File className="h-4 w-4"/>
-                            <span className="flex-1 truncate">
-                                <Link href={docUrl} target="_blank" className="underline hover:text-primary/80">
-                                     {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0].replace(/%20/g, ' ') || `Document ${index+1}`)}
-                                </Link>
-                            </span>
-                             <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(docUrl, index)}>
-                                <Trash2 className="h-4 w-4 text-destructive"/>
-                             </Button>
-                        </div>
-                     ))}
-                     <FormField control={form.control} name="newDocumentFile" render={({ field: { onChange, value, ...rest } }) => (
-                        <FormItem>
-                         <FormLabel className="text-xs text-muted-foreground">Ajouter un nouveau document</FormLabel>
-                        <FormControl>
-                            <Input 
-                                type="file" 
-                                accept=".pdf"
-                                onChange={(e) => onChange(e.target.files?.[0])}
-                                {...rest}
-                            />
-                        </FormControl>
-                         <FormMessage />
-                        </FormItem>
-                    )}/>
-                 </div>
-
                 <FormField control={form.control} name="teacherId" render={({ field }) => (
                     <FormItem>
                     <FormLabel>Professeur</FormLabel>
@@ -354,6 +323,39 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                         </FormItem>
                     )}/>
                 </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Documents du cours (PDF)</h3>
+                     {(form.watch('documents') || []).map((docUrl, index) => (
+                        <div key={index} className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted">
+                            <File className="h-4 w-4 text-muted-foreground"/>
+                            <span className="flex-1 truncate">
+                                <Link href={docUrl} target="_blank" className="underline hover:text-primary/80">
+                                     {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0].replace(/%20/g, ' ') || `Document ${index+1}`)}
+                                </Link>
+                            </span>
+                             <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(docUrl, index)}>
+                                <Trash2 className="h-4 w-4 text-destructive"/>
+                             </Button>
+                        </div>
+                     ))}
+                     <FormField control={form.control} name="newDocumentFile" render={({ field: { onChange, value, ...rest } }) => (
+                        <FormItem>
+                         <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
+                        <FormControl>
+                            <Input 
+                                type="file" 
+                                accept=".pdf"
+                                onChange={(e) => onChange(e.target.files?.[0])}
+                                {...rest}
+                            />
+                        </FormControl>
+                         <FormMessage />
+                        </FormItem>
+                    )}/>
+                 </div>
 
                 <Separator />
                 
