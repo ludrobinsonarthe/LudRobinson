@@ -99,20 +99,10 @@ function MainSidebar() {
   const pathname = usePathname();
   const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
-  const { toast } = useToast();
-
 
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
-  
-  const handleTutorClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    toast({
-        title: "Fonctionnalité indisponible",
-        description: "Le tuteur IA est en cours de maintenance et sera bientôt de retour.",
-    });
-  };
   
   const menuItems = [
     { href: "/dashboard", label: "Annonces", icon: Home },
@@ -120,7 +110,6 @@ function MainSidebar() {
   ];
 
   const studentMenuItems = [
-    // { href: "#", label: "Tuteur IA", icon: Bot, onClick: handleTutorClick },
     { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
     { href: "/dashboard/grades", label: "Notes", icon: ClipboardList },
     { href: "/dashboard/schedule", label: "Emploi du temps", icon: CalendarDays },
@@ -188,7 +177,7 @@ function MainSidebar() {
               isActive={pathname.startsWith(item.href)} 
               tooltip={item.label}
             >
-              <Link href={item.href} onClick={item.onClick}>
+              <Link href={item.href}>
                 <item.icon />
                 <span>{item.label}</span>
               </Link>
