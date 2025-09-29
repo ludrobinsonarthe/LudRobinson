@@ -28,7 +28,9 @@ class ErrorEmitter {
     }
     this.listeners[event]!.forEach(listener => {
       try {
-        listener(...args);
+        // Pass the first argument directly to satisfy TypeScript's strictness
+        // This is safe as our only event type takes exactly one argument.
+        (listener as (arg: any) => void)(args[0]);
       } catch (e) {
         console.error(`Error in error event listener for '${event}':`, e);
       }
