@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -147,7 +146,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
     
-    // For admins, load everything. For others, these are loaded on-demand or not at all.
+    // For admins, load everything. For others, data is fetched inside specific pages.
     if (currentUser.role === 'admin') {
       setupSubscription('grades', setGrades);
       setupSubscription('attendances', setAttendances);
@@ -158,7 +157,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setupSubscription('officialDocuments', setOfficialDocuments);
     }
     
-    // Non-admins do not need to load all these collections, reducing Firestore reads and permission errors.
     const initialLoadTimer = setTimeout(() => setLoading(false), 500);
     unsubs.push(() => clearTimeout(initialLoadTimer));
     
