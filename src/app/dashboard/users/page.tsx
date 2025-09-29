@@ -232,52 +232,6 @@ export default function UsersPage() {
         }
     }
 
-    const handleExportPDF = async () => {
-        if (!settings) return;
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-        const doc = new jsPDF();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-        
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Liste du Personnel - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
-
-        const tableColumn = ["Nom", "Email", "Rôle", "Spécificité"];
-        const tableRows: string[][] = [];
-
-        filteredEmployees.forEach(user => {
-            const userData = [
-                `${user.lastName} ${user.firstName}`,
-                user.email,
-                roleTranslation[user.role],
-                user.role === 'teacher' ? user.teacher?.specialty || 'N/A' : rolesById[user.admin?.roleId || '']?.name || 'N/A',
-            ];
-            tableRows.push(userData);
-        });
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-        });
-
-        doc.save(`liste_personnel_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Téléchargement réussi', description: 'Le fichier PDF du personnel a été généré.' });
-    };
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
@@ -288,10 +242,6 @@ export default function UsersPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                     <Button variant="outline" onClick={handleExportPDF}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Exporter
-                    </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button>
@@ -435,4 +385,3 @@ export default function UsersPage() {
         </div>
     );
 }
-

@@ -17,8 +17,6 @@ import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { useToast } from '@/hooks/use-toast';
 import { imageToDataUrl } from '@/lib/utils';
 
@@ -145,80 +143,11 @@ function ScheduleContent() {
     }
     
     const handleExportPDF = async () => {
-        if (!settings) return;
-        const doc = new jsPDF({ orientation: "landscape" });
-        const levelName = selectedLevel === 'all' ? 'Tous les niveaux' : selectedLevel;
-        let titleName = 'Emploi du Temps Global';
-
-        if (selectedTeacherId !== 'all') {
-            const teacher = teachers.find(t => t.uid === selectedTeacherId);
-            titleName = `Emploi du temps - ${teacher?.lastName} ${teacher?.firstName}`;
-        } else if (selectedFieldId !== 'all' && selectedFieldId !== 'common_core') {
-             const fieldName = fieldsById[selectedFieldId]?.name || '';
-             titleName = `Emploi du temps - ${fieldName} (${levelName})`;
-        } else if (selectedSectorId !== 'all') {
-            const sectorName = sectors.find(s => s.id === selectedSectorId)?.name || '';
-            titleName = `Emploi du temps - Secteur ${sectorName} (${levelName})`;
-        }
-
-
-        const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
-        const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch(e) {
-            console.error(e);
-        }
-
-        doc.setFontSize(18);
-        doc.text(titleName, 40, 22);
-        doc.setFontSize(12);
-        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 40, 30);
-        
-        const head = [['Heure', ...daysOfWeek.map((day, index) => `${day}\n${format(addDays(currentWeek, index), 'dd/MM')}`)]];
-        const body = timeSlots.map(slot => {
-            const row: string[] = [slot];
-            daysOfWeek.forEach(day => {
-                const coursesInSlot = scheduleGrid[day]?.[slot] || [];
-                const cellContent = coursesInSlot.map(course => {
-                    const scheduleInfo = course.schedule?.find(s => s.day === day && s.start.startsWith(slot.slice(0, 2)));
-                    return [
-                        `Cours: ${course.name}`,
-                        `Prof: ${getTeacherName(course.teacherId)}`,
-                        `Salle: ${scheduleInfo?.room || 'N/A'}`,
-                        `(${scheduleInfo?.start} - ${scheduleInfo?.end})`
-                    ].join('\n');
-                }).join('\n\n');
-                row.push(cellContent);
-            });
-            return row;
+        toast({
+            variant: "destructive",
+            title: "Fonctionnalité désactivée",
+            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
         });
-
-        autoTable(doc, {
-            head: head,
-            body: body,
-            startY: 40,
-            theme: 'grid',
-            styles: {
-                fontSize: 8,
-                cellPadding: 2,
-                valign: 'middle',
-                halign: 'center'
-            },
-            headStyles: {
-                fillColor: [231, 48, 48],
-                textColor: 255,
-                fontStyle: 'bold',
-            },
-        });
-        
-        doc.save(`emploi_du_temps_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Exportation PDF', description: 'Le fichier PDF de l\'emploi du temps a été généré.' });
     };
 
 

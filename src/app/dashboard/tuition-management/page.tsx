@@ -167,103 +167,11 @@ function TuitionManagementContent() {
     }
 
     const handleGenerateReceipt = async (payment: Payment) => {
-        const student = students.find(s => s.uid === payment.studentId);
-        if (!student || !settings) return;
-
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-        const doc = new jsPDF();
-        const schoolName = settings.schoolName;
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Error loading logo for PDF", error);
-        }
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
-        
-        doc.setFontSize(20);
-        doc.text("REÇU DE PAIEMENT", doc.internal.pageSize.getWidth() / 2, 60, { align: 'center' });
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Date: ${format(new Date(payment.createdAt), 'd MMMM yyyy', { locale: fr })}`, 20, 80);
-        doc.text(`Reçu N°: ${payment.id}`, 20, 90);
-
-        doc.text(`Reçu de: ${student.lastName} ${student.firstName}`, 20, 110);
-        doc.text(`Matricule: ${student.student?.matricule}`, 20, 120);
-
-        autoTable(doc, {
-            startY: 130,
-            head: [['Description', 'Montant']],
-            body: [
-                ['Motif du paiement', `${payment.month} (${payment.year})`],
-                ['Montant Attendu', `${payment.amountExpected.toLocaleString()} ${payment.currency}`],
-                ['Montant Versé', `${payment.amountPaid.toLocaleString()} ${payment.currency}`],
-                ['Solde pour ce versement', `${payment.balance.toLocaleString()} ${payment.currency}`]
-            ],
-            theme: 'striped',
-            headStyles: { fillColor: [22, 163, 74] }
+        toast({
+            variant: "destructive",
+            title: "Fonctionnalité désactivée",
+            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
         });
-        
-        doc.text("Signature de l'administration", doc.internal.pageSize.getWidth() - 20, (doc as any).lastAutoTable.finalY + 30, { align: 'right' });
-
-        doc.save(`recu_${payment.id}.pdf`);
-        toast({ title: "Reçu généré", description: `Le reçu pour ${student.lastName} ${student.firstName} a été téléchargé.` });
-    };
-
-    const handleExportPDF = async () => {
-        if (!settings) return;
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-        const doc = new jsPDF();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-        
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Historique des Paiements - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
-
-        const tableColumn = ["Étudiant", "Montant Payé", "Motif", "Date", "Statut"];
-        const tableRows: string[][] = [];
-
-        filteredPayments.forEach(p => {
-            const paymentData = [
-                getStudentName(p.studentId),
-                formatCurrency(p.amountPaid, p.currency),
-                p.month,
-                format(new Date(p.createdAt), 'd MMM yyyy', { locale: fr }),
-                statusTranslation[p.status],
-            ];
-            tableRows.push(paymentData);
-        });
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-        });
-
-        doc.save(`historique_paiements_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Téléchargement réussi', description: 'Le fichier PDF de l\'historique des paiements a été généré.' });
     };
 
     const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
@@ -313,10 +221,6 @@ function TuitionManagementContent() {
                     </div>
                 </div>
                  <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={handleExportPDF}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Exporter
-                    </Button>
                     <Button onClick={handleAdd}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Enregistrer un paiement

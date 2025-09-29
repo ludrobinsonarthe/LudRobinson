@@ -166,49 +166,6 @@ function StudentAttendanceContent() {
         return { summary: { present, absent, justified }, details };
     }, [selectedStudent, studentSchedule, weekDays, attendances]);
 
-    const handleExportPDF = async () => {
-        if (!selectedStudent || !settings) return;
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-
-        const doc = new jsPDF();
-        const studentName = `${selectedStudent.lastName} ${selectedStudent.firstName}`;
-        const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
-        const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
-
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) doc.addImage(logoDataUrl, logoDataUrl.split(';')[0].split('/')[1].toUpperCase(), 14, 10, 20, 20);
-        } catch (error) { console.error(error); }
-        
-        doc.setFontSize(18); doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(14); doc.text(`Rapport de Présence Hebdomadaire`, 40, 25);
-        doc.setFontSize(12);
-        doc.text(`Étudiant: ${studentName} (${selectedStudent.student?.matricule})`, 14, 40);
-        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 14, 47);
-
-        const statusText: Record<StudentAttendanceStatus, string> = { present: 'Présent(e)', absent: 'Absent(e)', justified: 'Absence justifiée' };
-        
-        const tableColumn = ["Date", "Cours", "Statut"];
-        const tableRows = weeklyReportData.details.map(att => [
-            format(att.date, 'eeee d MMMM', { locale: fr }),
-            att.courseName,
-            statusText[att.status],
-        ]);
-
-        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 55 });
-        
-        const finalY = (doc as any).lastAutoTable.finalY || 100;
-        doc.setFontSize(12);
-        doc.text(`Total Présences: ${weeklyReportData.summary.present}`, 14, finalY + 10);
-        doc.text(`Total Absences: ${weeklyReportData.summary.absent}`, 14, finalY + 17);
-        doc.text(`Total Justifiées: ${weeklyReportData.summary.justified}`, 14, finalY + 24);
-
-        doc.save(`rapport_presence_${selectedStudent.lastName}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Exportation PDF réussie' });
-        setIsReportOpen(false);
-    }
-
     if (selectedStudent) {
         return (
             <Card>
@@ -250,7 +207,6 @@ function StudentAttendanceContent() {
                                     </Table>
                                     <DialogFooter>
                                         <Button variant="outline" onClick={() => setIsReportOpen(false)}>Fermer</Button>
-                                        <Button onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Télécharger en PDF</Button>
                                     </DialogFooter>
                                 </DialogContent>
                              </Dialog>
@@ -471,44 +427,6 @@ function TeacherAttendanceContent() {
 
     const weekDays = eachDayOfInterval({ start: currentWeek, end: addDays(currentWeek, 5) });
 
-    const handleExportPDF = async () => {
-        if (!selectedTeacher || !settings) return;
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-
-        const doc = new jsPDF();
-        const teacherName = `${selectedTeacher.lastName} ${selectedTeacher.firstName}`;
-        const weekStartDate = format(currentWeek, 'd MMMM', { locale: fr });
-        const weekEndDate = format(addDays(currentWeek, 5), 'd MMMM yyyy', { locale: fr });
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 14, 10, 20, 20);
-        } catch (error) { console.error("Could not add logo to PDF, proceeding without it.", error); }
-
-        doc.setFontSize(18); doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(14); doc.text(`Rapport de Présence - ${teacherName}`, 40, 25);
-        doc.setFontSize(12);
-        doc.text(`Semaine du ${weekStartDate} au ${weekEndDate}`, 14, 40);
-
-        const statusText = { present: 'Présent(e)', absent: 'Absent(e)' };
-        const tableColumn = ["Date", "Cours", "Statut"];
-        const tableRows: string[][] = [];
-
-        weekDays.forEach(day => {
-            const coursesOnDay = teacherSchedule?.filter(c => c.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr })));
-            coursesOnDay?.forEach(course => {
-                const status = getTeacherAttendanceForSlot(course, day);
-                tableRows.push([format(day, 'eeee d MMMM', { locale: fr }), course.name, statusText[status]]);
-            });
-        });
-        
-        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 50 });
-        doc.save(`rapport_presence_${selectedTeacher.lastName}_${format(currentWeek, 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Exportation PDF réussie' });
-        setIsReportOpen(false);
-    };
-
     if (selectedTeacher) {
         return (
              <Card>
@@ -550,7 +468,6 @@ function TeacherAttendanceContent() {
                                     </Table>
                                     <DialogFooter>
                                         <Button variant="outline" onClick={() => setIsReportOpen(false)}>Fermer</Button>
-                                        <Button onClick={handleExportPDF}><FileDown className="mr-2 h-4 w-4"/> Télécharger en PDF</Button>
                                     </DialogFooter>
                                 </DialogContent>
                              </Dialog>

@@ -24,9 +24,6 @@ import { useToast } from '@/hooks/use-toast';
 import CashTransactionFormDialog from '@/components/cash-transaction-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { useUser } from '@/hooks/use-user';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { imageToDataUrl } from '@/lib/utils';
 
 export default function CashFlowPage() {
     const { settings } = useUser();
@@ -107,57 +104,6 @@ export default function CashFlowPage() {
         other: "Autre",
     }
 
-    const handleExportPDF = async () => {
-        if (!settings) return;
-        const doc = new jsPDF();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-        
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Historique des Transactions de Caisse - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
-        
-        const tableColumn = ["Date", "Type", "Catégorie", "Description", "Montant"];
-        const tableRows: (string | number)[][] = [];
-
-        transactions.forEach(t => {
-            const transactionData = [
-                format(new Date(t.date), 'd MMM yyyy', { locale: fr }),
-                typeTranslation[t.type],
-                categoryTranslation[t.category],
-                t.description,
-                `${t.type === 'expense' ? '-' : ''}${formatCurrency(t.amount, t.currency)}`,
-            ];
-            tableRows.push(transactionData);
-        });
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-        });
-
-        const finalY = (doc as any).lastAutoTable.finalY || 100;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Solde Final: ${formatCurrency(balance)}`, 14, finalY + 15);
-
-        doc.save(`historique_caisse_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Téléchargement réussi', description: 'Le fichier PDF de l\'historique de caisse a été généré.' });
-    };
-
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
@@ -168,10 +114,6 @@ export default function CashFlowPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={handleExportPDF}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Exporter en PDF
-                    </Button>
                     <Button onClick={handleAdd}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Ajouter une transaction

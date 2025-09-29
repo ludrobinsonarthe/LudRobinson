@@ -61,72 +61,11 @@ export default function CertificatesPage() {
     }, [studentsFromUsers, nameFilter, levelFilter, fieldFilter]);
 
     const createCertificatePdf = async (student: User) => {
-        const { jsPDF } = await import('jspdf');
-        if (!settings) {
-            toast({ variant: "destructive", title: "Erreur", description: "Les paramètres de l'établissement ne sont pas chargés." });
-            return;
-        }
-
-        const doc = new jsPDF();
-        const schoolName = settings.schoolName;
-        const academicYear = settings.academicYear;
-
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 15, 15, 30, 30);
-            }
-        } catch (error) {
-             console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(18);
-        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 60, { align: 'center' });
-        
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Année Académique: ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 70, { align: 'center' });
-
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text("CERTIFICAT DE SCOLARITÉ", doc.internal.pageSize.getWidth() / 2, 100, { align: 'center' });
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-
-        const studentName = `${student.lastName} ${student.firstName}`;
-        const studentMatricule = student.student?.matricule || 'N/A';
-        const studentLevel = student.student?.level || 'N/A';
-        const studentField = student.student?.fieldId ? fieldsById[student.student.fieldId]?.name : 'N/A';
-
-        const textLines = [
-            `Nous soussignés, Direction de ${schoolName}, certifions que :`,
-            ` `,
-            `L'étudiant(e) ${studentName}`,
-            `Né(e) le ${student.dob ? format(new Date(student.dob), 'd MMMM yyyy', { locale: fr }) : 'N/A'} à ${student.pob || 'N/A'}`,
-            `Matricule: ${studentMatricule}`,
-            ` `,
-            `est régulièrement inscrit(e) en ${studentLevel} de la filière ${studentField}`,
-            `pour l'année académique ${academicYear}.`,
-            ` `,
-            `En foi de quoi, ce certificat lui est délivré pour servir et valoir ce que de droit.`,
-        ];
-        
-        let y = 130;
-        const lineHeight = 7; // Adjust line height as needed
-
-        textLines.forEach(line => {
-            doc.text(line, 20, y);
-            y += lineHeight;
+        toast({
+            variant: "destructive",
+            title: "Fonctionnalité désactivée",
+            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
         });
-
-        doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, doc.internal.pageSize.getWidth() - 20, 240, { align: 'right' });
-        doc.text("La Direction", doc.internal.pageSize.getWidth() - 20, 260, { align: 'right' });
-
-        doc.save(`certificat_${student.lastName}_${student.firstName}.pdf`);
-        toast({ title: "Certificat généré", description: `Le certificat pour ${studentName} a été téléchargé.` });
     };
 
     return (

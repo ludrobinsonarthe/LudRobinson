@@ -13,8 +13,6 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { FileDown, ArrowLeft } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -147,72 +145,11 @@ export default function GradesPage() {
     
     const handleExportPDF = async () => {
         if (!studentToView || !settings) return;
-
-        const doc = new jsPDF();
-        const schoolName = settings.schoolName;
-        const academicYear = settings.academicYear;
-        const studentName = `${studentToView.lastName} ${studentToView.firstName}`;
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Error loading logo for PDF", error);
-        }
-
-
-        // Header
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(18);
-        doc.text(schoolName, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
-        doc.setFontSize(14);
-        doc.text(`Bulletin de Notes - ${academicYear}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
-
-        // Student Info
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Étudiant(e): ${studentName}`, 14, 45);
-        doc.text(`Matricule: ${studentToView.student?.matricule || 'N/A'}`, 14, 52);
-        doc.text(`Niveau: ${studentToView.student?.level || 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 45, { align: 'right' });
-        doc.text(`Filière: ${studentToView.student?.fieldId && fieldsById[studentToView.student.fieldId] ? fieldsById[studentToView.student.fieldId].name : 'N/A'}`, doc.internal.pageSize.getWidth() - 14, 52, { align: 'right' });
-        
-        // Grades Table
-        const tableColumn = ["Matière", "Crédit", "Devoir de Classe", "Devoir de Recherche", "Examen", "Moyenne /20"];
-        const tableRows: (string | number)[][] = [];
-
-        coursesWithGrades.forEach(course => {
-            const dc = course.grades.find(g => g.type === 'devoir de classe');
-            const dr = course.grades.find(g => g.type === 'devoir de recherche');
-            const exam = course.grades.find(g => g.type === 'examen');
-
-            tableRows.push([
-                course.name,
-                course.credit,
-                dc ? `${dc.score}/${dc.total}` : 'N/A',
-                dr ? `${dr.score}/${dr.total}` : 'N/A',
-                exam ? `${exam.score}/${exam.total}` : 'N/A',
-                course.average.toFixed(2),
-            ]);
+        toast({
+            variant: "destructive",
+            title: "Fonctionnalité désactivée",
+            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
         });
-
-        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 60, theme: 'grid' });
-
-        // Footer
-        const finalY = (doc as any).lastAutoTable.finalY || 100;
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Moyenne Générale: ${overallAverage.toFixed(2)} / 20`, doc.internal.pageSize.getWidth() - 14, finalY + 20, { align: 'right' });
-        
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Fait à ___________, le ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, doc.internal.pageSize.getHeight() - 30);
-        doc.text("Signature de la Direction", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 30, { align: 'right' });
-        
-        doc.save(`bulletin_${studentToView.lastName}_${studentToView.firstName}.pdf`);
-        toast({ title: 'Bulletin de notes généré', description: `Le bulletin pour ${studentName} a été téléchargé.` });
     };
 
     const pageTitle = studentToView ? `Relevé de notes de ${studentToView.lastName} ${studentToView.firstName}` : "Mes Notes";

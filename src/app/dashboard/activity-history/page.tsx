@@ -78,54 +78,6 @@ export default function ActivityHistoryPage() {
         }, {} as Record<string, User>);
     }, [allUsers]);
 
-    const handleExportPDF = async () => {
-        if (!settings) {
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Les paramètres sont introuvables.' });
-            return;
-        }
-        const { jsPDF } = await import('jspdf');
-        const { default: autoTable } = await import('jspdf-autotable');
-        const doc = new jsPDF();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-        
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Journal d'Activité - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
-        
-        const tableColumn = ["Acteur", "Action", "Date"];
-        const tableRows: string[][] = [];
-
-        filteredLogs.forEach(log => {
-            const logData = [
-                log.actorName || 'Système',
-                log.details,
-                format(new Date(log.timestamp), 'd MMM yyyy, HH:mm', { locale: fr }),
-            ];
-            tableRows.push(logData);
-        });
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-        });
-
-        doc.save(`historique_activites_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Téléchargement réussi', description: 'Le journal d\'activité a été exporté en PDF.' });
-    };
-
     return (
         <div className="space-y-6">
             <div>
@@ -150,10 +102,6 @@ export default function ActivityHistoryPage() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="max-w-sm"
                         />
-                         <Button variant="outline" onClick={handleExportPDF}>
-                            <FileDown className="mr-2 h-4 w-4" />
-                            Exporter en PDF
-                        </Button>
                     </div>
                      <Table>
                         <TableHeader>

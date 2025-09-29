@@ -304,43 +304,6 @@ function GradeManagementContent() {
         return { headers, data };
     }
 
-    const handleExportPDF = async () => {
-        if (!course || !settings) return;
-
-        const { jsPDF } = await import('jspdf');
-        const { default: autoTable } = await import('jspdf-autotable');
-        const doc = new jsPDF({ orientation: "landscape" });
-        const { headers, data } = getExportData();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl || '/logo.png');
-            if (logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-
-        doc.setFont("helvetica", "bold");
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Relevé de notes - ${course.name}`, 40, 25);
-        doc.setFontSize(10);
-        doc.text(`Niveau: ${course.level} - Année: ${settings.academicYear}`, 14, 35);
-        
-        autoTable(doc, {
-            head: [headers],
-            body: data,
-            startY: 40,
-            theme: 'striped',
-            styles: { fontSize: 8 },
-        });
-
-        doc.save(`notes_${course.name.replace(/\s/g, '_')}.pdf`);
-        toast({ title: "Exportation PDF réussie" });
-    };
-
     const handleExportXLSX = async () => {
         if (!course) return;
         const XLSX = await import('xlsx');
@@ -470,15 +433,9 @@ function GradeManagementContent() {
                             </div>
                         </div>
                         <div className='flex items-center gap-2'>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline"><FileDown className="mr-2 h-4 w-4"/> Exporter les notes</Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={handleExportPDF}>Exporter en PDF</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleExportXLSX}>Exporter en Excel</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button variant="outline" onClick={handleExportXLSX}>
+                                <FileDown className="mr-2 h-4 w-4"/> Exporter en Excel
+                            </Button>
                             <AlertDialog open={isEvalDialogOpen} onOpenChange={setIsEvalDialogOpen}>
                                 <AlertDialogTrigger asChild>
                                     <Button><PlusCircle className="mr-2 h-4 w-4" /> Ajouter une évaluation</Button>

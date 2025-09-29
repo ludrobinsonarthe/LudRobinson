@@ -243,119 +243,12 @@ function SalaryManagementContent() {
     }
     
     const handleGeneratePayslip = async (salary: UnifiedSalary) => {
-        const user = usersById[salary.userId];
-        if (!user || !settings) {
-            toast({ variant: 'destructive', title: 'Utilisateur ou paramètres introuvables' });
-            return;
-        }
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-        const doc = new jsPDF();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if (logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, doc.internal.pageSize.getWidth() / 2 - 10, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Error loading logo for PDF", error);
-        }
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.text(settings.schoolName, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
-        
-        doc.setFontSize(20);
-        doc.text("BULLETIN DE PAIE", doc.internal.pageSize.getWidth() / 2, 55, { align: 'center' });
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Période: ${salary.month} ${salary.year}`, doc.internal.pageSize.getWidth() - 20, 70, { align: 'right' });
-        doc.text(`Date d'émission: ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 20, 70);
-
-        doc.text(`Employé: ${user.lastName} ${user.firstName}`, 20, 90);
-        doc.text(`Poste: ${user.role === 'teacher' ? 'Professeur' : user.admin?.position || 'Personnel'}`, 20, 100);
-
-        const body: (string | number)[][] = [];
-        if (salary.userRole === 'teacher' && salary.hourlyRate && salary.hoursWorked) {
-            body.push(['Taux horaire', formatCurrency(salary.hourlyRate, salary.currency)]);
-            body.push(['Heures travaillées', `${salary.hoursWorked.toFixed(2)}h`]);
-            body.push(['Salaire brut (Taux * Heures)', formatCurrency(salary.totalSalary, salary.currency)]);
-        } else if (salary.userRole === 'admin' && salary.baseSalary) {
-            body.push(['Salaire de base mensuel', formatCurrency(salary.baseSalary, salary.currency)]);
-        }
-        body.push(['', '']); // spacer
-        body.push(['Impôts & Cotisations (Exemple)', formatCurrency(0, salary.currency)]);
-        body.push(['Primes & Bonus (Exemple)', formatCurrency(0, salary.currency)]);
-
-        autoTable(doc, {
-            startY: 110,
-            head: [['Description', 'Montant']],
-            body: body,
-            theme: 'grid',
-            styles: { fontSize: 10 },
-            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-            didDrawPage: function(data) {
-                if (data.cursor) {
-                    doc.setFontSize(12);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('Salaire Net à Payer', data.settings.margin.left, data.cursor.y + 15);
-                    doc.text(formatCurrency(salary.totalSalary, salary.currency), data.settings.margin.left + 100, data.cursor.y + 15);
-                }
-            }
+        toast({
+            variant: "destructive",
+            title: "Fonctionnalité désactivée",
+            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
         });
-        
-        doc.save(`bulletin_paie_${user.lastName}_${salary.month}_${salary.year}.pdf`);
-        toast({ title: 'Bulletin de paie généré' });
     }
-
-    const handleExportPDF = async () => {
-        if (!settings) return;
-        const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
-        const doc = new jsPDF();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-        
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Historique des Salaires - ${format(new Date(), 'd MMMM yyyy', { locale: fr })}`, 14, 30);
-
-        const tableColumn = ["Employé", "Rôle", "Mois/Année", "Salaire Total", "Statut"];
-        const tableRows: string[][] = [];
-
-        filteredSalaries.forEach(s => {
-            const salaryData = [
-                s.userName,
-                s.userRole === 'teacher' ? 'Professeur' : 'Admin',
-                `${s.month} ${s.year}`,
-                formatCurrency(s.totalSalary, s.currency),
-                statusTranslation[s.status],
-            ];
-            tableRows.push(salaryData);
-        });
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-        });
-
-        doc.save(`historique_salaires_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast({ title: 'Téléchargement réussi', description: 'Le fichier PDF de l\'historique des salaires a été généré.' });
-    };
 
     const statusVariant: { [key: string]: "default" | "secondary" } = {
         paid: "default",
@@ -402,10 +295,6 @@ function SalaryManagementContent() {
                     </div>
                 </div>
                  <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={handleExportPDF}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Exporter
-                    </Button>
                     <Button onClick={handleAdd}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Générer une fiche de paie
