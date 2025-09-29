@@ -102,7 +102,7 @@ export default function StudentsPage() {
     }, [sectorFilter, availableFields, fieldFilter]);
     
     const nationalities = useMemo(() => {
-        const allNationalities = studentsFromUsers.map(s => s.nationality).filter(Boolean);
+        const allNationalities = studentsFromUsers.map(s => s.nationality).filter((n): n is string => !!n);
         return Array.from(new Set(allNationalities));
     }, [studentsFromUsers]);
 
@@ -244,7 +244,7 @@ export default function StudentsPage() {
                 const parentDoc = await getDoc(parentRef);
                 if (parentDoc.exists()) {
                     const parent = parentDoc.data() as User;
-                    const childrenUids = parent.parent?.childrenUids ? [...parent.parent.childrenUids, studentUid] : [studentUid];
+                    const childrenUids = (parent.parent?.childrenUids || []).concat(studentUid);
                     const uniqueChildrenUids = Array.from(new Set(childrenUids));
                     batch.update(parentRef, { 'parent.childrenUids': uniqueChildrenUids });
                 }
@@ -994,3 +994,4 @@ export default function StudentsPage() {
         </div>
     );
 }
+

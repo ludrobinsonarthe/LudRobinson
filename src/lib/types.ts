@@ -78,7 +78,7 @@ export interface Program {
   responsible: string; // teacher_uid
 }
 
-export interface Class {
+export interface StudentClass {
   id: string;
   name: string;
   academicYear: string;
