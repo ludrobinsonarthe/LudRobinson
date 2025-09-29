@@ -26,7 +26,6 @@ import type { User, Message } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
-import MessageSummarizer from "./message-summarizer";
 import NewMessageDialog from "./new-message-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -293,7 +292,6 @@ export default function ChatLayout({
                             locale: fr,
                           })}
                         </p>
-                        {message.content.length > 200 && <MessageSummarizer message={message.content} />}
                       </div>
                        {message.senderId === currentUser?.uid && currentUser && (
                         <Avatar className="h-8 w-8 border">

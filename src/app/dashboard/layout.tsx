@@ -61,7 +61,6 @@ import React, { useEffect, useState } from "react";
 import { UserProvider, useUser } from "@/hooks/use-user";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
-import TutorPanel from "@/components/tutor-panel";
 import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 import { AdminPermission } from "@/lib/types";
 import { type LucideIcon } from "lucide-react";
@@ -100,11 +99,18 @@ function MainSidebar() {
   const pathname = usePathname();
   const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
-  const [isTutorOpen, setIsTutorOpen] = React.useState(false);
+  const { toast } = useToast();
 
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
+  
+    const handleTutorClick = () => {
+    toast({
+      title: "Fonctionnalité en cours de maintenance",
+      description: "Le tuteur IA est temporairement indisponible. Nous travaillons à sa restauration.",
+    });
+  };
   
   const menuItems = [
     { href: "/dashboard", label: "Annonces", icon: Home },
@@ -202,7 +208,7 @@ function MainSidebar() {
   const commonFooter = (
       <SidebarMenu>
             <SidebarMenuItem>
-            <SidebarMenuButton tooltip={"Tuteur IA"} onClick={() => setIsTutorOpen(true)}>
+            <SidebarMenuButton tooltip={"Tuteur IA"} onClick={handleTutorClick}>
                 <Bot />
                 <span>Tuteur IA</span>
             </SidebarMenuButton>
@@ -271,17 +277,6 @@ function MainSidebar() {
           {commonFooter}
         </SidebarFooter>
       </Sidebar>
-      <Sheet open={isTutorOpen} onOpenChange={setIsTutorOpen}>
-          <SheetContent className="w-[440px] sm:w-[540px] p-0" side="right">
-              <SheetHeader className="p-0 m-0 h-0">
-                  <SheetTitle className="sr-only">Tuteur IA</SheetTitle>
-                  <SheetDescription className="sr-only">
-                  Un tuteur basé sur l'IA pour répondre aux questions des étudiants et générer des quiz.
-                  </SheetDescription>
-              </SheetHeader>
-              <TutorPanel />
-          </SheetContent>
-      </Sheet>
       </>
   );
 }
