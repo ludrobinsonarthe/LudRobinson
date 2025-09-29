@@ -50,7 +50,7 @@ const courseFormSchema = z.object({
   sectorId: z.string().optional(),
   fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
-  newDocumentFile: z.instanceof(File).optional(),
+  newDocumentFile: z.any().optional(),
   documents: z.array(z.string()).optional(),
   schedule: z.array(scheduleSchema).optional(),
 }).refine(data => data.sectorId || data.fieldId, {
