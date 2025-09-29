@@ -18,7 +18,7 @@ interface UserDeleteDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   onConfirm: () => void;
-  item: { id: string; firstName?: string; name?: string, lastName?: string } | null;
+  item: { id?: string; uid?: string; firstName?: string; name?: string, lastName?: string } | null;
   title?: string;
   description?: string;
 }

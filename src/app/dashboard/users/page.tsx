@@ -114,17 +114,16 @@ export default function UsersPage() {
 
             if (selectedUser) {
                 // --- UPDATE EXISTING USER ---
-                let photoUrl = selectedUser.photoUrl;
+                const updatedData: Partial<User> = { ...userData };
+                
                 if (photoFile) {
                     const photoRef = ref(storage, `avatars/${selectedUser.uid}`);
                     await uploadBytes(photoRef, photoFile);
-                    photoUrl = await getDownloadURL(photoRef);
+                    updatedData.photoUrl = await getDownloadURL(photoRef);
                 }
-
-                const updatedUser: User = { ...selectedUser, ...userData, photoUrl: photoUrl || selectedUser.photoUrl } as User;
                 
                 const userDocRef = doc(db, "users", selectedUser.uid);
-                batch.update(userDocRef, updatedUser);
+                batch.update(userDocRef, updatedData);
 
                 const log: Omit<ActivityLog, 'id'> = {
                     actorId: adminUser.uid, actorName: `${adminUser.lastName} ${adminUser.firstName}`, action: 'user_updated',
@@ -436,3 +435,4 @@ export default function UsersPage() {
         </div>
     );
 }
+
