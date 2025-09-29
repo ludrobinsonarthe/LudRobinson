@@ -172,7 +172,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (currentUser.admin?.roleId) {
-          const userRole = roles.find(r => r.id === currentUser.admin.roleId);
+          const userRole = roles.find(r => r.id === currentUser.admin?.roleId);
           return userRole?.permissions || [];
       }
       
