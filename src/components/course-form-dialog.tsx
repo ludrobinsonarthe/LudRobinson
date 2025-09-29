@@ -157,12 +157,12 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         documents: course?.documents || [] 
     };
 
-    if (courseData.fieldId === 'common_core') {
+    if (courseData.fieldId === 'common_core' || !courseData.fieldId) {
         finalCourseData.sectorId = courseData.sectorId;
-        delete (finalCourseData as any).fieldId;
+        finalCourseData.fieldId = undefined;
     } else {
         finalCourseData.fieldId = courseData.fieldId;
-        delete (finalCourseData as any).sectorId;
+        finalCourseData.sectorId = undefined;
     }
 
     await onSave(finalCourseData);
@@ -275,7 +275,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                         <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
                             <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Filière..."} /></SelectTrigger></FormControl>
                             <SelectContent>
-                                <SelectItem value="common_core">Tronc Commun (Toutes les filières)</SelectItem>
+                                <SelectItem value="common_core">Tronc Commun (Toutes les filières du secteur)</SelectItem>
                                 {availableFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -338,3 +338,5 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     </Dialog>
   );
 }
+
+    

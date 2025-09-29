@@ -104,20 +104,20 @@ function GradeManagementContent() {
     useEffect(() => {
         if (course) {
             let courseStudents: User[] = [];
-            if(course.fieldId) { // Course for a specific field
-                courseStudents = users.filter(user => 
+            if (course.fieldId) { // Course for a specific field
+                courseStudents = users.filter(user =>
                     user.role === 'student' &&
                     user.student?.fieldId === course.fieldId &&
                     user.student?.level === course.level
                 );
             } else if (course.sectorId) { // Common core course for a sector
-                 courseStudents = users.filter(user => 
+                courseStudents = users.filter(user =>
                     user.role === 'student' &&
                     user.student?.sectorId === course.sectorId &&
                     user.student?.level === course.level
                 );
             }
-            setStudents(courseStudents.sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')));
+            setStudents(courseStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || '')));
         } else {
             setStudents([]);
         }
@@ -567,3 +567,6 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
+
+
+    
