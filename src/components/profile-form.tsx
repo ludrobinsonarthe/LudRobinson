@@ -42,7 +42,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function ProfileForm() {
-  const { user, setUser, setUsers } = useUser();
+  const { user, setUsers } = useUser();
   const { toast } = useToast();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,10 +119,10 @@ export default function ProfileForm() {
             
             const userDocRef = doc(db, 'users', user.uid);
             await updateDoc(userDocRef, updatedData);
-
-            // Update user in context
+            
             const updatedUser = { ...user, ...updatedData };
-            setUser(updatedUser);
+            
+            setUsers(currentUsers => currentUsers.map(u => u.uid === updatedUser.uid ? updatedUser : u));
 
             toast({
                 title: "Profil mis à jour",
@@ -273,5 +273,3 @@ export default function ProfileForm() {
     </>
   );
 }
-
-    

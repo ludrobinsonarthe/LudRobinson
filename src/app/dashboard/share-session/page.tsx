@@ -10,7 +10,6 @@ import { db, auth } from "@/lib/firebase";
 import { doc, updateDoc, getDoc, onSnapshot, setDoc, collection, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
-import QRCode from "qrcode";
 import { signInWithCustomToken } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -81,7 +80,7 @@ function ShareSessionContent() {
     };
   }, [mode, qrSessionId, router, toast]);
 
-  const handleDisplayQrCode = useCallback(() => {
+  const handleDisplayQrCode = useCallback(async () => {
     setLoading(true);
     const sessionId = doc(collection(db, 'qr_sessions')).id;
     const sessionData = { 
@@ -91,29 +90,29 @@ function ShareSessionContent() {
 
     const loginUrl = `${window.location.origin}/dashboard/share-session?sessionId=${sessionId}`;
 
-    QRCode.toDataURL(loginUrl, {
-        width: 256,
-        margin: 2,
-        color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-        }
-    })
-    .then(url => {
-        setQrCodeDataUrl(url);
-        return setDoc(doc(db, 'qr_sessions', sessionId), sessionData);
-    })
-    .then(() => {
+    try {
+        const QRCode = (await import('qrcode')).default;
+        const dataUrl = await QRCode.toDataURL(loginUrl, {
+            width: 256,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        });
+        
+        await setDoc(doc(db, 'qr_sessions', sessionId), sessionData);
+        
+        setQrCodeDataUrl(dataUrl);
         setQrSessionId(sessionId);
         setQrLoginError(null);
         setMode('display_qr');
-        setLoading(false);
-    })
-    .catch(err => {
+    } catch (err) {
         console.error('Failed to generate QR code or create session', err);
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `qr_sessions/${sessionId}`, operation: 'create', requestResourceData: sessionData }));
+    } finally {
         setLoading(false);
-    });
+    }
   }, []);
   
   const validateSession = async () => {
