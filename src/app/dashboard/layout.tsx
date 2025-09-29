@@ -1,5 +1,3 @@
-
-
 "use client"
 import Link from "next/link";
 import { usePathname, redirect, useRouter } from "next/navigation";
@@ -65,7 +63,6 @@ import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 import { AdminPermission } from "@/lib/types";
 import { type LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import TutorPanel from "@/components/tutor-panel";
 
 
 function AppLogo() {
@@ -111,7 +108,11 @@ function MainSidebar() {
   
   const handleTutorClick = () => {
     if (user?.role === 'student') {
-      setIsTutorPanelOpen(true);
+      // setIsTutorPanelOpen(true);
+      toast({
+        title: "Fonctionnalité en maintenance",
+        description: "Le tuteur IA est actuellement indisponible. Veuillez réessayer plus tard.",
+      });
     } else {
       toast({
         title: "Fonctionnalité réservée",
@@ -285,7 +286,6 @@ function MainSidebar() {
           {commonFooter}
         </SidebarFooter>
       </Sidebar>
-      <TutorPanel isOpen={isTutorPanelOpen} setIsOpen={setIsTutorPanelOpen} />
       </>
   );
 }
