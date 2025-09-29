@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -27,11 +26,12 @@ import type { Course, User, Sector, Field, Cycle } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
-import { Loader2, PlusCircle, Trash2 } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, Link as LinkIcon, File } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
+import Link from 'next/link';
 
 
 const scheduleSchema = z.object({
@@ -175,6 +175,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     }
     
     if (documentFile) {
+        toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
         const courseId = course?.id || `course_${Date.now()}`;
         const filePath = `courses/${courseId}/${documentFile.name}`;
         const fileRef = ref(storage, filePath);
@@ -229,20 +230,33 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                     </FormItem>
                 )}/>
 
-                 <FormField control={form.control} name="documentFile" render={({ field: { onChange, value, ...rest } }) => (
-                    <FormItem>
+                 <div className="space-y-2">
                     <FormLabel>Document du cours (PDF)</FormLabel>
-                    <FormControl>
-                        <Input 
-                            type="file" 
-                            accept=".pdf"
-                            onChange={(e) => onChange(e.target.files?.[0])}
-                            {...rest}
-                        />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}/>
+                     {course?.documents && course.documents[0] && (
+                        <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted">
+                            <File className="h-4 w-4"/>
+                            <span className="flex-1 truncate">
+                                Fichier actuel : 
+                                <Link href={course.documents[0]} target="_blank" className="ml-1 text-primary underline hover:text-primary/80">
+                                     {decodeURIComponent(course.documents[0].split('/').pop()?.split('?')[0] || '')}
+                                </Link>
+                            </span>
+                        </div>
+                     )}
+                     <FormField control={form.control} name="documentFile" render={({ field: { onChange, value, ...rest } }) => (
+                        <FormItem>
+                        <FormControl>
+                            <Input 
+                                type="file" 
+                                accept=".pdf"
+                                onChange={(e) => onChange(e.target.files?.[0])}
+                                {...rest}
+                            />
+                        </FormControl>
+                         <FormMessage />
+                        </FormItem>
+                    )}/>
+                 </div>
 
                 <FormField control={form.control} name="teacherId" render={({ field }) => (
                     <FormItem>

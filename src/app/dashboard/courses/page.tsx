@@ -8,7 +8,7 @@ import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
 import { collection, query, where, getDocs, onSnapshot, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { BookOpenCheck, FileText, Loader2 } from 'lucide-react';
+import { BookOpenCheck, Download, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 
@@ -164,8 +164,8 @@ export default function CoursesPage() {
                                     <CardFooter>
                                         <Button asChild variant="secondary" className="w-full">
                                             <a href={course.documents[0]} target="_blank" rel="noopener noreferrer">
-                                                <FileText className="mr-2 h-4 w-4" />
-                                                Voir le document du cours
+                                                <Download className="mr-2 h-4 w-4" />
+                                                Télécharger le support de cours
                                             </a>
                                         </Button>
                                     </CardFooter>
