@@ -28,8 +28,6 @@ import { useToast } from '@/hooks/use-toast';
 import { imageToDataUrl } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 
 const getInitials = (name: string = '') => {
@@ -85,6 +83,8 @@ export default function ActivityHistoryPage() {
             toast({ variant: 'destructive', title: 'Erreur', description: 'Les paramètres sont introuvables.' });
             return;
         }
+        const { jsPDF } = await import('jspdf');
+        const autoTable = (await import('jspdf-autotable')).default;
         const doc = new jsPDF();
         
         try {
@@ -116,7 +116,7 @@ export default function ActivityHistoryPage() {
             tableRows.push(logData);
         });
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: 40,
@@ -212,5 +212,7 @@ export default function ActivityHistoryPage() {
         </div>
     );
 }
+
+    
 
     

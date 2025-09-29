@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -102,7 +103,7 @@ export default function StudentsPage() {
     
     const nationalities = useMemo(() => {
         const allNationalities = studentsFromUsers.map(s => s.nationality).filter(Boolean);
-        return Array.from(new Set(allNationalities)) as string[];
+        return Array.from(new Set(allNationalities));
     }, [studentsFromUsers]);
 
 
@@ -243,8 +244,8 @@ export default function StudentsPage() {
                 const parentDoc = await getDoc(parentRef);
                 if (parentDoc.exists()) {
                     const parent = parentDoc.data() as User;
-                    const childrenUids = [...(parent.parent?.childrenUids || []), studentUid];
-                    const uniqueChildrenUids = [...new Set(childrenUids)];
+                    const childrenUids = parent.parent?.childrenUids ? [...parent.parent.childrenUids, studentUid] : [studentUid];
+                    const uniqueChildrenUids = Array.from(new Set(childrenUids));
                     batch.update(parentRef, { 'parent.childrenUids': uniqueChildrenUids });
                 }
             } else {
@@ -993,3 +994,5 @@ export default function StudentsPage() {
         </div>
     );
 }
+
+    
