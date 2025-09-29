@@ -27,8 +27,12 @@ import type { Course, User, Sector, Field, Cycle } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useToast } from "@/hooks/use-toast";
+
 
 const scheduleSchema = z.object({
     day: z.enum(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']),
@@ -43,11 +47,14 @@ const courseFormSchema = z.object({
   teacherId: z.string().min(1, "Veuillez sélectionner un professeur."),
   level: z.string().min(1, "Le niveau est requis."),
   cycle: z.enum(['local', 'international', 'entrepreneur']),
-  sectorId: z.string().min(1, "Le secteur est requis."),
-  fieldId: z.string().optional(), // Now optional
+  sectorId: z.string().optional(),
+  fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
-  documentFile: z.any().optional(),
+  documentFile: z.instanceof(File).optional(),
   schedule: z.array(scheduleSchema).optional(),
+}).refine(data => data.sectorId || data.fieldId, {
+    message: "Vous devez sélectionner un secteur ou une filière.",
+    path: ["fieldId"],
 });
 
 type CourseFormValues = z.infer<typeof courseFormSchema>;
@@ -73,6 +80,8 @@ const cycles: { value: Cycle, label: string }[] = [
 export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, teachers, sectors, fields }: CourseFormDialogProps) {
   const { settings } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
@@ -164,10 +173,28 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         finalCourseData.fieldId = courseData.fieldId;
         finalCourseData.sectorId = undefined;
     }
+    
+    if (documentFile) {
+        const courseId = course?.id || `course_${Date.now()}`;
+        const filePath = `courses/${courseId}/${documentFile.name}`;
+        const fileRef = ref(storage, filePath);
+        
+        try {
+            await uploadBytes(fileRef, documentFile);
+            const downloadURL = await getDownloadURL(fileRef);
+            // Replace existing document or add new one. For simplicity, we just keep one doc.
+            finalCourseData.documents = [downloadURL];
+            toast({ title: "Fichier téléversé", description: "Le document du cours a été enregistré." });
+        } catch (error) {
+            console.error("Error uploading document:", error);
+            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible d'enregistrer le fichier du cours." });
+            setIsSubmitting(false);
+            return;
+        }
+    }
 
-    await onSave(finalCourseData);
+    onSave(finalCourseData);
     setIsSubmitting(false);
-    setIsOpen(false);
   };
 
   return (
@@ -330,7 +357,10 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Annuler</Button>
-              <Button type="submit" disabled={isSubmitting}>{course ? "Enregistrer" : "Créer le cours"}</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                {course ? "Enregistrer" : "Créer le cours"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
@@ -338,5 +368,3 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     </Dialog>
   );
 }
-
-    
