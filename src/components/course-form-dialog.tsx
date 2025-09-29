@@ -271,7 +271,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                         </FormItem>
                     )}/>
                     <FormField control={form.control} name="fieldId" render={({ field }) => (
-                        <FormItem><FormLabel>Filière</FormLabel>
+                        <FormItem><FormLabel>Filière (ou Tronc Commun)</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSector}>
                             <FormControl><SelectTrigger><SelectValue placeholder={!selectedSector ? "Sélectionnez d'abord un secteur" : "Filière..."} /></SelectTrigger></FormControl>
                             <SelectContent>
