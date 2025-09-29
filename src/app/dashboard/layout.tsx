@@ -65,6 +65,7 @@ import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 import { AdminPermission } from "@/lib/types";
 import { type LucideIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import TutorPanel from "@/components/tutor-panel";
 
 
 function AppLogo() {
@@ -75,7 +76,7 @@ function AppLogo() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-card text-card-foreground shrink-0">
-         <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={40} height={40} className="object-contain" />
+         <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={40} height={40} className="object-contain" unoptimized />
        </div>
       <h1 className="font-headline text-lg font-bold tracking-tight text-foreground truncate">
         {settings?.schoolName || 'ISGI'}
@@ -101,16 +102,22 @@ function MainSidebar() {
   const { user, hasPermission } = useUser();
   const [isMounted, setIsMounted] = React.useState(false);
   const { toast } = useToast();
+  const [isTutorPanelOpen, setIsTutorPanelOpen] = useState(false);
+
 
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
   
-    const handleTutorClick = () => {
-    toast({
-      title: "Fonctionnalité en cours de maintenance",
-      description: "Le tuteur IA est temporairement indisponible. Nous travaillons à sa restauration.",
-    });
+  const handleTutorClick = () => {
+    if (user?.role === 'student') {
+      setIsTutorPanelOpen(true);
+    } else {
+      toast({
+        title: "Fonctionnalité réservée",
+        description: "Le tuteur IA est disponible uniquement pour les étudiants.",
+      });
+    }
   };
   
   const menuItems = [
@@ -278,6 +285,7 @@ function MainSidebar() {
           {commonFooter}
         </SidebarFooter>
       </Sidebar>
+      <TutorPanel isOpen={isTutorPanelOpen} setIsOpen={setIsTutorPanelOpen} />
       </>
   );
 }
