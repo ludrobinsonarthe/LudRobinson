@@ -102,7 +102,7 @@ export default function StudentsPage() {
     
     const nationalities = useMemo(() => {
         const allNationalities = studentsFromUsers.map(s => s.nationality).filter(Boolean);
-        return [...new Set(allNationalities)] as string[];
+        return Array.from(new Set(allNationalities)) as string[];
     }, [studentsFromUsers]);
 
 
