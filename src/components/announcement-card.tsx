@@ -38,7 +38,7 @@ const getInitials = (firstName: string = '', lastName: string = '' ) => {
 };
 
 export default function AnnouncementCard({ announcement, onEdit, onDelete }: AnnouncementCardProps) {
-  const { user: currentUser, users } = useUser();
+  const { user: currentUser, allUsers: users } = useUser();
   const [sender, setSender] = useState<User | null>(null);
 
   const [formattedDate, setFormattedDate] = useState("");

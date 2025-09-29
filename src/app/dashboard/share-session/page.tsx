@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, Smartphone, QrCode, Camera } from "lucide-react";
@@ -10,17 +10,19 @@ import { db, auth } from "@/lib/firebase";
 import { doc, updateDoc, getDoc, onSnapshot, setDoc, collection, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from "@/hooks/use-auth";
-import QRCode from "qrcode.react";
+import QRCode from "qrcode";
 import { signInWithCustomToken } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
+import Image from "next/image";
 
 function ShareSessionContent() {
   const [mode, setMode] = useState<'initial' | 'display_qr' | 'validate_qr'>('initial');
   const [loading, setLoading] = useState(false);
   const [validated, setValidated] = useState(false);
   const [qrSessionId, setQrSessionId] = useState<string | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [qrLoginError, setQrLoginError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -79,7 +81,7 @@ function ShareSessionContent() {
     };
   }, [mode, qrSessionId, router, toast]);
 
-  const handleDisplayQrCode = () => {
+  const handleDisplayQrCode = useCallback(() => {
     setLoading(true);
     const sessionId = doc(collection(db, 'qr_sessions')).id;
     const sessionData = { 
@@ -87,18 +89,32 @@ function ShareSessionContent() {
       createdAt: serverTimestamp() 
     };
 
-    setDoc(doc(db, 'qr_sessions', sessionId), sessionData)
-        .then(() => {
-            setQrSessionId(sessionId);
-            setQrLoginError(null);
-            setMode('display_qr');
-            setLoading(false);
-        })
-        .catch(err => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `qr_sessions/${sessionId}`, operation: 'create', requestResourceData: sessionData }));
-            setLoading(false);
-        });
-  };
+    const loginUrl = `${window.location.origin}/dashboard/share-session?sessionId=${sessionId}`;
+
+    QRCode.toDataURL(loginUrl, {
+        width: 256,
+        margin: 2,
+        color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+        }
+    })
+    .then(url => {
+        setQrCodeDataUrl(url);
+        return setDoc(doc(db, 'qr_sessions', sessionId), sessionData);
+    })
+    .then(() => {
+        setQrSessionId(sessionId);
+        setQrLoginError(null);
+        setMode('display_qr');
+        setLoading(false);
+    })
+    .catch(err => {
+        console.error('Failed to generate QR code or create session', err);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `qr_sessions/${sessionId}`, operation: 'create', requestResourceData: sessionData }));
+        setLoading(false);
+    });
+  }, []);
   
   const validateSession = async () => {
     setLoading(true);
@@ -186,8 +202,8 @@ function ShareSessionContent() {
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center p-4 gap-4">
-                {qrSessionId ? (
-                    <QRCode value={`${window.location.origin}/dashboard/share-session?sessionId=${qrSessionId}`} size={256} />
+                {qrCodeDataUrl ? (
+                    <Image src={qrCodeDataUrl} alt="QR Code" width={256} height={256} />
                 ) : (
                     <Loader2 className="h-16 w-16 animate-spin text-primary" />
                 )}
