@@ -181,7 +181,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     if (newDocumentFile) {
         toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
         const courseId = course?.id || `course_${Date.now()}`;
-        const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name}`;
+        const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
         const fileRef = ref(storage, filePath);
         
         try {
@@ -264,7 +264,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                             <File className="h-4 w-4"/>
                             <span className="flex-1 truncate">
                                 <Link href={docUrl} target="_blank" className="underline hover:text-primary/80">
-                                     {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0] || `Document ${index+1}`)}
+                                     {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0].replace(/%20/g, ' ') || `Document ${index+1}`)}
                                 </Link>
                             </span>
                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(docUrl, index)}>

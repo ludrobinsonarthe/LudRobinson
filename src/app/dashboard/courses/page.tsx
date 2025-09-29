@@ -174,7 +174,7 @@ export default function CoursesPage() {
                                                     <DropdownMenuItem key={index} asChild>
                                                         <a href={docUrl} target="_blank" rel="noopener noreferrer">
                                                             <Download className="mr-2 h-4 w-4" />
-                                                            {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0] || `Document ${index + 1}`)}
+                                                            {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0].replace(/%20/g, ' ') || `Document ${index + 1}`)}
                                                         </a>
                                                     </DropdownMenuItem>
                                                 ))}
