@@ -15,18 +15,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
-import { TeacherSalary, Attendance, Course, UnifiedSalary, User } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, Download, ArrowLeft, FileDown, Loader2 } from "lucide-react";
+import { TeacherSalary, Attendance, Course, UnifiedSalary, User, ActivityLog } from "@/lib/types";
+import { MoreHorizontal, PlusCircle, Trash2, CheckCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, getMonth, getYear } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch, query, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, writeBatch, query, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import SalaryFormDialog from '@/components/salary-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { imageToDataUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function SalaryManagementContent() {
@@ -191,7 +190,7 @@ function SalaryManagementContent() {
         }
 
         const salaryRef = doc(db, 'teacherSalaries', salary.id);
-        const adminUser = users.find(u => u.role === 'admin');
+        const adminUser = user;
         const updatedSalaryData = { status, paidAt: new Date().toISOString(), paidBy: adminUser?.uid };
         
         try {
@@ -223,6 +222,10 @@ function SalaryManagementContent() {
              toast({ variant: "destructive", title: "Action non supportée", description: "La suppression des salaires du personnel admin n'est pas implémentée." });
             return;
         }
+        if (salary.status === 'paid') {
+            toast({ variant: "destructive", title: "Action impossible", description: "Vous ne pouvez pas supprimer un salaire déjà payé." });
+            return;
+        }
         setSelectedSalary(salary);
         setIsDeleteOpen(true);
     };
@@ -231,7 +234,7 @@ function SalaryManagementContent() {
         if(selectedSalary) {
              try {
                 await deleteDoc(doc(db, 'teacherSalaries', selectedSalary.id));
-                toast({ title: "Fiche de paie supprimée" });
+                 toast({ title: "Fiche de paie supprimée" });
             } catch (error) {
                 console.error("Error deleting salary record: ", error);
                 toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer la fiche de paie." });
@@ -240,14 +243,6 @@ function SalaryManagementContent() {
                 setSelectedSalary(null);
             }
         }
-    }
-    
-    const handleGeneratePayslip = async (salary: UnifiedSalary) => {
-        toast({
-            variant: "destructive",
-            title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
-        });
     }
 
     const statusVariant: { [key: string]: "default" | "secondary" } = {
@@ -259,12 +254,12 @@ function SalaryManagementContent() {
         pending: "En attente",
     }
 
-    const loading = usersLoading || loadingData;
-
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
     }
     
+    const loading = usersLoading || loadingData;
+
     if (user?.role !== 'admin') {
         return (
              <Card>
@@ -367,11 +362,7 @@ function SalaryManagementContent() {
                                                    </Button>
                                                </DropdownMenuTrigger>
                                                <DropdownMenuContent align="end">
-                                                   <DropdownMenuItem onClick={() => handleGeneratePayslip(salary)}>
-                                                        <Download className="mr-2 h-4 w-4" />
-                                                        Télécharger le bulletin
-                                                    </DropdownMenuItem>
-                                                   <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive" disabled={salary.status === 'paid'}>
+                                                   <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive">
                                                         <Trash2 className="mr-2 h-4 w-4" />
                                                         Supprimer
                                                    </DropdownMenuItem>
@@ -421,7 +412,3 @@ export default function SalaryManagementPage() {
         </Suspense>
     );
 }
-
-    
-
-    

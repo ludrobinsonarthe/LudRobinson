@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CashTransaction } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, ArrowUpCircle, ArrowDownCircle, Scale, FileDown } from "lucide-react";
+import { MoreHorizontal, PlusCircle, ArrowUpCircle, ArrowDownCircle, Scale, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -192,12 +192,13 @@ export default function CashFlowPage() {
                                     <TableCell className="text-right">
                                        <DropdownMenu>
                                            <DropdownMenuTrigger asChild>
-                                               <Button variant="ghost" size="icon" disabled={!!t.relatedDocId}>
+                                               <Button variant="ghost" size="icon" disabled={!!t.relatedDocId && (t.category === 'tuition' || t.category === 'salary')}>
                                                    <MoreHorizontal className="h-4 w-4" />
                                                </Button>
                                            </DropdownMenuTrigger>
                                            <DropdownMenuContent align="end">
                                                <DropdownMenuItem onClick={() => handleDelete(t)} className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4"/>
                                                     Supprimer
                                                </DropdownMenuItem>
                                            </DropdownMenuContent>
