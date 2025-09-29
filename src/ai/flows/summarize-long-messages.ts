@@ -1,6 +1,5 @@
 // Summarize long messages using AI to provide a brief overview for quick consumption.
 
-'use server';
 
 /**
  * @fileOverview Summarizes lengthy messages using AI.

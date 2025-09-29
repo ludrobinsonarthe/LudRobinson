@@ -1,5 +1,4 @@
 
-'use server';
 /**
  * @fileOverview An AI tutor that can answer student questions and generate quizzes.
  * 
