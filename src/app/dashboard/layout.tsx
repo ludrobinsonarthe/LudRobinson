@@ -64,6 +64,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 import { AdminPermission } from "@/lib/types";
 import { type LucideIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 
 function AppLogo() {
