@@ -308,7 +308,7 @@ function GradeManagementContent() {
         if (!course || !settings) return;
 
         const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
+        const { default: autoTable } = await import('jspdf-autotable');
         const doc = new jsPDF({ orientation: "landscape" });
         const { headers, data } = getExportData();
         
@@ -600,11 +600,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-
-    
-
-    
-
-    
-
-    

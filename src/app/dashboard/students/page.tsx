@@ -427,7 +427,7 @@ export default function StudentsPage() {
     
     const createTranscriptPdf = async (student: User): Promise<Blob> => {
         const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
+        const { default: autoTable } = await import('jspdf-autotable');
 
         const doc = new jsPDF();
         
@@ -587,7 +587,7 @@ export default function StudentsPage() {
 
     const handleExportPDF = async () => {
         const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
+        const { default: autoTable } = await import('jspdf-autotable');
         const doc = new jsPDF({ orientation: "landscape" });
 
         try {
@@ -994,5 +994,3 @@ export default function StudentsPage() {
         </div>
     );
 }
-
-    

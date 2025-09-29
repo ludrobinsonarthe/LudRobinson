@@ -84,7 +84,7 @@ export default function ActivityHistoryPage() {
             return;
         }
         const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
+        const { default: autoTable } = await import('jspdf-autotable');
         const doc = new jsPDF();
         
         try {
@@ -212,7 +212,3 @@ export default function ActivityHistoryPage() {
         </div>
     );
 }
-
-    
-
-    

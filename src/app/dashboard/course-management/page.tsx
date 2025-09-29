@@ -167,7 +167,7 @@ export default function CourseManagementPage() {
     const handleExportPDF = async () => {
         if (!settings) return;
         const { jsPDF } = await import('jspdf');
-        const autoTable = (await import('jspdf-autotable')).default;
+        const { default: autoTable } = await import('jspdf-autotable');
         const doc = new jsPDF();
 
         try {
@@ -394,5 +394,3 @@ export default function CourseManagementPage() {
         </div>
     );
 }
-
-    
