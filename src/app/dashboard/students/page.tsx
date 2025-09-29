@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, UserRole, Class, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance, FeeStructure, ActivityLog } from "@/lib/types";
+import { User, UserRole, Sector, Field, Cycle, Payment, OfficialDocument, Grade, Course, Attendance, FeeStructure, ActivityLog } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, FileUp, FileDown, Receipt, FileText, ClipboardList } from "lucide-react";
 import { format } from 'date-fns';
@@ -995,3 +995,6 @@ export default function StudentsPage() {
     );
 }
 
+
+
+    

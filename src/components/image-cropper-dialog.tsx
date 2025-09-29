@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
-import Cropper, { Area } from "react-easy-crop";
+import { useState, useRef } from "react";
+import ReactCrop, { type Crop, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,70 +22,69 @@ interface ImageCropperDialogProps {
   onCropped: (image: Blob | null) => void;
 }
 
-const createImage = (url: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = new Image();
-    image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', (error) => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous'); 
-    image.src = url;
+function getCroppedImg(
+  image: HTMLImageElement,
+  crop: PixelCrop,
+): Promise<Blob | null> {
+  const canvas = document.createElement('canvas');
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    return Promise.resolve(null);
+  }
+
+  ctx.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    crop.width,
+    crop.height
+  );
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      resolve(blob);
+    }, 'image/jpeg');
   });
-
-async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob | null> {
-    const image = await createImage(imageSrc);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) {
-        return null;
-    }
-
-    const maxSize = Math.max(image.width, image.height);
-    const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
-
-    canvas.width = safeArea;
-    canvas.height = safeArea;
-
-    ctx.translate(safeArea / 2, safeArea / 2);
-    ctx.translate(-image.width / 2, -image.height / 2);
-    
-    ctx.drawImage(
-        image,
-        0,
-        0
-    );
-    const data = ctx.getImageData(0, 0, safeArea, safeArea);
-
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
-
-    ctx.putImageData(
-        data,
-        Math.round(0 - safeArea / 2 + image.width / 2 - pixelCrop.x),
-        Math.round(0 - safeArea / 2 + image.height / 2 - pixelCrop.y)
-    );
-
-    return new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-            resolve(blob);
-        }, 'image/jpeg');
-    });
 }
 
-export default function ImageCropperDialog({ isOpen, setIsOpen, imgSrc, onCropped }: ImageCropperDialogProps) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
-  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
+export default function ImageCropperDialog({ isOpen, setIsOpen, imgSrc, onCropped }: ImageCropperDialogProps) {
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    const crop = centerCrop(
+      makeAspectCrop(
+        {
+          unit: '%',
+          width: 90,
+        },
+        1, // aspect ratio 1:1
+        width,
+        height
+      ),
+      width,
+      height
+    );
+    setCrop(crop);
+  }
 
   const handleSaveCrop = async () => {
-    if (croppedAreaPixels && imgSrc) {
-      const croppedImageBlob = await getCroppedImg(imgSrc, croppedAreaPixels);
-      onCropped(croppedImageBlob);
-      setIsOpen(false);
+    if (completedCrop && imgRef.current) {
+        const croppedImageBlob = await getCroppedImg(imgRef.current, completedCrop);
+        onCropped(croppedImageBlob);
+        setIsOpen(false);
     }
   };
 
@@ -99,28 +99,23 @@ export default function ImageCropperDialog({ isOpen, setIsOpen, imgSrc, onCroppe
         </DialogHeader>
         
         <div className="relative h-64 w-full bg-muted">
-          <Cropper
-            image={imgSrc}
-            crop={crop}
-            zoom={zoom}
-            aspect={1}
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
-            onCropComplete={onCropComplete}
-            cropShape="round"
-            showGrid={false}
-          />
-        </div>
-        <div className="space-y-2">
-            <label htmlFor="zoom" className="text-sm font-medium">Zoom</label>
-            <Slider
-                id="zoom"
-                min={1}
-                max={3}
-                step={0.1}
-                value={[zoom]}
-                onValueChange={(value) => setZoom(value[0])}
-            />
+            {imgSrc && (
+                <ReactCrop
+                    crop={crop}
+                    onChange={c => setCrop(c)}
+                    onComplete={c => setCompletedCrop(c)}
+                    aspect={1}
+                    circularCrop
+                >
+                    <img 
+                        ref={imgRef}
+                        alt="Crop me" 
+                        src={imgSrc} 
+                        onLoad={onImageLoad}
+                        style={{ maxHeight: '60vh' }}
+                    />
+                </ReactCrop>
+            )}
         </div>
         
         <DialogFooter>
