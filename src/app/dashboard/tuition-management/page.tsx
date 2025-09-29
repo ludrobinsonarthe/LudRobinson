@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { Payment, User, ActivityLog } from "@/lib/types";
-import { MoreHorizontal, PlusCircle, Trash2, Download, Check, X, ArrowLeft, FileDown, Loader2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Download, Check, X, ArrowLeft, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -28,7 +28,6 @@ import PaymentFormDialog from '@/components/payment-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { imageToDataUrl } from '@/lib/utils';
 
 function TuitionManagementContent() {
     const { allUsers, loading: usersLoading, settings, user } = useUser();
@@ -41,6 +40,7 @@ function TuitionManagementContent() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+    const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
     const { toast } = useToast();
 
     // Filters
@@ -102,11 +102,13 @@ function TuitionManagementContent() {
     }
     
     const handleUpdateStatus = async (payment: Payment, status: 'validated' | 'rejected') => {
+        if (!user) return;
+        setUpdatingStatus(payment.id);
         const paymentRef = doc(db, 'payments', payment.id);
 
         try {
             const batch = writeBatch(db);
-            batch.update(paymentRef, { status, validatedBy: user?.uid || 'system' });
+            batch.update(paymentRef, { status, validatedBy: user.uid });
 
             const studentName = getStudentName(payment.studentId);
             const logMessage = `Paiement de ${payment.amountPaid} ${payment.currency} pour ${studentName} (${payment.month}) ${status === 'validated' ? 'validé' : 'rejeté'}.`;
@@ -114,8 +116,8 @@ function TuitionManagementContent() {
             // Create activity log
             const logRef = doc(collection(db, 'activityLogs'));
             const newLog: Omit<ActivityLog, 'id'> = {
-                actorId: user!.uid,
-                actorName: `${user!.lastName} ${user!.firstName}`,
+                actorId: user.uid,
+                actorName: `${user.lastName} ${user.firstName}`,
                 action: status === 'validated' ? 'payment_validation' : 'payment_rejection',
                 entityType: 'payment',
                 entityId: payment.id,
@@ -133,7 +135,7 @@ function TuitionManagementContent() {
                     currency: payment.currency,
                     description: `Scolarité ${payment.month} - ${getStudentName(payment.studentId)}`,
                     date: new Date().toISOString(),
-                    createdBy: user?.uid || 'system',
+                    createdBy: user.uid,
                     relatedDocId: payment.id,
                 });
             }
@@ -143,6 +145,8 @@ function TuitionManagementContent() {
         } catch (error) {
             console.error("Error updating status: ", error);
             toast({ variant: 'destructive', title: "Erreur", description: "Impossible de mettre à jour le statut." });
+        } finally {
+            setUpdatingStatus(null);
         }
     }
 
@@ -170,7 +174,7 @@ function TuitionManagementContent() {
         toast({
             variant: "destructive",
             title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
+            description: "L'exportation PDF est temporairement désactivée.",
         });
     };
 
@@ -287,9 +291,13 @@ function TuitionManagementContent() {
                                     <TableCell className="text-right">
                                        {payment.status === 'pending' ? (
                                            <div className="flex gap-2 justify-end">
-                                               <Button size="icon" variant="ghost" className="text-green-600 hover:text-green-700" onClick={() => handleUpdateStatus(payment, 'validated')}><Check className="h-4 w-4"/></Button>
-                                               <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive/80" onClick={() => handleUpdateStatus(payment, 'rejected')}><X className="h-4 w-4"/></Button>
-                                                <Button size="icon" variant="ghost" onClick={() => handleDelete(payment)}><Trash2 className="h-4 w-4"/></Button>
+                                               {updatingStatus === payment.id ? <Loader2 className="h-4 w-4 animate-spin" /> :
+                                               <>
+                                                   <Button size="icon" variant="ghost" className="text-green-600 hover:text-green-700" onClick={() => handleUpdateStatus(payment, 'validated')}><Check className="h-4 w-4"/></Button>
+                                                   <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive/80" onClick={() => handleUpdateStatus(payment, 'rejected')}><X className="h-4 w-4"/></Button>
+                                                    <Button size="icon" variant="ghost" onClick={() => handleDelete(payment)}><Trash2 className="h-4 w-4"/></Button>
+                                                </>
+                                               }
                                            </div>
                                        ) : (
                                         <DropdownMenu>
@@ -352,8 +360,3 @@ export default function TuitionManagementPage() {
         </Suspense>
     );
 }
-
-    
-
-
-    

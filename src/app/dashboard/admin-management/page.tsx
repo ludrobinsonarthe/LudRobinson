@@ -247,7 +247,7 @@ export default function AdminManagementPage() {
             const log: Omit<ActivityLog, 'id'> = {
                 actorId: adminUser.uid,
                 actorName: `${adminUser.lastName} ${adminUser.firstName}`,
-                action: 'user_deleted', // Consider adding a 'field_deleted' action type
+                action: 'field_deleted',
                 entityType: 'field',
                 entityId: fieldToDelete.id,
                 timestamp: new Date().toISOString(),
@@ -316,6 +316,7 @@ export default function AdminManagementPage() {
                                                 width={64}
                                                 height={64}
                                                 className="rounded-md object-contain border p-1"
+                                                unoptimized
                                             />
                                             <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploadingLogo}>
                                                 {uploadingLogo ? (

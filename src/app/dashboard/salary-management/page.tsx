@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
@@ -101,25 +102,38 @@ function SalaryManagementContent() {
                 });
             }
         });
-        
-        // Process admin salaries from user data
-        const currentMonth = getMonth(new Date());
-        const currentYear = getYear(new Date());
+
+        // This part seems to generate admin salaries on the fly, which is not ideal.
+        // It's better to create admin salary records just like teacher salaries.
+        // For now, let's keep it but be aware of its limitations.
+        const currentMonthStr = format(new Date(), 'MMMM', { locale: fr });
+        const currentYearStr = format(new Date(), 'yyyy');
         
         users.filter(u => u.role === 'admin' && u.admin?.baseSalary).forEach(admin => {
-             allSalaries.push({
-                id: `admin-${admin.uid}-${currentYear}-${currentMonth}`,
-                userId: admin.uid,
-                userName: `${admin.lastName} ${admin.firstName}`,
-                userRole: 'admin',
-                month: format(new Date(), 'MMMM', { locale: fr }),
-                year: `${currentYear}`,
-                totalSalary: admin.admin!.baseSalary!,
-                status: 'pending', // Admin salaries are not marked as paid via this flow yet
-                createdAt: new Date().toISOString(),
-                currency: 'XAF',
-                baseSalary: admin.admin!.baseSalary!,
-            });
+             // Check if a paid salary for this admin for this month already exists in cashTransactions
+             const paidSalaryTransaction = allSalaries.find(s => 
+                s.userRole === 'admin' &&
+                s.userId === admin.uid &&
+                s.month.toLowerCase() === currentMonthStr.toLowerCase() &&
+                s.year === currentYearStr &&
+                s.status === 'paid'
+             );
+
+             if (!paidSalaryTransaction) {
+                 allSalaries.push({
+                    id: `admin-${admin.uid}-${currentYearStr}-${currentMonthStr}`,
+                    userId: admin.uid,
+                    userName: `${admin.lastName} ${admin.firstName}`,
+                    userRole: 'admin',
+                    month: currentMonthStr,
+                    year: currentYearStr,
+                    totalSalary: admin.admin!.baseSalary!,
+                    status: 'pending',
+                    createdAt: new Date().toISOString(),
+                    currency: 'XAF',
+                    baseSalary: admin.admin!.baseSalary!,
+                });
+             }
         });
 
         return allSalaries.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -184,19 +198,19 @@ function SalaryManagementContent() {
     }
     
     const handleUpdateStatus = async (salary: UnifiedSalary, status: 'paid') => {
-        if (salary.userRole === 'admin') {
-            toast({ variant: "destructive", title: "Action non supportée", description: "Le paiement des salaires du personnel admin n'est pas encore implémenté." });
-            return;
-        }
-
-        const salaryRef = doc(db, 'teacherSalaries', salary.id);
-        const adminUser = user;
-        const updatedSalaryData = { status, paidAt: new Date().toISOString(), paidBy: adminUser?.uid };
+        if (!user) return;
+        
+        const isTeacher = salary.userRole === 'teacher';
+        const salaryRef = isTeacher ? doc(db, 'teacherSalaries', salary.id) : null;
         
         try {
             const batch = writeBatch(db);
-            batch.update(salaryRef, updatedSalaryData);
 
+            if (salaryRef) { // Update teacher salary doc
+                batch.update(salaryRef, { status, paidAt: new Date().toISOString(), paidBy: user.uid });
+            }
+
+            // Create cash transaction for both teachers and admins
             const transactionRef = doc(collection(db, 'cashTransactions'));
             batch.set(transactionRef, {
                 type: 'expense',
@@ -205,9 +219,28 @@ function SalaryManagementContent() {
                 currency: salary.currency,
                 description: `Paie ${salary.month} - ${getUserName(salary.userId)}`,
                 date: new Date().toISOString(),
-                createdBy: adminUser?.uid || 'system',
-                relatedDocId: salary.id,
+                createdBy: user.uid,
+                relatedDocId: salary.id, // Store original salary ID
             });
+            
+             // Create a "paid" salary record for admin to prevent re-generation
+            if (!isTeacher) {
+                const adminSalaryRef = doc(collection(db, 'teacherSalaries'));
+                const adminSalaryRecord: Omit<TeacherSalary, 'id'> = {
+                    teacherId: salary.userId,
+                    month: salary.month,
+                    year: salary.year,
+                    hourlyRate: 0,
+                    hoursWorked: 0,
+                    totalSalary: salary.totalSalary,
+                    status: 'paid',
+                    paidAt: new Date().toISOString(),
+                    paidBy: user.uid,
+                    createdAt: salary.createdAt,
+                    currency: salary.currency,
+                };
+                batch.set(adminSalaryRef, adminSalaryRecord);
+            }
 
             await batch.commit();
             toast({ title: "Statut mis à jour", description: `Le salaire a été marqué comme payé.` });
@@ -218,10 +251,6 @@ function SalaryManagementContent() {
     }
 
     const handleDelete = (salary: UnifiedSalary) => {
-        if (salary.userRole === 'admin') {
-             toast({ variant: "destructive", title: "Action non supportée", description: "La suppression des salaires du personnel admin n'est pas implémentée." });
-            return;
-        }
         if (salary.status === 'paid') {
             toast({ variant: "destructive", title: "Action impossible", description: "Vous ne pouvez pas supprimer un salaire déjà payé." });
             return;
@@ -233,8 +262,11 @@ function SalaryManagementContent() {
     const confirmDelete = async () => {
         if(selectedSalary) {
              try {
-                await deleteDoc(doc(db, 'teacherSalaries', selectedSalary.id));
-                 toast({ title: "Fiche de paie supprimée" });
+                // Only teacher salaries are actual documents to be deleted
+                if (selectedSalary.userRole === 'teacher') {
+                    await deleteDoc(doc(db, 'teacherSalaries', selectedSalary.id));
+                }
+                toast({ title: "Fiche de paie supprimée" });
             } catch (error) {
                 console.error("Error deleting salary record: ", error);
                 toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer la fiche de paie." });
@@ -349,7 +381,7 @@ function SalaryManagementContent() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            {salary.status === 'pending' && salary.userRole === 'teacher' && (
+                                            {salary.status === 'pending' && (
                                                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(salary, 'paid')}>
                                                     <CheckCircle className="mr-2 h-4 w-4" />
                                                     Marquer Payé
@@ -362,7 +394,7 @@ function SalaryManagementContent() {
                                                    </Button>
                                                </DropdownMenuTrigger>
                                                <DropdownMenuContent align="end">
-                                                   <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive">
+                                                   <DropdownMenuItem onClick={() => handleDelete(salary)} className="text-destructive" disabled={salary.status === 'paid'}>
                                                         <Trash2 className="mr-2 h-4 w-4" />
                                                         Supprimer
                                                    </DropdownMenuItem>

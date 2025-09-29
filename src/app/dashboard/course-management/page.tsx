@@ -14,21 +14,18 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Course, Field, Sector, Cycle } from "@/lib/types";
+import { Course, Field, Sector, Cycle, ActivityLog } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays, FileDown, Loader2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import CourseFormDialog from "@/components/course-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { imageToDataUrl } from '@/lib/utils';
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
@@ -134,13 +131,39 @@ export default function CourseManagementPage() {
 
     const handleSave = async (courseData: Partial<Course>) => {
         try {
+            const batch = writeBatch(db);
+            const logRef = doc(collection(db, 'activityLogs'));
+            let action: 'course_created' | 'course_updated' = 'course_created';
+            let courseId: string;
+
             if (selectedCourse) {
-                await setDoc(doc(db, "courses", selectedCourse.id), courseData, { merge: true });
+                action = 'course_updated';
+                courseId = selectedCourse.id;
+                const courseRef = doc(db, "courses", courseId);
+                batch.set(courseRef, courseData, { merge: true });
                 toast({ title: "Cours mis à jour", description: "Les informations du cours ont été mises à jour."});
             } else {
-                await addDoc(collection(db, "courses"), courseData);
+                const newCourseRef = doc(collection(db, "courses"));
+                courseId = newCourseRef.id;
+                batch.set(newCourseRef, courseData);
                 toast({ title: "Cours ajouté", description: "Le nouveau cours a été créé."});
             }
+            
+            if (user) {
+                const log: Omit<ActivityLog, 'id'> = {
+                    actorId: user.uid,
+                    actorName: `${user.lastName} ${user.firstName}`,
+                    action: action,
+                    entityType: 'course',
+                    entityId: courseId,
+                    timestamp: new Date().toISOString(),
+                    details: `${action === 'course_created' ? 'A créé le cours' : 'A mis à jour le cours'}: "${courseData.name}"`,
+                };
+                batch.set(logRef, log);
+            }
+            
+            await batch.commit();
+
         } catch(error) {
             console.error("Error saving course: ", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le cours." });
@@ -150,17 +173,33 @@ export default function CourseManagementPage() {
     }
     
     const confirmDelete = async () => {
-        if(selectedCourse) {
-            try {
-                await deleteDoc(doc(db, "courses", selectedCourse.id));
-                toast({ title: "Cours supprimé" });
-            } catch (error) {
-                console.error("Error deleting course: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le cours." });
-            } finally {
-                setIsDeleteOpen(false);
-                setSelectedCourse(null);
-            }
+        if(!selectedCourse || !user) return;
+        
+        const batch = writeBatch(db);
+        try {
+            const courseRef = doc(db, "courses", selectedCourse.id)
+            batch.delete(courseRef);
+            
+            const logRef = doc(collection(db, 'activityLogs'));
+            const log: Omit<ActivityLog, 'id'> = {
+                actorId: user.uid,
+                actorName: `${user.lastName} ${user.firstName}`,
+                action: 'course_deleted',
+                entityType: 'course',
+                entityId: selectedCourse.id,
+                timestamp: new Date().toISOString(),
+                details: `A supprimé le cours: "${selectedCourse.name}"`,
+            };
+            batch.set(logRef, log);
+            
+            await batch.commit();
+            toast({ title: "Cours supprimé" });
+        } catch (error) {
+            console.error("Error deleting course: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le cours." });
+        } finally {
+            setIsDeleteOpen(false);
+            setSelectedCourse(null);
         }
     }
 

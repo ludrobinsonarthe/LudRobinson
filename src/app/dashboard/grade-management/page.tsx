@@ -8,9 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { Grade, Course, User } from "@/lib/types";
+import { Grade, Course, User, ActivityLog } from "@/lib/types";
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, FileDown, ArrowLeft, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { imageToDataUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -189,7 +188,7 @@ function GradeManagementContent() {
 
     const handleAddNewEvaluation = async () => {
         const targetCourseId = courseId || newEvalCourseId;
-        if (!targetCourseId) {
+        if (!targetCourseId || !user) {
             toast({ variant: "destructive", title: "Erreur", description: "Veuillez sélectionner un cours." });
             return;
         }
@@ -232,6 +231,18 @@ function GradeManagementContent() {
             };
             batch.set(newGradeRef, gradeData);
         });
+
+        const logRef = doc(collection(db, 'activityLogs'));
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: user.uid,
+            actorName: `${user.lastName} ${user.firstName}`,
+            action: 'evaluation_created',
+            entityType: 'course',
+            entityId: targetCourseId,
+            timestamp: new Date().toISOString(),
+            details: `A créé une nouvelle évaluation (${newEvalType}) pour le cours: "${targetCourse.name}"`,
+        };
+        batch.set(logRef, log);
     
         try {
             await batch.commit();
@@ -270,12 +281,24 @@ function GradeManagementContent() {
     };
 
     const confirmDeleteEvaluation = async () => {
-        if (!evalToDelete || !evalToDelete.grades) return;
+        if (!evalToDelete || !evalToDelete.grades || !user) return;
 
         const batch = writeBatch(db);
         evalToDelete.grades.forEach(grade => {
             batch.delete(doc(db, "grades", grade.id));
         });
+        
+        const logRef = doc(collection(db, 'activityLogs'));
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: user.uid,
+            actorName: `${user.lastName} ${user.firstName}`,
+            action: 'evaluation_deleted',
+            entityType: 'course',
+            entityId: course?.id || 'unknown',
+            timestamp: new Date().toISOString(),
+            details: `A supprimé l'évaluation "${evalToDelete.name}" du cours: "${course?.name}"`,
+        };
+        batch.set(logRef, log);
 
         batch.commit()
             .then(() => {
@@ -288,33 +311,6 @@ function GradeManagementContent() {
                 setIsDeleteDialogOpen(false);
                 setEvalToDelete(null);
             });
-    };
-    
-    const getExportData = () => {
-        const headers = ["Étudiant", ...evaluationColumns.map(col => col.name), "Moyenne /20"];
-        const data = students.map(student => {
-            const row: (string | number)[] = [`${student.lastName} ${student.firstName}`];
-            evaluationColumns.forEach(col => {
-                const grade = gradesByStudentAndEval[student.uid]?.[col.id];
-                row.push(grade ? grade.score : "-");
-            });
-            row.push(averageByStudent[student.uid]?.average.toFixed(2) || "0.00");
-            return row;
-        });
-        return { headers, data };
-    }
-
-    const handleExportXLSX = async () => {
-        if (!course) return;
-        const XLSX = await import('xlsx');
-        const { headers, data } = getExportData();
-        const exportData = [headers, ...data];
-        
-        const worksheet = XLSX.utils.aoa_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Notes");
-        XLSX.writeFile(workbook, `notes_${course.name.replace(/\s/g, '_')}.xlsx`);
-        toast({ title: "Exportation Excel réussie" });
     };
 
     if (user?.role !== 'admin' && user?.role !== 'teacher') {
@@ -433,9 +429,6 @@ function GradeManagementContent() {
                             </div>
                         </div>
                         <div className='flex items-center gap-2'>
-                            <Button variant="outline" onClick={handleExportXLSX}>
-                                <FileDown className="mr-2 h-4 w-4"/> Exporter en Excel
-                            </Button>
                             <AlertDialog open={isEvalDialogOpen} onOpenChange={setIsEvalDialogOpen}>
                                 <AlertDialogTrigger asChild>
                                     <Button><PlusCircle className="mr-2 h-4 w-4" /> Ajouter une évaluation</Button>

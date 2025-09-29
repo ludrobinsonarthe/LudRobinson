@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -21,7 +22,6 @@ import { useUser } from "@/hooks/use-user";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { imageToDataUrl } from "@/lib/utils";
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
@@ -64,7 +64,7 @@ export default function CertificatesPage() {
         toast({
             variant: "destructive",
             title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
+            description: "L'exportation PDF est temporairement désactivée car elle cause de l'instabilité.",
         });
     };
 

@@ -18,7 +18,6 @@ import { useUser } from '@/hooks/use-user';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { imageToDataUrl } from '@/lib/utils';
 
 
 const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -146,7 +145,7 @@ function ScheduleContent() {
         toast({
             variant: "destructive",
             title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
+            description: "L'exportation PDF est temporairement désactivée car elle cause de l'instabilité.",
         });
     };
 
@@ -213,7 +212,7 @@ function ScheduleContent() {
                                 </Select>
                                 </>
                             )}
-                             <Button variant="outline" onClick={handleExportPDF}>
+                             <Button variant="outline" onClick={handleExportPDF} disabled>
                                 <FileDown className="mr-2 h-4 w-4" />
                                 Exporter en PDF
                             </Button>

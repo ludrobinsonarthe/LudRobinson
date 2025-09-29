@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -192,12 +193,12 @@ export default function CashFlowPage() {
                                     <TableCell className="text-right">
                                        <DropdownMenu>
                                            <DropdownMenuTrigger asChild>
-                                               <Button variant="ghost" size="icon" disabled={!!t.relatedDocId && (t.category === 'tuition' || t.category === 'salary')}>
+                                               <Button variant="ghost" size="icon" disabled={!!t.relatedDocId}>
                                                    <MoreHorizontal className="h-4 w-4" />
                                                </Button>
                                            </DropdownMenuTrigger>
                                            <DropdownMenuContent align="end">
-                                               <DropdownMenuItem onClick={() => handleDelete(t)} className="text-destructive">
+                                               <DropdownMenuItem onClick={() => handleDelete(t)} className="text-destructive" disabled={!!t.relatedDocId}>
                                                     <Trash2 className="mr-2 h-4 w-4"/>
                                                     Supprimer
                                                </DropdownMenuItem>
