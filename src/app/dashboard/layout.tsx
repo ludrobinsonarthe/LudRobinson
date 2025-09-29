@@ -1,3 +1,4 @@
+
 "use client"
 import Link from "next/link";
 import { usePathname, redirect, useRouter } from "next/navigation";
@@ -105,10 +106,11 @@ function MainSidebar() {
     setIsMounted(true);
   }, []);
   
-  const handleTutorClick = () => {
+  const handleTutorClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     toast({
         title: "Fonctionnalité indisponible",
-        description: "Le tuteur IA a été temporairement désactivé pour maintenance.",
+        description: "Le tuteur IA est en cours de maintenance et sera bientôt de retour.",
     });
   };
   
@@ -118,6 +120,7 @@ function MainSidebar() {
   ];
 
   const studentMenuItems = [
+    // { href: "#", label: "Tuteur IA", icon: Bot, onClick: handleTutorClick },
     { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
     { href: "/dashboard/grades", label: "Notes", icon: ClipboardList },
     { href: "/dashboard/schedule", label: "Emploi du temps", icon: CalendarDays },
@@ -179,11 +182,18 @@ function MainSidebar() {
         ))}
         
         {showStudentMenu && studentMenuItems.map((item) => (
-        <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
-            <Link href={item.href}><item.icon /><span>{item.label}</span></Link>
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton 
+              asChild 
+              isActive={pathname.startsWith(item.href)} 
+              tooltip={item.label}
+            >
+              <Link href={item.href} onClick={item.onClick}>
+                <item.icon />
+                <span>{item.label}</span>
+              </Link>
             </SidebarMenuButton>
-        </SidebarMenuItem>
+          </SidebarMenuItem>
         ))}
 
         {showAdminMenu && adminMenuGroups.map(group => (
@@ -207,12 +217,6 @@ function MainSidebar() {
 
   const commonFooter = (
       <SidebarMenu>
-            <SidebarMenuItem>
-            <SidebarMenuButton tooltip={"Tuteur IA"} onClick={handleTutorClick}>
-                <Bot />
-                <span>Tuteur IA</span>
-            </SidebarMenuButton>
-            </SidebarMenuItem>
             <SidebarMenuItem>
                 <SidebarMenuButton
                     asChild
