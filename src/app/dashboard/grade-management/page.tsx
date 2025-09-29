@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { Grade, Course, User, ActivityLog } from "@/lib/types";
+import { Grade, Course, User, ActivityLog, Field } from "@/lib/types";
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -53,7 +53,7 @@ function GradeManagementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
-    const { allUsers: users, loading: usersLoading, settings, allCourses = [], user } = useUser();
+    const { allUsers: users, loading: usersLoading, settings, allCourses = [], user, fields } = useUser();
     const { toast } = useToast();
 
     const [course, setCourse] = useState<Course | null>(null);
@@ -73,6 +73,8 @@ function GradeManagementContent() {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     
     const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+
+    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
 
 
     useEffect(() => {
@@ -111,17 +113,19 @@ function GradeManagementContent() {
                     user.student?.level === course.level
                 );
             } else if (course.sectorId) { // Common core course for a sector
-                courseStudents = users.filter(user =>
+                 const sectorFields = fields.filter(f => f.sectorId === course.sectorId).map(f => f.id);
+                 courseStudents = users.filter(user =>
                     user.role === 'student' &&
-                    user.student?.sectorId === course.sectorId &&
-                    user.student?.level === course.level
+                    user.student?.level === course.level &&
+                    user.student?.fieldId &&
+                    sectorFields.includes(user.student.fieldId)
                 );
             }
             setStudents(courseStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || '')));
         } else {
             setStudents([]);
         }
-    }, [course, users]);
+    }, [course, users, fields]);
     
     const evaluationColumns: EvaluationColumn[] = useMemo(() => {
         if (!course) return [];
@@ -210,21 +214,23 @@ function GradeManagementContent() {
     
         let targetStudents: User[] = [];
         if (targetCourse.fieldId) { // Course for a specific field
-            targetStudents = users.filter(user => 
-                user.role === 'student' &&
-                user.student?.level === targetCourse.level &&
-                user.student?.fieldId === targetCourse.fieldId
+            targetStudents = users.filter(u =>
+                u.role === 'student' &&
+                u.student?.level === targetCourse.level &&
+                u.student?.fieldId === targetCourse.fieldId
             );
         } else if (targetCourse.sectorId) { // Common core course
-            targetStudents = users.filter(user => 
-                user.role === 'student' &&
-                user.student?.level === targetCourse.level &&
-                user.student?.sectorId === targetCourse.sectorId
+             const sectorFields = fields.filter(f => f.sectorId === targetCourse.sectorId).map(f => f.id);
+             targetStudents = users.filter(u =>
+                u.role === 'student' &&
+                u.student?.level === targetCourse.level &&
+                u.student?.fieldId &&
+                sectorFields.includes(u.student.fieldId)
             );
         }
     
         if (targetStudents.length === 0) {
-            toast({ variant: "destructive", title: "Aucun étudiant", description: "Aucun étudiant n'est inscrit dans ce cours ou ce secteur." });
+            toast({ variant: "destructive", title: "Aucun étudiant", description: "Aucun étudiant n'est inscrit pour ce cours, niveau ou secteur." });
             setIsEvalDialogOpen(false);
             return;
         }
