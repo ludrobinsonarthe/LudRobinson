@@ -116,8 +116,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const unsubscribe = onSnapshot(q, 
             (snapshot) => setter(snapshot.docs.map(d => ({...d.data(), id: d.id}))),
             (error: FirestoreError) => {
+                // We only emit the error if it's a permission issue. Other errors are logged.
                 if (error.code === 'permission-denied') {
-                    errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
+                     errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
                 } else {
                     console.error(`Error on collection ${collectionName}:`, error);
                 }
@@ -146,7 +147,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
     
-    // For admins, load everything. For others, data is fetched on demand in pages.
+    // For admins, load everything. For others, these are loaded on-demand or not at all.
     if (currentUser.role === 'admin') {
       setupSubscription('grades', setGrades);
       setupSubscription('attendances', setAttendances);
@@ -157,6 +158,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setupSubscription('officialDocuments', setOfficialDocuments);
     }
     
+    // Non-admins do not need to load all these collections, reducing Firestore reads and permission errors.
     const initialLoadTimer = setTimeout(() => setLoading(false), 500);
     unsubs.push(() => clearTimeout(initialLoadTimer));
     

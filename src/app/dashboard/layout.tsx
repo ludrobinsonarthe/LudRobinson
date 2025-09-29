@@ -158,6 +158,7 @@ function MainSidebar() {
   ];
 
   const showStudentMenu = user?.role === 'student' || user?.role === 'parent';
+  const showTeacherMenu = user?.role === 'teacher';
   const showAdminMenu = user?.role === 'admin';
 
   const commonMenuItems = (
@@ -184,6 +185,26 @@ function MainSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         ))}
+
+        {showTeacherMenu && (
+          <>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/courses')} tooltip={"Mes Cours Assignés"}>
+                <Link href={'/dashboard/courses'}><BookOpen/><span>Mes Cours Assignés</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/grade-management')} tooltip={"Gestion des Notes"}>
+                <Link href={'/dashboard/grade-management'}><ClipboardList/><span>Gestion des Notes</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/schedule')} tooltip={"Mon Emploi du Temps"}>
+                <Link href={'/dashboard/schedule'}><CalendarDays/><span>Mon Emploi du Temps</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </>
+        )}
 
         {showAdminMenu && adminMenuGroups.map(group => (
         <SidebarGroup key={group.group}>

@@ -77,7 +77,7 @@ export default function LoginPage() {
     }
   };
 
-  const logoSrc = settings?.logoUrl && settings.logoUrl.startsWith('https') ? settings.logoUrl : "/logo.png";
+  const logoSrc = settings?.logoUrl || "/logo.png";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -85,7 +85,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-card text-card-foreground">
-                    {settingsLoading ? <Skeleton className="h-12 w-12 rounded-lg" /> : <Image src={logoSrc} alt="Logo" width={48} height={48} className="object-contain" unoptimized />}
+                    {settingsLoading ? <Skeleton className="h-12 w-12 rounded-lg" /> : <img src={logoSrc} alt="Logo" width={48} height={48} className="object-contain" />}
                 </div>
                 {settingsLoading ? <Skeleton className="h-9 w-40" /> : 
                   <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
