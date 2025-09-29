@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -8,9 +7,10 @@ import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
 import { collection, query, where, getDocs, onSnapshot, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { BookOpenCheck, Download, Loader2 } from 'lucide-react';
+import { BookOpenCheck, Download, Loader2, Files } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function CoursesPage() {
     const { user: currentUser, allUsers: users, allCourses, loading, fields } = useUser();
@@ -162,12 +162,24 @@ export default function CoursesPage() {
                                 </CardContent>
                                 {course.documents && course.documents.length > 0 && (
                                     <CardFooter>
-                                        <Button asChild variant="secondary" className="w-full">
-                                            <a href={course.documents[0]} target="_blank" rel="noopener noreferrer">
-                                                <Download className="mr-2 h-4 w-4" />
-                                                Télécharger le support de cours
-                                            </a>
-                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="secondary" className="w-full">
+                                                    <Files className="mr-2 h-4 w-4" />
+                                                    Voir les documents du cours ({course.documents.length})
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {course.documents.map((docUrl, index) => (
+                                                    <DropdownMenuItem key={index} asChild>
+                                                        <a href={docUrl} target="_blank" rel="noopener noreferrer">
+                                                            <Download className="mr-2 h-4 w-4" />
+                                                            {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0] || `Document ${index + 1}`)}
+                                                        </a>
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </CardFooter>
                                 )}
                             </Card>

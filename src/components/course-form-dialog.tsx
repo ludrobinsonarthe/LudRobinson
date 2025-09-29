@@ -29,7 +29,7 @@ import { Separator } from "./ui/separator";
 import { Loader2, PlusCircle, Trash2, Link as LinkIcon, File } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 
@@ -50,7 +50,8 @@ const courseFormSchema = z.object({
   sectorId: z.string().optional(),
   fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
-  documentFile: z.instanceof(File).optional(),
+  newDocumentFile: z.instanceof(File).optional(),
+  documents: z.array(z.string()).optional(),
   schedule: z.array(scheduleSchema).optional(),
 }).refine(data => data.sectorId || data.fieldId, {
     message: "Vous devez sélectionner un secteur ou une filière.",
@@ -93,6 +94,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         sectorId: '',
         fieldId: 'common_core',
         credit: 0,
+        documents: [],
         schedule: []
     }
   });
@@ -122,6 +124,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             sectorId: courseSectorId,
             fieldId: course.fieldId ? course.fieldId : 'common_core',
             credit: course.credit,
+            documents: course.documents || [],
             schedule: course.schedule || [],
           });
         } else {
@@ -134,6 +137,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             sectorId: '',
             fieldId: 'common_core',
             credit: 0,
+            documents: [],
             schedule: [],
           });
         }
@@ -153,7 +157,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
 
   const onSubmit = async (data: CourseFormValues) => {
     setIsSubmitting(true);
-    const { documentFile, ...courseData} = data;
+    const { newDocumentFile, ...courseData} = data;
     
     const finalCourseData: Partial<Course> = {
         name: courseData.name,
@@ -163,7 +167,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         cycle: courseData.cycle,
         credit: courseData.credit,
         schedule: courseData.schedule,
-        documents: course?.documents || [] 
+        documents: courseData.documents || []
     };
 
     if (courseData.fieldId === 'common_core' || !courseData.fieldId) {
@@ -174,18 +178,17 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         finalCourseData.sectorId = undefined;
     }
     
-    if (documentFile) {
+    if (newDocumentFile) {
         toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
         const courseId = course?.id || `course_${Date.now()}`;
-        const filePath = `courses/${courseId}/${documentFile.name}`;
+        const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name}`;
         const fileRef = ref(storage, filePath);
         
         try {
-            await uploadBytes(fileRef, documentFile);
+            await uploadBytes(fileRef, newDocumentFile);
             const downloadURL = await getDownloadURL(fileRef);
-            // Replace existing document or add new one. For simplicity, we just keep one doc.
-            finalCourseData.documents = [downloadURL];
-            toast({ title: "Fichier téléversé", description: "Le document du cours a été enregistré." });
+            finalCourseData.documents?.push(downloadURL);
+            toast({ title: "Fichier téléversé", description: "Le nouveau document du cours a été ajouté." });
         } catch (error) {
             console.error("Error uploading document:", error);
             toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible d'enregistrer le fichier du cours." });
@@ -197,6 +200,30 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     onSave(finalCourseData);
     setIsSubmitting(false);
   };
+
+  const removeDocument = async (docUrl: string, index: number) => {
+      try {
+        const fileRef = ref(storage, docUrl);
+        await deleteObject(fileRef);
+        
+        const currentDocs = form.getValues('documents') || [];
+        const updatedDocs = currentDocs.filter((_, i) => i !== index);
+        form.setValue('documents', updatedDocs, { shouldDirty: true });
+
+        toast({ title: "Document supprimé", description: "Le document a été retiré du cours." });
+      } catch (error: any) {
+         if (error.code === 'storage/object-not-found') {
+            const currentDocs = form.getValues('documents') || [];
+            const updatedDocs = currentDocs.filter((_, i) => i !== index);
+            form.setValue('documents', updatedDocs, { shouldDirty: true });
+            toast({ variant: 'default', title: 'Lien de document invalide retiré' });
+         } else {
+            console.error("Error deleting document from storage:", error);
+            toast({ variant: "destructive", title: "Erreur de suppression", description: "Impossible de supprimer le document de la base de données." });
+         }
+      }
+  }
+
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -230,21 +257,24 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
                     </FormItem>
                 )}/>
 
-                 <div className="space-y-2">
-                    <FormLabel>Document du cours (PDF)</FormLabel>
-                     {course?.documents && course.documents[0] && (
-                        <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted">
+                 <div className="space-y-4">
+                    <FormLabel>Documents du cours (PDF)</FormLabel>
+                     {(form.watch('documents') || []).map((docUrl, index) => (
+                        <div key={index} className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted">
                             <File className="h-4 w-4"/>
                             <span className="flex-1 truncate">
-                                Fichier actuel : 
-                                <Link href={course.documents[0]} target="_blank" className="ml-1 text-primary underline hover:text-primary/80">
-                                     {decodeURIComponent(course.documents[0].split('/').pop()?.split('?')[0] || '')}
+                                <Link href={docUrl} target="_blank" className="underline hover:text-primary/80">
+                                     {decodeURIComponent(docUrl.split('/').pop()?.split('?')[0] || `Document ${index+1}`)}
                                 </Link>
                             </span>
+                             <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(docUrl, index)}>
+                                <Trash2 className="h-4 w-4 text-destructive"/>
+                             </Button>
                         </div>
-                     )}
-                     <FormField control={form.control} name="documentFile" render={({ field: { onChange, value, ...rest } }) => (
+                     ))}
+                     <FormField control={form.control} name="newDocumentFile" render={({ field: { onChange, value, ...rest } }) => (
                         <FormItem>
+                         <FormLabel className="text-xs text-muted-foreground">Ajouter un nouveau document</FormLabel>
                         <FormControl>
                             <Input 
                                 type="file" 
