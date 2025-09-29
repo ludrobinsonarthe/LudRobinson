@@ -103,12 +103,21 @@ function GradeManagementContent() {
 
     useEffect(() => {
         if (course) {
-            const courseStudents = users.filter(user => 
-                user.role === 'student' &&
-                user.student?.fieldId === course.fieldId &&
-                user.student?.level === course.level
-            ).sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
-            setStudents(courseStudents);
+            let courseStudents: User[] = [];
+            if(course.fieldId) { // Course for a specific field
+                courseStudents = users.filter(user => 
+                    user.role === 'student' &&
+                    user.student?.fieldId === course.fieldId &&
+                    user.student?.level === course.level
+                );
+            } else if (course.sectorId) { // Common core course for a sector
+                 courseStudents = users.filter(user => 
+                    user.role === 'student' &&
+                    user.student?.sectorId === course.sectorId &&
+                    user.student?.level === course.level
+                );
+            }
+            setStudents(courseStudents.sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')));
         } else {
             setStudents([]);
         }
@@ -199,15 +208,23 @@ function GradeManagementContent() {
             return;
         }
     
-        const targetStudents = users.filter(user => 
-            user.role === 'student' &&
-            user.student?.level === targetCourse.level &&
-            (user.student?.fieldId === targetCourse.fieldId || 
-             (targetCourse.sectorId && !targetCourse.fieldId && user.student?.sectorId === targetCourse.sectorId))
-        );
+        let targetStudents: User[] = [];
+        if (targetCourse.fieldId) { // Course for a specific field
+            targetStudents = users.filter(user => 
+                user.role === 'student' &&
+                user.student?.level === targetCourse.level &&
+                user.student?.fieldId === targetCourse.fieldId
+            );
+        } else if (targetCourse.sectorId) { // Common core course
+            targetStudents = users.filter(user => 
+                user.role === 'student' &&
+                user.student?.level === targetCourse.level &&
+                user.student?.sectorId === targetCourse.sectorId
+            );
+        }
     
         if (targetStudents.length === 0) {
-            toast({ variant: "destructive", title: "Aucun étudiant", description: "Aucun étudiant n'est inscrit dans ce cours." });
+            toast({ variant: "destructive", title: "Aucun étudiant", description: "Aucun étudiant n'est inscrit dans ce cours ou ce secteur." });
             setIsEvalDialogOpen(false);
             return;
         }
