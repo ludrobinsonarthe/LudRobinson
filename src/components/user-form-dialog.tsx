@@ -68,7 +68,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
   
   const dialogDescription = user
     ? "Modifiez les informations ci-dessous."
-    : "Remplissez le formulaire pour créer un nouveau compte.";
+    : "Remplissez le formulaire pour créer un nouveau compte. Le compte sera créé comme 'Suspendu' et devra être activé.";
 
 
   useEffect(() => {
@@ -121,7 +121,8 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         firstName: userDataValues.firstName,
         lastName: userDataValues.lastName,
         email: userDataValues.email,
-        role: userType
+        role: userType,
+        status: user ? user.status : 'suspended', // Set new users to suspended by default
     };
     if (userType === 'teacher') {
         userData.teacher = { specialty: userDataValues.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
@@ -289,5 +290,3 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
     </>
   );
 }
-
-    

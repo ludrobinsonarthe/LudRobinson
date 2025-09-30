@@ -16,8 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, UserRole, AdminRole, TeacherSalary, ActivityLog } from "@/lib/types";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote, FileDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, PlusCircle, Trash2, Edit, Banknote, FileDown, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,7 +25,7 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, addDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, addDoc, collection, query, where, getDocs, writeBatch, updateDoc } from "firebase/firestore";
 import { db, storage, auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
@@ -55,12 +55,13 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { allUsers, loading, roles, settings, user: adminUser } = useUser();
+    const { allUsers, loading, roles, settings, user: adminUser, setUsers } = useUser();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [userType, setUserType] = useState<'admin' | 'teacher'>('admin');
     const { toast } = useToast();
+    const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
     // Filters
     const [nameFilter, setNameFilter] = useState('');
@@ -149,7 +150,7 @@ export default function UsersPage() {
     
                 const newUser: User = {
                     ...userData, uid, photoUrl, role: userData.role as UserRole,
-                    createdAt: new Date().toISOString(), status: 'active',
+                    createdAt: new Date().toISOString(),
                 } as User;
                 
                 batch.set(doc(db, "users", uid), newUser);
@@ -161,7 +162,7 @@ export default function UsersPage() {
                 };
                 batch.set(logRef, log);
 
-                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut 'password'." });
+                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut 'password' et doit être activé." });
             }
             await batch.commit();
         } catch (error: any) {
@@ -229,6 +230,34 @@ export default function UsersPage() {
         } finally {
              setIsDeleteOpen(false);
              setSelectedUser(null);
+        }
+    }
+    
+    const toggleUserStatus = async (userToUpdate: User) => {
+        if (!adminUser) return;
+        setUpdatingStatus(userToUpdate.uid);
+        
+        const newStatus = userToUpdate.status === 'active' ? 'suspended' : 'active';
+        const userDocRef = doc(db, "users", userToUpdate.uid);
+        
+        try {
+            await updateDoc(userDocRef, { status: newStatus });
+            
+            setUsers(currentUsers => currentUsers.map(u => u.uid === userToUpdate.uid ? { ...u, status: newStatus } : u));
+            
+            toast({
+              title: 'Statut mis à jour',
+              description: `Le compte de ${userToUpdate.lastName} est maintenant ${newStatus === 'active' ? 'actif' : 'suspendu'}.`,
+            });
+
+        } catch(error) {
+            toast({
+              variant: 'destructive',
+              title: 'Erreur',
+              description: 'Impossible de mettre à jour le statut de l\'utilisateur.',
+            });
+        } finally {
+            setUpdatingStatus(null);
         }
     }
 
@@ -334,6 +363,18 @@ export default function UsersPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
+                                            {updatingStatus === user.uid ? (
+                                                <DropdownMenuItem disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mise à jour...</DropdownMenuItem>
+                                            ) : user.status === 'active' ? (
+                                                <DropdownMenuItem onClick={() => toggleUserStatus(user)} className="text-destructive">
+                                                    <XCircle className="mr-2 h-4 w-4"/> Suspendre
+                                                </DropdownMenuItem>
+                                            ) : (
+                                                <DropdownMenuItem onClick={() => toggleUserStatus(user)} className="text-green-600">
+                                                    <CheckCircle className="mr-2 h-4 w-4"/> Activer
+                                                </DropdownMenuItem>
+                                            )}
+                                            <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleEdit(user)}>
                                                     <Edit className="mr-2 h-4 w-4" />
                                                     Modifier
@@ -346,6 +387,7 @@ export default function UsersPage() {
                                                     </Link>
                                                 </DropdownMenuItem>
                                              )}
+                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem onClick={() => handleDelete(user)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
