@@ -65,7 +65,7 @@ export default function LoginPage() {
       console.error("Sign-in error:", error);
       let description = "Une erreur est survenue. Veuillez réessayer.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        description = "Identifiants incorrects. Veuillez vérifier votre e-mail et mot de passe.";
+        description = "Identifiants incorrects. Veuillez vérifier votre e-mail et mot de passe ou contacter un administrateur si votre compte est nouveau.";
       }
       toast({
         variant: "destructive",
