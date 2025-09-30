@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -25,7 +24,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, storage, auth } from "@/lib/firebase";
 import { doc, writeBatch, collection } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { useUser } from "./use-user";
+import { useUser } from "@/hooks/use-user";
 
 const userFormSchema = z.object({
   firstName: z.string().min(2, "Le prénom est requis."),
