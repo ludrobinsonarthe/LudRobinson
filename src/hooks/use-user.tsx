@@ -83,13 +83,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setCurrentUser(docSnap.data() as User);
+        // User profile is found, now we can proceed to load other data.
       } else {
-        toast({
-          variant: "destructive",
-          title: "Profil non trouvé",
-          description: "Votre compte n'existe pas dans la base de données de l'école. Déconnexion.",
-        });
-        signOut();
+        // This might be too early if the user document is still being created.
+        // Let's add a small delay to see if it appears.
+        setTimeout(() => {
+          if (!docSnap.exists()) {
+             toast({
+              variant: "destructive",
+              title: "Profil non trouvé",
+              description: "Votre compte n'est pas dans la base de données de l'école. Déconnexion.",
+            });
+            signOut();
+          }
+        }, 2000);
       }
     }, (error) => {
       if (error.code === 'permission-denied') {
@@ -103,7 +110,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!currentUser) {
-        setLoading(false);
+        // Don't set loading to false here immediately, wait for user profile.
+        // setLoading(false);
         return;
     };
 
@@ -158,8 +166,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setupSubscription('officialDocuments', setOfficialDocuments);
     }
     
-    const initialLoadTimer = setTimeout(() => setLoading(false), 500);
-    unsubs.push(() => clearTimeout(initialLoadTimer));
+    // Mark loading as false only after all initial subscriptions are set up
+    Promise.all(unsubs).then(() => {
+        setLoading(false);
+    }).catch(() => {
+        setLoading(false);
+    });
     
     return () => unsubs.forEach(unsub => unsub());
 
@@ -190,7 +202,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   
   const value: UserContextType = { 
       user: currentUser, 
-      loading,
+      loading: loading || authLoading, // Combine auth and user loading states
       roles,
       userPermissions,
       hasPermission,
