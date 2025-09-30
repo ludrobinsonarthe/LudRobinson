@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -64,7 +63,7 @@ export default function CertificatesPage() {
         toast({
             variant: "destructive",
             title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée car elle cause de l'instabilité.",
+            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
         });
     };
 

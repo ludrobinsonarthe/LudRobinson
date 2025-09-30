@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -22,7 +21,6 @@ import {
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { imageToDataUrl } from '@/lib/utils';
 
 type DataType = 'payments' | 'grades' | 'salaries' | 'transactions' | 'documents';
 
@@ -104,99 +102,6 @@ export default function AcademicHistoryPage() {
     
     const usersById = useMemo(() => users.reduce((acc, u) => ({...acc, [u.uid]: u}), {} as Record<string, User>), [users]);
     const coursesById = useMemo(() => (allCourses || []).reduce((acc, c) => ({...acc, [c.id]: c}), {} as Record<string, Course>), [allCourses]);
-
-    const handleExportPDF = async () => {
-        if (!activeView || !settings || allData[activeView].length === 0) {
-            toast({
-                variant: 'destructive',
-                title: 'Exportation impossible',
-                description: 'Veuillez sélectionner une catégorie avec des données à exporter.',
-            });
-            return;
-        }
-
-        const { jsPDF } = await import('jspdf');
-        const { default: autoTable } = await import('jspdf-autotable');
-        const doc = new jsPDF();
-        
-        try {
-            const logoDataUrl = await imageToDataUrl(settings.logoUrl);
-            if(logoDataUrl) {
-                const logoExtension = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                doc.addImage(logoDataUrl, logoExtension, 14, 10, 20, 20);
-            }
-        } catch (error) {
-            console.error("Could not add logo to PDF, proceeding without it.", error);
-        }
-        
-        const title = `Historique: ${categoryTitles[activeView]} - ${selectedYear}`;
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text(settings.schoolName, 40, 18);
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'normal');
-        doc.text(title, 40, 25);
-
-        let tableColumn: string[] = [];
-        let tableRows: any[][] = [];
-
-        switch(activeView) {
-            case 'payments':
-                tableColumn = ["Étudiant", "Montant", "Mois", "Date"];
-                tableRows = (allData.payments as Payment[]).map(item => [
-                    usersById[item.studentId]?.lastName || 'N/A',
-                    item.amountPaid,
-                    item.month,
-                    format(new Date(item.createdAt), 'dd/MM/yyyy')
-                ]);
-                break;
-            case 'grades':
-                tableColumn = ["Étudiant", "Cours", "Note", "Type"];
-                tableRows = (allData.grades as Grade[]).map(item => [
-                    usersById[item.studentId]?.lastName || 'N/A',
-                    coursesById[item.courseId]?.name || 'N/A',
-                    `${item.score}/${item.total}`,
-                    item.type
-                ]);
-                break;
-            case 'salaries':
-                tableColumn = ["Professeur", "Montant", "Mois", "Statut"];
-                tableRows = (allData.salaries as TeacherSalary[]).map(item => [
-                    usersById[item.teacherId]?.lastName || 'N/A',
-                    item.totalSalary,
-                    item.month,
-                    item.status
-                ]);
-                break;
-            case 'documents':
-                tableColumn = ["Étudiant", "Type", "Date"];
-                tableRows = (allData.documents as OfficialDocument[]).map(item => [
-                    usersById[item.studentId]?.lastName || 'N/A',
-                    item.type,
-                    format(new Date(item.issuedAt), 'dd/MM/yyyy')
-                ]);
-                break;
-            case 'transactions':
-                tableColumn = ["Description", "Montant", "Type", "Date"];
-                tableRows = (allData.transactions as CashTransaction[]).map(item => [
-                    item.description,
-                    item.amount,
-                    item.type,
-                    format(new Date(item.date), 'dd/MM/yyyy')
-                ]);
-                break;
-        }
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-        });
-
-        const fileName = `historique_${activeView}_${selectedYear}.pdf`;
-        doc.save(fileName);
-        toast({ title: 'Téléchargement réussi', description: `Le fichier ${fileName} a été généré.` });
-    };
 
     const renderContent = () => {
         if (loading) return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin"/></div>;
@@ -290,10 +195,6 @@ export default function AcademicHistoryPage() {
                     <div className="flex justify-between items-center">
                         <CardTitle>Archives de l'année</CardTitle>
                         <div className="flex items-center gap-2">
-                             <Button variant="outline" onClick={handleExportPDF} disabled={!activeView}>
-                                <FileDown className="mr-2 h-4 w-4" />
-                                Exporter en PDF
-                            </Button>
                             <Select value={selectedYear} onValueChange={setSelectedYear}>
                                 <SelectTrigger className="w-[200px]">
                                     <SelectValue placeholder="Sélectionner une année..." />

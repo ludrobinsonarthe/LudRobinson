@@ -7,16 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/hooks/use-user";
-import { Grade, Course, User } from "@/lib/types";
+import { Grade, Course, User, Field } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { FileDown, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { imageToDataUrl } from '@/lib/utils';
 
 interface CourseWithGrades extends Course {
     grades: Grade[];
@@ -142,15 +139,6 @@ export default function GradesPage() {
     const handleChildChange = (studentId: string) => {
         setSelectedStudentId(studentId);
     }
-    
-    const handleExportPDF = async () => {
-        if (!studentToView || !settings) return;
-        toast({
-            variant: "destructive",
-            title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
-        });
-    };
 
     const pageTitle = studentToView ? `Relevé de notes de ${studentToView.lastName} ${studentToView.firstName}` : "Mes Notes";
     const pageDescription = studentToView ? "Voici le résumé de ses performances académiques." : "Consultez vos notes et résultats pour chaque matière.";
@@ -210,12 +198,6 @@ export default function GradesPage() {
                             </CardDescription>
                         </div>
                         <div className='flex items-center gap-4'>
-                            {coursesWithGrades.length > 0 && studentToView && (
-                                <Button variant="outline" onClick={handleExportPDF}>
-                                    <FileDown className="mr-2 h-4 w-4" />
-                                    Exporter en PDF
-                                </Button>
-                            )}
                             {coursesWithGrades.length > 0 && (
                                 <div className='text-right'>
                                     <p className='text-lg text-muted-foreground'>Moyenne Générale</p>

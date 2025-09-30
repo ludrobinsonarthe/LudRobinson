@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -140,15 +139,6 @@ function ScheduleContent() {
         const teacher = teachers.find(t => t.uid === teacherId);
         return teacher ? `${teacher.lastName[0]}. ${teacher.firstName}` : 'N/A';
     }
-    
-    const handleExportPDF = async () => {
-        toast({
-            variant: "destructive",
-            title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée car elle cause de l'instabilité.",
-        });
-    };
-
 
     const isStudentView = currentUser?.role === 'student';
     const pageLoading = loading || userLoading;
@@ -212,10 +202,6 @@ function ScheduleContent() {
                                 </Select>
                                 </>
                             )}
-                             <Button variant="outline" onClick={handleExportPDF} disabled>
-                                <FileDown className="mr-2 h-4 w-4" />
-                                Exporter en PDF
-                            </Button>
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" onClick={() => setCurrentWeek(addDays(currentWeek, -7))}>
                                     <ArrowLeft className="h-4 w-4" />
