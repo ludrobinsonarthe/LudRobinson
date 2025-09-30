@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -65,7 +66,7 @@ export default function LoginPage() {
       console.error("Sign-in error:", error);
       let description = "Une erreur est survenue. Veuillez réessayer.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        description = "Identifiants incorrects. Veuillez vérifier votre e-mail et mot de passe ou contacter un administrateur si votre compte est nouveau.";
+        description = "Identifiants incorrects ou compte non activé. Veuillez vérifier vos informations ou contacter un administrateur.";
       }
       toast({
         variant: "destructive",
@@ -119,6 +120,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
                 />
                 <Button
                   type="button"

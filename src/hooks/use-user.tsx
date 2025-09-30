@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -86,7 +87,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         toast({
           variant: "destructive",
           title: "Profil non trouvé",
-          description: "Votre compte n'est pas enregistré. Déconnexion.",
+          description: "Votre compte n'existe pas dans la base de données de l'école. Déconnexion.",
         });
         signOut();
       }

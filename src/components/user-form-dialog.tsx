@@ -15,11 +15,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { User, AdminRole } from "@/lib/types";
+import type { User, AdminRole, ActivityLog } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 import ImageCropperDialog from "./image-cropper-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { db, storage, auth } from "@/lib/firebase";
+import { doc, writeBatch, collection } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useUser } from "./use-user";
 
 const userFormSchema = z.object({
   firstName: z.string().min(2, "Le prénom est requis."),
@@ -44,6 +50,9 @@ interface UserFormDialogProps {
 }
 
 export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userType, adminRoles }: UserFormDialogProps) {
+  const { user: adminUser } = useUser();
+  const { toast } = useToast();
+  
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
@@ -68,7 +77,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
   
   const dialogDescription = user
     ? "Modifiez les informations ci-dessous."
-    : "Remplissez le formulaire pour créer un nouveau compte. Le compte sera créé comme 'Suspendu' et devra être activé.";
+    : "Remplissez le formulaire pour créer un nouveau compte. Le mot de passe par défaut sera 'password'.";
 
 
   useEffect(() => {
@@ -122,7 +131,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
         lastName: userDataValues.lastName,
         email: userDataValues.email,
         role: userType,
-        status: user ? user.status : 'suspended', // Set new users to suspended by default
+        status: user ? user.status : 'active',
     };
     if (userType === 'teacher') {
         userData.teacher = { specialty: userDataValues.specialty || '', assignedCourses: user?.teacher?.assignedCourses || [] };
@@ -136,7 +145,6 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
     }
     
     onSave(userData, photo);
-    setIsOpen(false);
   };
 
   return (
@@ -194,7 +202,7 @@ export default function UserFormDialog({ isOpen, setIsOpen, onSave, user, userTy
                     <FormItem>
                     <FormLabel>Adresse e-mail</FormLabel>
                     <FormControl>
-                        <Input type="email" placeholder="email@isgi.com" {...field} />
+                        <Input type="email" placeholder="email@isgi.com" {...field} disabled={!!user} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>

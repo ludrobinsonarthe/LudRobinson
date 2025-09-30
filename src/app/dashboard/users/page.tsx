@@ -162,9 +162,10 @@ export default function UsersPage() {
                 };
                 batch.set(logRef, log);
 
-                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut 'password' et doit être activé." });
+                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut 'password'." });
             }
             await batch.commit();
+            setIsFormOpen(false);
         } catch (error: any) {
             console.error("Error saving user:", error);
             if (error.code === 'auth/email-already-in-use') {
