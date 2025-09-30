@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect }from "react";
@@ -151,6 +150,7 @@ export default function UsersPage() {
                 const newUser: User = {
                     ...userData, uid, photoUrl, role: userData.role as UserRole,
                     createdAt: new Date().toISOString(),
+                    status: 'suspended', // Start as suspended
                 } as User;
                 
                 batch.set(doc(db, "users", uid), newUser);
@@ -162,7 +162,7 @@ export default function UsersPage() {
                 };
                 batch.set(logRef, log);
 
-                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le mot de passe par défaut 'password'." });
+                toast({ title: "Utilisateur créé", description: "Le compte a été créé avec le statut 'Suspendu'. Activez-le manuellement." });
             }
             await batch.commit();
             setIsFormOpen(false);

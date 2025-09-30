@@ -137,14 +137,15 @@ export default function StudentsPage() {
         setIsDeleteOpen(true);
     }
 
-    const createCertificatePdf = async (student: User): Promise<Blob | null> => {
+    const generateAndStoreDocument = async (student: User, type: 'certificat' | 'bulletin') => {
+        if(!adminUser) return;
         toast({
             variant: "destructive",
             title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
+            description: `La génération de ${type}s est temporairement indisponible.`,
         });
-        return null;
     };
+    
 
     const handleSave = async (studentData: Partial<User>, parentData?: Partial<User>, photoFile?: File | Blob) => {
         if (!adminUser) return;
@@ -255,28 +256,10 @@ export default function StudentsPage() {
                         relatedDocId: payment.id,
                     });
                 }
-                 // Automatically generate school certificate
-                const certificateBlob = await createCertificatePdf(finalStudentData);
-                if (certificateBlob) {
-                    const certificateFileName = `certificat_${finalStudentData.lastName}_${finalStudentData.firstName}_${Date.now()}.pdf`;
-                    const certificateFileRef = ref(storage, `official_documents/${studentUid}/${certificateFileName}`);
-                    const certificateSnapshot = await uploadBytes(certificateFileRef, certificateBlob);
-                    const certificateFileUrl = await getDownloadURL(certificateSnapshot.ref);
-
-                    const newDocRef = doc(collection(db, 'officialDocuments'));
-                    const newCertificateDoc: Omit<OfficialDocument, 'id'> = {
-                        studentId: studentUid,
-                        type: 'certificat',
-                        fileUrl: certificateFileUrl,
-                        issuedBy: adminUser?.uid || 'system-admin',
-                        issuedAt: new Date().toISOString(),
-                    };
-                    batch.set(newDocRef, newCertificateDoc);
-                }
             }
 
             await batch.commit();
-            toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté", description: isNewStudent ? "Les frais d'inscription et le certificat de scolarité ont été automatiquement générés." : "" });
+            toast({ title: selectedStudent ? "Étudiant mis à jour" : "Étudiant ajouté", description: isNewStudent ? "Les frais d'inscription ont été automatiquement générés." : "" });
             
         } catch (error) {
             console.error("Error saving student:", error);
@@ -377,45 +360,7 @@ export default function StudentsPage() {
         if (!student.student) return [];
         return (allCourses || []).filter(c => c.fieldId === student.student!.fieldId && c.level === student.student!.level);
     }
-    
-    const createTranscriptPdf = async (student: User): Promise<Blob | null> => {
-        toast({
-            variant: "destructive",
-            title: "Fonctionnalité désactivée",
-            description: "L'exportation PDF est temporairement désactivée pour des raisons de stabilité.",
-        });
-        return null;
-    };
 
-    const generateAndStoreDocument = async (student: User, type: 'certificat' | 'bulletin', docGenerator: (student: User) => Promise<Blob | null>) => {
-        if(!adminUser) return;
-        try {
-            const blob = await docGenerator(student);
-            if (!blob) return; // Stop if PDF generation was cancelled or failed
-
-            const fileName = `${type}_${student.lastName}_${student.firstName}_${Date.now()}.pdf`;
-            const fileRef = ref(storage, `official_documents/${student.uid}/${fileName}`);
-            
-            const snapshot = await uploadBytes(fileRef, blob);
-            const fileUrl = await getDownloadURL(snapshot.ref);
-
-            const newDoc: Omit<OfficialDocument, 'id'> = {
-                studentId: student.uid,
-                type: type,
-                fileUrl: fileUrl,
-                issuedBy: adminUser.uid,
-                issuedAt: new Date().toISOString(),
-            };
-            await addDoc(collection(db, "officialDocuments"), newDoc);
-
-            toast({ title: `${type === 'certificat' ? 'Certificat' : 'Bulletin'} généré et enregistré`, description: `Le document pour ${student.lastName} ${student.firstName} est disponible.` });
-
-        } catch (error) {
-            console.error(`Error generating ${type}:`, error);
-            toast({ variant: 'destructive', title: `Erreur de génération`, description: `Impossible de générer le document.` });
-        }
-    };
-    
     const getExportData = () => {
         return filteredStudents.map(student => {
             const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student!.parentUid) : null;
@@ -756,8 +701,8 @@ export default function StudentsPage() {
                                                     </DropdownMenuSubTrigger>
                                                     <DropdownMenuPortal>
                                                         <DropdownMenuSubContent>
-                                                            <DropdownMenuItem onClick={() => generateAndStoreDocument(student, 'certificat', createCertificatePdf)}>Certificat de scolarité</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => generateAndStoreDocument(student, 'bulletin', createTranscriptPdf)}>Bulletin de notes</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => generateAndStoreDocument(student, 'certificat')}>Certificat de scolarité</DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => generateAndStoreDocument(student, 'bulletin')}>Bulletin de notes</DropdownMenuItem>
                                                         </DropdownMenuSubContent>
                                                     </DropdownMenuPortal>
                                                </DropdownMenuSub>
