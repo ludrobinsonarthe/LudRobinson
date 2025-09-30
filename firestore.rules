@@ -2,10 +2,133 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to all authenticated users
-    // THIS IS NOT A SECURE RULE. You should restrict access based on your app's needs.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    
+    // =================================
+    // Utility functions
+    // =================================
+    
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    function isAuthOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function getRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+    
+    function isRole(userId, role) {
+      return getRole(userId) == role;
+    }
+    
+    // Check for specific granular permissions on an admin user
+    function hasPermission(permission) {
+        let roleId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin.roleId;
+        return roleId == 'super_admin' || permission in get(/databases/$(database)/documents/adminRoles/$(roleId)).data.permissions;
+    }
+
+    // =================================
+    // Collection Rules
+    // =================================
+
+    match /users/{userId} {
+      // Allow reading own user document for all authenticated users
+      allow get: if isAuth() && isAuthOwner(userId);
+      // Allow admins with 'manage_users' or 'manage_students' permission to read any user document
+      allow list, write: if isAuth() && (hasPermission('manage_users') || hasPermission('manage_students'));
+    }
+    
+    match /adminRoles/{roleId} {
+      allow read, write: if isAuth() && hasPermission('manage_roles');
+    }
+    
+    match /announcements/{announcementId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAuth() && isRole(request.auth.uid, 'admin');
+    }
+    
+    match /private_messages/{messageId} {
+        // Allow read if sender or receiver
+        allow read: if isAuth() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+        // Allow create if sender is the authenticated user
+        allow create: if isAuth() && request.auth.uid == request.resource.data.senderId;
+    }
+    
+    match /courses/{courseId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && hasPermission('manage_course');
+    }
+    
+    match /grades/{gradeId} {
+        // Admins can read all grades
+        // Teachers can read grades for their courses
+        // Students can read their own grades
+        allow read: if isAuth() && (
+            hasPermission('manage_grades') ||
+            (isRole(request.auth.uid, 'teacher') && resource.data.courseId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teacher.assignedCourses) ||
+            (isRole(request.auth.uid, 'student') && resource.data.studentId == request.auth.uid) ||
+            (isRole(request.auth.uid, 'parent') && resource.data.studentId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parent.childrenUids)
+        );
+        allow write: if isAuth() && hasPermission('manage_grades');
+    }
+    
+    match /qr_sessions/{sessionId} {
+      allow read, write: if true; // Open for anonymous QR login process
+    }
+    
+    match /activityLogs/{logId} {
+      allow read, write: if isAuth() && hasPermission('manage_admin_settings');
+    }
+    
+    match /settings/{docId} {
+        allow read: if isAuth();
+        allow write: if isAuth() && hasPermission('manage_admin_settings');
+    }
+    
+    match /sectors/{sectorId} {
+        allow read: if isAuth();
+        allow write: if isAuth() && hasPermission('manage_admin_settings');
+    }
+    
+    match /fields/{fieldId} {
+        allow read: if isAuth();
+        allow write: if isAuth() && hasPermission('manage_admin_settings');
+    }
+
+    match /feeStructures/{feeId} {
+        allow read: if isAuth();
+        allow write: if isAuth() && hasPermission('manage_fees');
+    }
+    
+    match /payments/{paymentId} {
+        allow read, write: if isAuth() && (
+            hasPermission('manage_tuition') ||
+            (resource.data.studentId == request.auth.uid)
+        );
+         allow create: if isAuth();
+    }
+    
+    match /teacherSalaries/{salaryId} {
+        allow read, write: if isAuth() && hasPermission('manage_salaries');
+    }
+    
+    match /cashTransactions/{transactionId} {
+        allow read, write: if isAuth() && hasPermission('manage_cash_flow');
+    }
+    
+    match /officialDocuments/{documentId} {
+        allow read: if isAuth() && (
+            hasPermission('manage_students') ||
+            (resource.data.studentId == request.auth.uid) ||
+            (isRole(request.auth.uid, 'parent') && resource.data.studentId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parent.childrenUids)
+        );
+        allow write: if isAuth() && hasPermission('manage_students');
+    }
+    
+    match /attendances/{attendanceId} {
+        allow read, write: if isAuth() && hasPermission('manage_attendance');
     }
   }
 }
