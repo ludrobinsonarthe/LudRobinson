@@ -12,6 +12,7 @@ import { TeacherSalary, User, UnifiedSalary } from '@/lib/types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Banknote, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const statusVariant: { [key: string]: "default" | "secondary" } = {
     paid: "default",
@@ -21,11 +22,17 @@ const statusTranslation: { [key: string]: string } = {
     paid: "Payé",
     pending: "En attente",
 }
+const allMonths = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
 
 export default function MySalaryPage() {
     const { user: currentUser, loading: userLoading } = useUser();
     const [salaries, setSalaries] = useState<UnifiedSalary[]>([]);
     const [loading, setLoading] = useState(true);
+    
+    // Filter states
+    const [selectedMonth, setSelectedMonth] = useState('all');
+    const [selectedYear, setSelectedYear] = useState('all');
 
     useEffect(() => {
         if (!currentUser || (currentUser.role !== 'teacher' && currentUser.role !== 'admin')) {
@@ -55,10 +62,23 @@ export default function MySalaryPage() {
         return () => unsubscribe();
     }, [currentUser]);
 
-    const { totalPaid } = useMemo(() => {
-        const totalPaid = salaries.filter(s => s.status === 'paid').reduce((acc, s) => acc + s.totalSalary, 0);
-        return { totalPaid };
+    const availableYears = useMemo(() => {
+        const years = new Set(salaries.map(s => s.year));
+        return Array.from(years).sort((a,b) => b.localeCompare(a));
     }, [salaries]);
+    
+    const filteredSalaries = useMemo(() => {
+        return salaries.filter(s => {
+            const monthMatch = selectedMonth === 'all' || s.month === selectedMonth;
+            const yearMatch = selectedYear === 'all' || s.year === selectedYear;
+            return monthMatch && yearMatch;
+        });
+    }, [salaries, selectedMonth, selectedYear]);
+
+    const { totalPaid } = useMemo(() => {
+        const totalPaid = filteredSalaries.filter(s => s.status === 'paid').reduce((acc, s) => acc + s.totalSalary, 0);
+        return { totalPaid };
+    }, [filteredSalaries]);
 
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
@@ -96,13 +116,41 @@ export default function MySalaryPage() {
             
             <Card>
                 <CardHeader>
-                    <CardTitle>Historique des Paiements</CardTitle>
-                    <CardDescription>
-                        Liste de toutes les fiches de paie générées par l'administration.
-                    </CardDescription>
+                    <div className="flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                            <CardTitle>Historique des Paiements</CardTitle>
+                            <CardDescription>
+                                Liste de toutes les fiches de paie générées par l'administration.
+                            </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Filtrer par mois" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tous les mois</SelectItem>
+                                    {allMonths.map(month => (
+                                        <SelectItem key={month} value={month}>{month}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                             <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Filtrer par année" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Toutes les années</SelectItem>
+                                    {availableYears.map(year => (
+                                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    {salaries.length > 0 ? (
+                    {filteredSalaries.length > 0 ? (
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -113,7 +161,7 @@ export default function MySalaryPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {salaries.map(salary => (
+                                {filteredSalaries.map(salary => (
                                     <TableRow key={salary.id}>
                                         <TableCell className='font-medium'>{salary.month} {salary.year}</TableCell>
                                         <TableCell className='font-semibold'>{formatCurrency(salary.totalSalary, salary.currency)}</TableCell>
