@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CashTransaction, Payment, TeacherSalary, ActivityLog } from "@/lib/types";
+import { CashTransaction, Payment, UnifiedSalary, ActivityLog } from "@/lib/types";
 import { MoreHorizontal, PlusCircle, ArrowUpCircle, ArrowDownCircle, Scale, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
@@ -34,7 +34,7 @@ export default function CashFlowPage() {
     const { settings, user: adminUser } = useUser();
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
-    const [teacherSalaries, setTeacherSalaries] = useState<TeacherSalary[]>([]);
+    const [teacherSalaries, setTeacherSalaries] = useState<UnifiedSalary[]>([]);
     const [loading, setLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -57,7 +57,7 @@ export default function CashFlowPage() {
         });
 
         const unsubSalaries = onSnapshot(collection(db, 'teacherSalaries'), snapshot => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeacherSalary));
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UnifiedSalary));
             setTeacherSalaries(data);
         });
 
@@ -99,11 +99,9 @@ export default function CashFlowPage() {
 
         const batch = writeBatch(db);
         
-        // 1. Reference to the document to delete
         const transactionRef = doc(db, 'cashTransactions', selectedTransaction.id);
-        
-        // 2. Reference for the new activity log document
         const logRef = doc(collection(db, 'activityLogs'));
+
         const log: Omit<ActivityLog, 'id'> = {
             actorId: adminUser.uid,
             actorName: `${adminUser.lastName} ${adminUser.firstName}`,
@@ -114,15 +112,12 @@ export default function CashFlowPage() {
             details: `A supprimé la transaction manuelle : "${selectedTransaction.description}" de ${formatCurrency(selectedTransaction.amount, selectedTransaction.currency)}`,
         };
 
-        // 3. Add operations to the batch
-        batch.delete(transactionRef); // This will delete the document from Firestore
-        batch.set(logRef, log); // This will create a new document in activityLogs
+        batch.delete(transactionRef);
+        batch.set(logRef, log);
         
         try {
-            // 4. Commit the batch: both operations succeed or both fail
             await batch.commit();
 
-            // 5. Update UI immediately for a responsive feel
             setTransactions(prev => prev.filter(t => t.id !== selectedTransaction.id));
             
             toast({ title: "Transaction supprimée", description: "L'opération a été retirée de la caisse et archivée dans l'historique." });
@@ -139,11 +134,11 @@ export default function CashFlowPage() {
     const getTransactionLink = (transaction: CashTransaction): string | null => {
         if (!transaction.relatedDocId) return null;
         
-        if (transaction.category === 'tuition') {
+        if (transaction.category === 'tuition' && transaction.relatedDocId) {
              const studentId = payments.find(p => p.id === transaction.relatedDocId)?.studentId;
              if(studentId) return `/dashboard/tuition-management?studentId=${studentId}`;
         }
-        if (transaction.category === 'salary') {
+        if (transaction.category === 'salary' && transaction.relatedDocId) {
             const userId = teacherSalaries.find(s => s.id === transaction.relatedDocId)?.userId;
             if(userId) return `/dashboard/salary-management?userId=${userId}`;
         }
@@ -190,42 +185,36 @@ export default function CashFlowPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                 <Link href="/dashboard/cash-flow">
-                    <Card className="hover:bg-muted/50 transition-colors">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Solde Actuel</CardTitle>
-                            <Scale className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
-                            <p className="text-xs text-muted-foreground">Balance des entrées et sorties</p>
-                        </CardContent>
-                    </Card>
-                </Link>
-                 <Link href="/dashboard/cash-flow">
-                    <Card className="hover:bg-muted/50 transition-colors">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total des Entrées</CardTitle>
-                            <ArrowUpCircle className="h-4 w-4 text-green-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
-                            <p className="text-xs text-muted-foreground">Total des fonds reçus</p>
-                        </CardContent>
-                    </Card>
-                </Link>
-                 <Link href="/dashboard/cash-flow">
-                    <Card className="hover:bg-muted/50 transition-colors">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total des Sorties</CardTitle>
-                            <ArrowDownCircle className="h-4 w-4 text-red-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(totalExpense)}</div>
-                            <p className="text-xs text-muted-foreground">Total des dépenses effectuées</p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                 <Card className="hover:bg-muted/50 transition-colors">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Solde Actuel</CardTitle>
+                        <Scale className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
+                        <p className="text-xs text-muted-foreground">Balance des entrées et sorties</p>
+                    </CardContent>
+                </Card>
+                 <Card className="hover:bg-muted/50 transition-colors">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total des Entrées</CardTitle>
+                        <ArrowUpCircle className="h-4 w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
+                        <p className="text-xs text-muted-foreground">Total des fonds reçus</p>
+                    </CardContent>
+                </Card>
+                 <Card className="hover:bg-muted/50 transition-colors">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total des Sorties</CardTitle>
+                        <ArrowDownCircle className="h-4 w-4 text-red-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatCurrency(totalExpense)}</div>
+                        <p className="text-xs text-muted-foreground">Total des dépenses effectuées</p>
+                    </CardContent>
+                </Card>
             </div>
 
             <Card>
@@ -260,7 +249,9 @@ export default function CashFlowPage() {
                                 <TableRow key={t.id}>
                                     <TableCell>{format(new Date(t.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
                                     <TableCell><Badge variant={typeVariant[t.type]}>{typeTranslation[t.type]}</Badge></TableCell>
-                                    <TableCell><Badge variant="outline">{categoryTranslation[t.category]}</Badge></TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline">{categoryTranslation[t.category]}</Badge>
+                                    </TableCell>
                                     <TableCell className='font-medium'>
                                         {link ? (
                                             <Link href={link} className="hover:underline text-primary">{t.description}</Link>
