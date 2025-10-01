@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -20,12 +20,15 @@ import { MoreHorizontal, PlusCircle, ArrowUpCircle, ArrowDownCircle, Scale, Tras
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import CashTransactionFormDialog from '@/components/cash-transaction-form-dialog';
 import UserDeleteDialog from '@/components/user-delete-dialog';
 import { useUser } from '@/hooks/use-user';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+
 
 export default function CashFlowPage() {
     const { settings } = useUser();
@@ -35,6 +38,8 @@ export default function CashFlowPage() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<CashTransaction | null>(null);
     const { toast } = useToast();
+    const router = useRouter();
+
 
     useEffect(() => {
         setLoading(true);
@@ -84,6 +89,33 @@ export default function CashFlowPage() {
         }
     }
     
+    const handleRowClick = async (transaction: CashTransaction) => {
+        if (!transaction.relatedDocId) return;
+
+        let path = '';
+        let docRef;
+
+        if (transaction.category === 'tuition') {
+            docRef = doc(db, 'payments', transaction.relatedDocId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                path = `/dashboard/tuition-management?studentId=${docSnap.data().studentId}`;
+            }
+        } else if (transaction.category === 'salary') {
+            docRef = doc(db, 'teacherSalaries', transaction.relatedDocId);
+            const docSnap = await getDoc(docRef);
+             if (docSnap.exists()) {
+                path = `/dashboard/salary-management?userId=${docSnap.data().teacherId}`;
+            }
+        }
+
+        if (path) {
+            router.push(path);
+        } else {
+            toast({ variant: 'destructive', title: 'Document lié introuvable' });
+        }
+    };
+
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
     }
@@ -189,7 +221,11 @@ export default function CashFlowPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : transactions.length > 0 ? transactions.map(t => (
-                                <TableRow key={t.id}>
+                                <TableRow 
+                                    key={t.id} 
+                                    onClick={() => handleRowClick(t)}
+                                    className={cn(t.relatedDocId && 'cursor-pointer')}
+                                >
                                     <TableCell>{format(new Date(t.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
                                     <TableCell><Badge variant={typeVariant[t.type]}>{typeTranslation[t.type]}</Badge></TableCell>
                                     <TableCell><Badge variant="outline">{categoryTranslation[t.category]}</Badge></TableCell>
