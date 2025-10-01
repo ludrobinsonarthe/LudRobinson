@@ -159,6 +159,25 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     setIsSubmitting(true);
     const { newDocumentFile, ...courseData} = data;
     
+    let newDocumentUrl: string | null = null;
+    if (newDocumentFile && newDocumentFile.name) {
+        toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
+        const courseId = course?.id || `course_${Date.now()}`;
+        const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
+        const fileRef = ref(storage, filePath);
+        
+        try {
+            await uploadBytes(fileRef, newDocumentFile);
+            newDocumentUrl = await getDownloadURL(fileRef);
+            toast({ title: "Fichier téléversé", description: "Le nouveau document du cours a été ajouté." });
+        } catch (error) {
+            console.error("Error uploading document:", error);
+            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible d'enregistrer le fichier du cours." });
+            setIsSubmitting(false);
+            return;
+        }
+    }
+    
     const finalCourseData: Partial<Course> = {
         name: courseData.name,
         description: courseData.description,
@@ -170,6 +189,10 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         documents: courseData.documents || []
     };
 
+    if (newDocumentUrl) {
+      finalCourseData.documents?.push(newDocumentUrl);
+    }
+
     if (courseData.fieldId === 'common_core' || !courseData.fieldId) {
         finalCourseData.sectorId = courseData.sectorId;
         finalCourseData.fieldId = undefined;
@@ -178,27 +201,9 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         finalCourseData.sectorId = undefined;
     }
     
-    if (newDocumentFile && newDocumentFile.name) {
-        toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
-        const courseId = course?.id || `course_${Date.now()}`;
-        const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
-        const fileRef = ref(storage, filePath);
-        
-        try {
-            await uploadBytes(fileRef, newDocumentFile);
-            const downloadURL = await getDownloadURL(fileRef);
-            finalCourseData.documents?.push(downloadURL);
-            toast({ title: "Fichier téléversé", description: "Le nouveau document du cours a été ajouté." });
-        } catch (error) {
-            console.error("Error uploading document:", error);
-            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible d'enregistrer le fichier du cours." });
-            setIsSubmitting(false);
-            return;
-        }
-    }
-
     onSave(finalCourseData);
     setIsSubmitting(false);
+    setIsOpen(false);
   };
 
   const removeDocument = async (docUrl: string, index: number) => {
