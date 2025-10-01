@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Course, User, Sector, Field, Cycle, ActivityLog } from "@/lib/types";
-import { useEffect, useMemo, useState, useRef, Suspense } from "react";
+import { useEffect, useMemo, useState, useRef, Suspense, useTransition } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, PlusCircle, Trash2, File, Upload, ArrowLeft } from "lucide-react";
@@ -26,7 +26,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { doc, collection, writeBatch, setDoc, updateDoc, getDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, revalidatePath } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
@@ -76,6 +76,7 @@ function CourseForm() {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPending, startTransition] = useTransition();
 
   const teachers = useMemo(() => allUsers.filter(u => u.role === 'teacher'), [allUsers]);
 
@@ -180,7 +181,7 @@ function CourseForm() {
 
         toast({ title: isNewCourse ? "Cours créé avec succès" : "Cours mis à jour", description: isNewCourse ? "Vous pouvez maintenant ajouter des documents." : ""});
         if(isNewCourse) {
-            router.replace(`/dashboard/course-management/${finalCourseId}`);
+            router.push(`/dashboard/course-management/${finalCourseId}`);
         }
         
     } catch (error) {
@@ -189,31 +190,6 @@ function CourseForm() {
     } finally {
         setIsSubmitting(false);
     }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file || !course) return;
-
-      setIsUploading(true);
-      try {
-        const filePath = `courses/${course.id}/${Date.now()}-${file.name.replace(/\s/g, '_')}`;
-        const fileRef = ref(storage, filePath);
-        
-        await uploadBytes(fileRef, file);
-        const newDocumentUrl = await getDownloadURL(fileRef);
-
-        const updatedDocuments = [...(course.documents || []), newDocumentUrl];
-        await updateDoc(doc(db, "courses", course.id), { documents: updatedDocuments });
-        
-        toast({ title: "Téléversement réussi", description: "Le document a été ajouté au cours." });
-      } catch (error) {
-          console.error("Error uploading file:", error);
-          toast({ variant: "destructive", title: "Erreur de téléversement", description: "Vérifiez vos permissions Firebase Storage." });
-      } finally {
-          setIsUploading(false);
-          if (fileInputRef.current) fileInputRef.current.value = "";
-      }
   };
 
   const removeDocument = async (docUrl: string) => {
@@ -382,25 +358,43 @@ function CourseForm() {
                                 ) : (
                                     <p className="text-sm text-muted-foreground text-center py-4">Aucun document pour ce cours.</p>
                                 )}
+                                
+                                <form action={async (formData: FormData) => {
+                                    startTransition(async () => {
+                                        const file = formData.get('document') as File;
+                                        if (!file || file.size === 0) {
+                                            toast({ variant: "destructive", title: "Aucun fichier sélectionné" });
+                                            return;
+                                        }
 
-                                <div className="flex items-center gap-2">
-                                    <Input 
-                                        type="file" 
-                                        accept=".pdf"
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        onChange={handleFileUpload}
-                                        disabled={isUploading}
-                                    />
-                                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                                        {isUploading ? (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                                        ) : (
-                                            <Upload className="mr-2 h-4 w-4"/>
-                                        )}
-                                        Ajouter un document
-                                    </Button>
-                                </div>
+                                        const result = await uploadCourseDocument(courseId, formData);
+
+                                        if (result.success) {
+                                            toast({ title: "Téléversement réussi", description: "Le document a été ajouté au cours." });
+                                            if(fileInputRef.current) fileInputRef.current.value = "";
+                                        } else {
+                                            toast({ variant: "destructive", title: "Erreur de téléversement", description: result.error });
+                                        }
+                                    });
+                                }}>
+                                    <div className="flex items-center gap-2">
+                                        <Input 
+                                            type="file" 
+                                            name="document"
+                                            accept=".pdf"
+                                            ref={fileInputRef}
+                                            disabled={isPending}
+                                        />
+                                        <Button type="submit" variant="outline" disabled={isPending}>
+                                            {isPending ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                                            ) : (
+                                                <Upload className="mr-2 h-4 w-4"/>
+                                            )}
+                                            Ajouter
+                                        </Button>
+                                    </div>
+                                </form>
                             </div>
                         </CardContent>
                     </>
@@ -409,6 +403,47 @@ function CourseForm() {
       </div>
   );
 }
+
+async function uploadCourseDocument(courseId: string, formData: FormData): Promise<{ success: boolean; error?: string }> {
+    'use server';
+
+    const file = formData.get('document') as File;
+
+    if (!file) {
+        return { success: false, error: 'Aucun fichier trouvé.' };
+    }
+     if (file.size === 0) {
+        return { success: false, error: 'Le fichier est vide.' };
+    }
+
+    try {
+        const filePath = `courses/${courseId}/${Date.now()}-${file.name.replace(/\s/g, '_')}`;
+        const fileRef = ref(storage, filePath);
+        
+        const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+        await uploadBytes(fileRef, fileBuffer, { contentType: file.type });
+        const newDocumentUrl = await getDownloadURL(fileRef);
+
+        const courseRef = doc(db, "courses", courseId);
+        const courseSnap = await getDoc(courseRef);
+        if(!courseSnap.exists()) {
+            return { success: false, error: 'Cours introuvable.' };
+        }
+        
+        const courseData = courseSnap.data();
+        const updatedDocuments = [...(courseData.documents || []), newDocumentUrl];
+        await updateDoc(courseRef, { documents: updatedDocuments });
+        
+        revalidatePath(`/dashboard/course-management/${courseId}`);
+        return { success: true };
+
+    } catch (error) {
+        console.error("Server Action - Error uploading file:", error);
+        return { success: false, error: "Une erreur est survenue sur le serveur." };
+    }
+}
+
 
 export default function CourseManagementEditPage() {
     return (
