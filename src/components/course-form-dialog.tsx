@@ -437,3 +437,5 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
     </Dialog>
   );
 }
+
+    
