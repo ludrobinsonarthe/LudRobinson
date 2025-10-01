@@ -161,6 +161,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté.'});
         return;
     }
+    
     setIsSubmitting(true);
     
     try {
@@ -168,34 +169,28 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
 
         if (documentFile) {
             toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
-            const courseIdForPath = course?.id || doc(collection(db, 'courses')).id;
+            const courseIdForPath = course?.id || `new_course_${Date.now()}`;
             const filePath = `courses/${courseIdForPath}/${Date.now()}-${documentFile.name.replace(/\s/g, '_')}`;
             const fileRef = ref(storage, filePath);
             
             await uploadBytes(fileRef, documentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
-            toast({ title: "Téléversement réussi", description: "Le document est prêt à être sauvegardé avec le cours." });
+            toast({ title: "Téléversement réussi", description: "Le document est prêt à être sauvegardé." });
         }
         
-        const finalCourseData: Partial<Course> = {
+        const finalCourseData: Omit<Course, 'id'> = {
             name: data.name,
-            description: data.description,
+            description: data.description || "",
             teacherId: data.teacherId,
             level: data.level,
             cycle: data.cycle,
             credit: data.credit,
-            schedule: data.schedule,
+            schedule: data.schedule || [],
             documents: allDocs,
+            fieldId: (data.fieldId === 'common_core' || !data.fieldId) ? undefined : data.fieldId,
+            sectorId: (data.fieldId === 'common_core' || !data.fieldId) ? data.sectorId : undefined,
         };
-
-        if (data.fieldId === 'common_core' || !data.fieldId) {
-            finalCourseData.sectorId = data.sectorId;
-            finalCourseData.fieldId = undefined;
-        } else {
-            finalCourseData.fieldId = data.fieldId;
-            finalCourseData.sectorId = undefined;
-        }
 
         const batch = writeBatch(db);
         const courseId = course?.id || doc(collection(db, 'courses')).id;
@@ -437,3 +432,5 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
     </Dialog>
   );
 }
+
+    
