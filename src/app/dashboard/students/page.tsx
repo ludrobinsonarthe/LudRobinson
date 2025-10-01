@@ -44,8 +44,17 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser, allUsers, loading, settings, fields, sectors, allCourses, feeStructures, payments } = useUser();
+    const { user: adminUser } = useUser();
     
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [settings, setSettings] = useState<any>(null);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [sectors, setSectors] = useState<Sector[]>([]);
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
+    const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [loading, setLoading] = useState(true);
+
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
@@ -59,6 +68,23 @@ export default function StudentsPage() {
     const [fieldFilter, setFieldFilter] = useState("all");
     const [genderFilter, setGenderFilter] = useState("all");
     const [nationalityFilter, setNationalityFilter] = useState("all");
+
+    useEffect(() => {
+        setLoading(true);
+        const unsubs: (() => void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), s => setAllUsers(s.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), s => setSettings(s.data())));
+        unsubs.push(onSnapshot(collection(db, 'fields'), s => setFields(s.docs.map(d => ({ id: d.id, ...d.data() }) as Field))));
+        unsubs.push(onSnapshot(collection(db, 'sectors'), s => setSectors(s.docs.map(d => ({ id: d.id, ...d.data() }) as Sector))));
+        unsubs.push(onSnapshot(collection(db, 'courses'), s => setAllCourses(s.docs.map(d => ({ id: d.id, ...d.data() }) as Course))));
+        unsubs.push(onSnapshot(collection(db, 'feeStructures'), s => setFeeStructures(s.docs.map(d => d.data() as FeeStructure))));
+        unsubs.push(onSnapshot(collection(db, 'payments'), s => setPayments(s.docs.map(d => d.data() as Payment))));
+
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
 
     const studentsFromUsers = useMemo(() => {
         return (allUsers || [])
@@ -407,6 +433,9 @@ export default function StudentsPage() {
 
         const reader = new FileReader();
         reader.onload = async (event) => {
+            let processedCount = 0;
+            const errors: string[] = [];
+
             try {
                 const XLSX = await import('xlsx');
                 const bstr = event.target?.result;
@@ -416,10 +445,10 @@ export default function StudentsPage() {
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
                 
                 const headers = data[0] as string[];
-                const importedStudentsData = (data.slice(1) as string[][]).map(row => {
-                    const studentRow: any = {};
-                    headers.forEach((header, index) => {
-                        studentRow[header] = row[index];
+                const importedStudentsData = (data.slice(1) as string[][]).map((row, index) => {
+                    const studentRow: any = { rowIndex: index + 2 }; // +2 because of 0-based index and header row
+                    headers.forEach((header, i) => {
+                        studentRow[header] = row[i];
                     });
                     return studentRow;
                 });
@@ -428,12 +457,12 @@ export default function StudentsPage() {
 
                 for (const studentRow of importedStudentsData) {
                     const studentId = doc(collection(db, 'users')).id;
-                    const fieldId = (fields || []).find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
+                    const fieldId = (fields || []).find(f => f.name?.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
                     const studentLevel = studentRow['Niveau'];
 
                     if (!fieldId || !studentLevel || !(settings?.levels || []).some((l: any) => l.value === studentLevel)) {
-                        console.warn(`Skipping student due to invalid field or level: ${studentRow['Nom']}`);
-                        continue;
+                        errors.push(`Ligne ${studentRow.rowIndex}: Filière ou niveau invalide pour "${studentRow['Nom']}".`);
+                        continue; // Skip this row
                     }
 
                     const studentCycle = cycles.find(c => c.label.toLowerCase() === studentRow['Cycle']?.toLowerCase())?.value || 'local';
@@ -491,10 +520,22 @@ export default function StudentsPage() {
                             relatedDocId: payment.id,
                         });
                     }
+                    processedCount++;
                 }
                 
                 await batch.commit();
-                toast({ title: "Importation réussie", description: `${importedStudentsData.length} étudiants ont été ajoutés, avec leurs frais d'inscription.` });
+
+                if (errors.length > 0) {
+                     toast({
+                        variant: "destructive",
+                        title: `Importation partielle (${processedCount}/${importedStudentsData.length})`,
+                        description: `Certains étudiants n'ont pas pu être importés. Erreurs: ${errors.join('; ')}`,
+                        duration: 10000,
+                    });
+                } else {
+                    toast({ title: "Importation réussie", description: `${processedCount} étudiants ont été ajoutés avec leurs frais d'inscription.` });
+                }
+
             } catch (error) {
                 console.error("Error importing file:", error);
                 toast({ variant: "destructive", title: "Erreur d'importation", description: "Le fichier est peut-être corrompu ou mal formaté." });

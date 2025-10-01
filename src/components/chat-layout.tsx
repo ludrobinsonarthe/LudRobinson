@@ -92,7 +92,7 @@ export default function ChatLayout({
                         description: msg.content,
                     });
                      // Play notification sound
-                    const audio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjQwLjEwMQAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAABoR2VuZXL//////////////////8AAAACAsgGgYCo//GgYCo/8f/9f/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//A/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//A/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//A/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//H/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//x=>/vAAAD+0AAAAAAAAP/7CgEAAACAB/gLAAABhxpCAAAABhxpBwYAAACZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm-///9G/wH4AAAABAAAADuUAAA/8BAA==');
+                    const audio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjQwLjEwMQAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAABoR2VuZXL//////////////////8AAAACAsgGgYCo//GgYCo/8f/9f/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//-///9G/wH4AAAABAAAADuUAAA/8BAA==');
                     audio.play();
                 }
            }
@@ -193,12 +193,11 @@ export default function ChatLayout({
       if (!messageContent.trim() || !currentUser || !selectedConversation) return;
 
       setIsSending(true);
-      const newMessage: Omit<Message, 'id'|'createdAt'> = {
+      const newMessage: Omit<Message, 'id'|'createdAt'|'isRead'> = {
           senderId: currentUser.uid,
           receiverId: selectedConversation,
           content: messageContent,
           type: 'private',
-          isRead: false,
       };
 
       try {
@@ -230,7 +229,8 @@ export default function ChatLayout({
         className={cn(
           "min-w-[250px] border-r transition-all duration-300 ease-in-out",
           isCollapsed ? "w-0 p-0" : "w-full lg:w-[320px] p-2",
-          "flex flex-col"
+          "flex flex-col",
+           selectedConversation && "hidden md:flex",
         )}
       >
         <div className={cn("flex flex-col bg-card rounded-lg border h-full", isCollapsed && "hidden")}>
@@ -281,7 +281,7 @@ export default function ChatLayout({
         </div>
       </div>
 
-      <div className="relative flex-1">
+      <div className={cn("relative flex-1", !selectedConversation && "hidden md:flex")}>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="absolute -left-3 top-1/2 z-20 -translate-y-1/2 rounded-full border bg-card p-1.5 text-muted-foreground hover:bg-muted lg:flex hidden"
@@ -296,6 +296,7 @@ export default function ChatLayout({
           {selectedUser ? (
             <>
               <div className="flex items-center gap-4 p-4 border-b">
+                 <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedConversation(null)}><ChevronsLeft className="h-5 w-5"/></Button>
                  <Avatar className="h-10 w-10 border">
                     <AvatarImage
                       src={selectedUser.photoUrl}

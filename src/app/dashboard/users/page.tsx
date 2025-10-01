@@ -56,7 +56,9 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { user: adminUser, allUsers, loading, roles } = useUser();
+    const { user: adminUser, roles } = useUser();
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -69,6 +71,15 @@ export default function UsersPage() {
     const [nameFilter, setNameFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     
+    useEffect(() => {
+        setLoading(true);
+        const unsub = onSnapshot(collection(db, 'users'), snapshot => {
+            setAllUsers(snapshot.docs.map(doc => doc.data() as User));
+            setLoading(false);
+        });
+        return () => unsub();
+    }, []);
+
     const employees = useMemo(() => {
         return allUsers.filter(user => user.role === 'admin' || user.role === 'teacher');
     }, [allUsers]);
@@ -202,8 +213,14 @@ export default function UsersPage() {
             };
             batch.set(logRef, log);
 
-            // Query and delete related data if they are a teacher
+            // If teacher, find their courses and set teacherId to ""
             if (selectedUser.role === 'teacher') {
+                const qCourses = query(collection(db, 'courses'), where('teacherId', '==', userId));
+                const coursesSnapshot = await getDocs(qCourses);
+                coursesSnapshot.forEach(courseDoc => {
+                    batch.update(courseDoc.ref, { teacherId: "" });
+                });
+
                 const qSalaries = query(collection(db, "teacherSalaries"), where("teacherId", "==", userId));
                 const salariesSnapshot = await getDocs(qSalaries);
                 salariesSnapshot.forEach(doc => batch.delete(doc.ref));

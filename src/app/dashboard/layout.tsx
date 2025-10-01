@@ -295,6 +295,11 @@ function MainSidebar() {
 
         {/* Mobile Sheet */}
         <Sheet>
+            <SheetTrigger asChild>
+                <div className="md:hidden">
+                    {/* This is part of DashboardHeader now */}
+                </div>
+            </SheetTrigger>
             <SheetHeader>
                 <SheetTitle className="sr-only">Menu principal</SheetTitle>
                 <SheetDescription className="sr-only">Menu de navigation principal pour mobile</SheetDescription>

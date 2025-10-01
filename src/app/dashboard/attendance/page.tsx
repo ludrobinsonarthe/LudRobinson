@@ -11,14 +11,13 @@ import { ArrowLeft, ArrowRight, UserCheck, Briefcase, FileDown, Users, Check, X,
 import { format, startOfWeek, addDays, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, getMonth, getYear, subMonths, addMonths, getDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useUser } from '@/hooks/use-user';
-import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus, UnifiedSalary } from '@/lib/types';
+import { Course, User, Attendance, StudentAttendance, Field, StudentAttendanceStatus, UnifiedSalary, Sector } from '@/lib/types';
 import { collection, doc, getDoc, setDoc, onSnapshot, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
-import { imageToDataUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -35,8 +34,16 @@ const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().pad
 
 
 function StudentAttendanceContent() {
-    const { user, allUsers, loading: usersLoading, settings, allCourses, fields, sectors, attendances } = useUser();
+    const { user } = useUser();
     const { toast } = useToast();
+
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
+    const [attendances, setAttendances] = useState<Attendance[]>([]);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [sectors, setSectors] = useState<Sector[]>([]);
+    const [settings, setSettings] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
     // Filters state
     const [selectedLevel, setSelectedLevel] = useState('all');
@@ -46,6 +53,22 @@ function StudentAttendanceContent() {
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [isReportOpen, setIsReportOpen] = useState(false);
+
+    useEffect(() => {
+        setLoading(true);
+        const unsubs: (() => void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), s => setAllUsers(s.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'courses'), s => setAllCourses(s.docs.map(d => ({id: d.id, ...d.data()}) as Course))));
+        unsubs.push(onSnapshot(collection(db, 'attendances'), s => setAttendances(s.docs.map(d => d.data() as Attendance))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), s => setFields(s.docs.map(d => ({id: d.id, ...d.data()}) as Field))));
+        unsubs.push(onSnapshot(collection(db, 'sectors'), s => setSectors(s.docs.map(d => ({id: d.id, ...d.data()}) as Sector))));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), s => setSettings(s.data())));
+        
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
 
     const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
 
@@ -77,7 +100,7 @@ function StudentAttendanceContent() {
     const studentSchedule = useMemo(() => {
         if (!selectedStudent || !selectedStudent.student) return null;
         const studentFieldId = selectedStudent.student.fieldId;
-        const studentSectorId = selectedStudent.student.sectorId || fields.find(f => f.id === studentFieldId)?.sectorId;
+        const studentSectorId = fields.find(f => f.id === studentFieldId)?.sectorId;
         return allCourses.filter(c => 
             c.level === selectedStudent.student!.level && (
                 c.fieldId === studentFieldId || // Specific course for field
@@ -255,7 +278,7 @@ function StudentAttendanceContent() {
                                             <TableCell key={day.toISOString()} className="p-1 align-top border-r">
                                                  <Popover>
                                                     <PopoverTrigger asChild disabled={user?.role !== 'admin'}>
-                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", user?.role === 'admin' && 'cursor-pointer', statusInfo?.className.replace('text-white', ''))}>
+                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", user?.role === 'admin' && 'cursor-pointer', statusInfo?.className.replace('bg-green-500 hover:bg-green-600 text-white', 'bg-green-100 text-green-800').replace('bg-red-500 hover:bg-red-600 text-white', 'bg-red-100 text-red-800').replace('bg-gray-400 hover:bg-gray-500 text-white', 'bg-gray-100 text-gray-800'))}>
                                                             <p className="font-bold truncate">{course.name}</p>
                                                             <p>{statusInfo?.label}</p>
                                                         </div>
@@ -294,7 +317,7 @@ function StudentAttendanceContent() {
                         <SelectTrigger className="w-[180px]"><SelectValue placeholder="Niveau..." /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Tous les Niveaux</SelectItem>
-                            {settings?.levels?.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                            {settings?.levels?.map((l:any) => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <Select value={selectedSectorId} onValueChange={setSelectedSectorId}>
@@ -323,7 +346,7 @@ function StudentAttendanceContent() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {usersLoading ? (
+                        {loading ? (
                             Array.from({length: 5}).map((_, i) => <TableRow key={i}><TableCell colSpan={3}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                         ) : filteredStudents.length > 0 ? filteredStudents.map(student => (
                              <TableRow key={student.uid} onClick={() => setSelectedStudent(student)} className="cursor-pointer">
@@ -350,19 +373,31 @@ function StudentAttendanceContent() {
 }
 
 function TeacherAttendanceContent() {
-    const { user: currentUser, allUsers: users, loading: usersLoading, settings, allCourses, attendances } = useUser();
+    const { user: currentUser } = useUser();
+    const [users, setUsers] = useState<User[]>([]);
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
+    const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [isReportOpen, setIsReportOpen] = useState(false);
     const { toast } = useToast();
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')), [users]);
+    
     const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
 
     useEffect(() => {
         setLoadingData(true);
-        const timer = setTimeout(() => setLoadingData(false), 300);
-        return () => clearTimeout(timer);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), s => setUsers(s.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'courses'), s => setAllCourses(s.docs.map(d => ({id: d.id, ...d.data()}) as Course))));
+        unsubs.push(onSnapshot(collection(db, 'attendances'), s => setAttendances(s.docs.map(d => d.data() as Attendance))));
+
+        const timer = setTimeout(() => setLoadingData(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
     }, []);
+
+    const teachers = useMemo(() => users.filter(u => u.role === 'teacher').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')), [users]);
 
     const handleTeacherStatusChange = async (teacherId: string, course: Course, day: Date, newStatus: 'present' | 'absent') => {
         if (!currentUser || currentUser.role !== 'admin') {
@@ -464,7 +499,7 @@ function TeacherAttendanceContent() {
                                                             <TableRow key={`${day.toISOString()}-${course.id}`}>
                                                                 <TableCell>{format(day, 'eeee dd/MM', { locale: fr })}</TableCell>
                                                                 <TableCell>{course.name}</TableCell>
-                                                                <TableCell><Badge variant={status === 'present' ? 'default' : 'destructive'} className={cn(status === 'present' && 'bg-green-600')}>{status}</Badge></TableCell>
+                                                                <TableCell><Badge variant={status === 'present' ? 'default' : 'destructive'} className={cn(status === 'present' && 'bg-green-600')}>{status === 'present' ? 'Présent' : 'Absent'}</Badge></TableCell>
                                                             </TableRow>
                                                         )
                                                     })
@@ -544,7 +579,7 @@ function TeacherAttendanceContent() {
                 <Table>
                     <TableHeader><TableRow><TableHead>Professeur</TableHead><TableHead className="hidden sm:table-cell">Spécialité</TableHead></TableRow></TableHeader>
                     <TableBody>
-                        {usersLoading ? (
+                        {loadingData ? (
                              Array.from({length: 5}).map((_, i) => <TableRow key={i}><TableCell colSpan={2}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                         ) : teachers.map(teacher => (
                             <TableRow key={teacher.uid} onClick={() => setSelectedTeacher(teacher)} className="cursor-pointer">
