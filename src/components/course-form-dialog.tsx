@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -22,16 +23,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Course, User, Sector, Field, Cycle } from "@/lib/types";
+import type { Course, User, Sector, Field, Cycle, ActivityLog } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
 import { Loader2, PlusCircle, Trash2, Link as LinkIcon, File } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
-import { storage } from "@/lib/firebase";
+import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
+import { doc, collection, writeBatch, setDoc } from 'firebase/firestore';
 
 
 const scheduleSchema = z.object({
@@ -63,7 +65,6 @@ type CourseFormValues = z.infer<typeof courseFormSchema>;
 interface CourseFormDialogProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onSave: (data: Partial<Course>) => void;
   course: Course | null;
   teachers: User[];
   sectors: Sector[];
@@ -78,8 +79,8 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 
-export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, teachers, sectors, fields }: CourseFormDialogProps) {
-  const { settings } = useUser();
+export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, sectors, fields }: CourseFormDialogProps) {
+  const { settings, user: adminUser } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -156,26 +157,27 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
    }, [selectedSector, form, fields]);
 
   const onSubmit = async (data: CourseFormValues) => {
+    if (!adminUser) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté.'});
+        return;
+    }
     setIsSubmitting(true);
-    const { newDocumentFile, ...courseData } = data;
-
+    
     try {
+        const { newDocumentFile, ...courseData } = data;
         let allDocs = courseData.documents || [];
 
-        // 1. Upload new document if it exists
         if (newDocumentFile && newDocumentFile.name) {
             toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
-            const courseIdForPath = course?.id || `course_${Date.now()}`;
+            const courseIdForPath = course?.id || doc(collection(db, 'courses')).id;
             const filePath = `courses/${courseIdForPath}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
             const fileRef = ref(storage, filePath);
             
             await uploadBytes(fileRef, newDocumentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
-            toast({ title: "Fichier téléversé avec succès." });
         }
         
-        // 2. Prepare the final data object
         const finalCourseData: Partial<Course> = {
             name: courseData.name,
             description: courseData.description,
@@ -194,16 +196,34 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             finalCourseData.fieldId = courseData.fieldId;
             finalCourseData.sectorId = undefined;
         }
+
+        const batch = writeBatch(db);
+        const courseId = course?.id || doc(collection(db, 'courses')).id;
+        const courseRef = doc(db, "courses", courseId);
+        batch.set(courseRef, finalCourseData, { merge: true });
+
+        const logRef = doc(collection(db, 'activityLogs'));
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: adminUser.uid,
+            actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+            action: course ? 'course_updated' : 'course_created',
+            entityType: 'course',
+            entityId: courseId,
+            timestamp: new Date().toISOString(),
+            details: `${course ? 'A mis à jour le cours' : 'A créé le cours'}: "${finalCourseData.name}"`,
+        };
+        batch.set(logRef, log);
         
-        // 3. Call the save function with the complete data
-        onSave(finalCourseData);
-        
+        await batch.commit();
+
+        toast({ title: course ? "Cours mis à jour" : "Cours ajouté", description: "Les informations du cours ont été enregistrées."});
+        setIsOpen(false);
+
     } catch (error) {
         console.error("Error during form submission:", error);
-        toast({ variant: "destructive", title: "Erreur de soumission", description: "Vérifiez vos permissions d'écriture dans Firebase Storage." });
+        toast({ variant: "destructive", title: "Erreur de soumission", description: "Une erreur est survenue. Vérifiez vos permissions d'écriture dans Firebase Storage et Firestore." });
     } finally {
         setIsSubmitting(false);
-        // We let the parent component close the dialog after successful save.
     }
   };
 
@@ -420,4 +440,3 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     </Dialog>
   );
 }
-

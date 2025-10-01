@@ -50,7 +50,7 @@ export default function CourseManagementPage() {
     const [cycleFilter, setCycleFilter] = useState("all");
     
     useEffect(() => {
-        if (user?.role !== 'admin') {
+        if (user?.role !== 'admin' && user?.role !== 'teacher') {
             setLoadingCourses(false);
             return;
         }
@@ -128,49 +128,6 @@ export default function CourseManagementPage() {
         setSelectedCourse(course);
         setIsDeleteOpen(true);
     }
-
-    const handleSave = async (courseData: Partial<Course>) => {
-        try {
-            const batch = writeBatch(db);
-            const logRef = doc(collection(db, 'activityLogs'));
-            let action: 'course_created' | 'course_updated' = 'course_created';
-            let courseId: string;
-
-            if (selectedCourse) {
-                action = 'course_updated';
-                courseId = selectedCourse.id;
-                const courseRef = doc(db, "courses", courseId);
-                batch.set(courseRef, courseData, { merge: true });
-            } else {
-                const newCourseRef = doc(collection(db, "courses"));
-                courseId = newCourseRef.id;
-                batch.set(newCourseRef, courseData);
-            }
-            
-            if (user) {
-                const log: Omit<ActivityLog, 'id'> = {
-                    actorId: user.uid,
-                    actorName: `${user.lastName} ${user.firstName}`,
-                    action: action,
-                    entityType: 'course',
-                    entityId: courseId,
-                    timestamp: new Date().toISOString(),
-                    details: `${action === 'course_created' ? 'A créé le cours' : 'A mis à jour le cours'}: "${courseData.name}"`,
-                };
-                batch.set(logRef, log);
-            }
-            
-            await batch.commit();
-
-            toast({ title: selectedCourse ? "Cours mis à jour" : "Cours ajouté", description: "Les informations du cours ont été enregistrées."});
-
-        } catch(error) {
-            console.error("Error saving course: ", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer le cours." });
-        } finally {
-            setIsFormOpen(false);
-        }
-    }
     
     const confirmDelete = async () => {
         if(!selectedCourse || !user) return;
@@ -205,7 +162,7 @@ export default function CourseManagementPage() {
 
     const pageIsLoading = loading || loadingCourses;
 
-    if (user?.role !== 'admin') {
+    if (user?.role !== 'admin' && user?.role !== 'teacher') {
         return (
              <Card>
                 <CardHeader>
@@ -364,7 +321,6 @@ export default function CourseManagementPage() {
             <CourseFormDialog 
                 isOpen={isFormOpen}
                 setIsOpen={setIsFormOpen}
-                onSave={handleSave}
                 course={selectedCourse}
                 teachers={teachers}
                 sectors={sectors}

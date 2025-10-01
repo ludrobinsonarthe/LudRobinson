@@ -1,22 +1,28 @@
 rules_version = '2';
 
-// Règles pour Firebase Storage
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // Autoriser la lecture publique de tous les fichiers
-    match /{allPaths=**} {
+    
+    // Allow public read access to logos
+    match /logos/{allPaths=**} {
       allow read;
     }
-
-    // Sécuriser les téléversements : seuls les utilisateurs authentifiés peuvent écrire
-    // dans des dossiers spécifiques.
-    match /avatars/{userId}/{fileName} {
+    
+    // Secure avatars: only authenticated users can write to their own avatar path
+    match /avatars/{userId} {
+      allow read;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /courses/{courseId}/{fileName} {
+    // Secure course documents: only authenticated users can write
+    match /courses/{courseId}/{allPaths=**} {
+      allow read; // Allow public read for students to download
       allow write: if request.auth != null;
+    }
+
+    // Default deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
