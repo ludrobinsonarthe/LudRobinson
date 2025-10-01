@@ -27,7 +27,7 @@ import type { Course, User, Sector, Field, Cycle, ActivityLog } from "@/lib/type
 import { useEffect, useMemo, useState } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
-import { Loader2, PlusCircle, Trash2, Link as LinkIcon, File } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, File } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
@@ -52,7 +52,6 @@ const courseFormSchema = z.object({
   sectorId: z.string().optional(),
   fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
-  newDocumentFile: z.any().optional(),
   documents: z.array(z.string()).optional(),
   schedule: z.array(scheduleSchema).optional(),
 }).refine(data => data.sectorId || data.fieldId, {
@@ -82,6 +81,7 @@ const cycles: { value: Cycle, label: string }[] = [
 export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, sectors, fields }: CourseFormDialogProps) {
   const { settings, user: adminUser } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
   const { toast } = useToast();
 
   const form = useForm<CourseFormValues>({
@@ -114,6 +114,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
 
   useEffect(() => {
     if (isOpen) {
+        setDocumentFile(null); // Reset file on open
         const courseSectorId = course?.sectorId || fields.find(f => f.id === course?.fieldId)?.sectorId || '';
         if (course) {
           form.reset({
@@ -164,37 +165,36 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
     setIsSubmitting(true);
     
     try {
-        const { newDocumentFile, ...courseData } = data;
-        let allDocs = courseData.documents || [];
+        let allDocs = data.documents || [];
 
-        if (newDocumentFile && newDocumentFile.name) {
+        if (documentFile) {
             toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
             const courseIdForPath = course?.id || doc(collection(db, 'courses')).id;
-            const filePath = `courses/${courseIdForPath}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
+            const filePath = `courses/${courseIdForPath}/${Date.now()}-${documentFile.name.replace(/\s/g, '_')}`;
             const fileRef = ref(storage, filePath);
             
-            await uploadBytes(fileRef, newDocumentFile);
+            await uploadBytes(fileRef, documentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
             toast({ title: "Téléversement réussi", description: "Le document est prêt à être sauvegardé avec le cours." });
         }
         
         const finalCourseData: Partial<Course> = {
-            name: courseData.name,
-            description: courseData.description,
-            teacherId: courseData.teacherId,
-            level: courseData.level,
-            cycle: courseData.cycle,
-            credit: courseData.credit,
-            schedule: courseData.schedule,
+            name: data.name,
+            description: data.description,
+            teacherId: data.teacherId,
+            level: data.level,
+            cycle: data.cycle,
+            credit: data.credit,
+            schedule: data.schedule,
             documents: allDocs,
         };
 
-        if (courseData.fieldId === 'common_core' || !courseData.fieldId) {
-            finalCourseData.sectorId = courseData.sectorId;
+        if (data.fieldId === 'common_core' || !data.fieldId) {
+            finalCourseData.sectorId = data.sectorId;
             finalCourseData.fieldId = undefined;
         } else {
-            finalCourseData.fieldId = courseData.fieldId;
+            finalCourseData.fieldId = data.fieldId;
             finalCourseData.sectorId = undefined;
         }
 
@@ -368,20 +368,17 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                              </Button>
                         </div>
                      ))}
-                     <FormField control={form.control} name="newDocumentFile" render={({ field: { onChange, value, ...rest } }) => (
-                        <FormItem>
+                     <FormItem>
                          <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
                         <FormControl>
                             <Input 
                                 type="file" 
                                 accept=".pdf"
-                                onChange={(e) => onChange(e.target.files?.[0])}
-                                {...rest}
+                                onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
                             />
                         </FormControl>
                          <FormMessage />
-                        </FormItem>
-                    )}/>
+                    </FormItem>
                  </div>
 
                 <Separator />
