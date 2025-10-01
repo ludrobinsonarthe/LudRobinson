@@ -108,8 +108,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
   }, [selectedSector, fields]);
 
   useEffect(() => {
-    setCurrentCourse(initialCourse);
     if (isOpen) {
+        setCurrentCourse(initialCourse); // Set the current course state when dialog opens
         const courseToEdit = initialCourse;
         const courseSectorId = courseToEdit?.sectorId || fields.find(f => f.id === courseToEdit?.fieldId)?.sectorId || '';
         if (courseToEdit) {
@@ -149,7 +149,9 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
     if (!adminUser) return;
     
     setIsSubmitting(true);
+    
     try {
+        const isNewCourse = !currentCourse;
         const courseId = currentCourse?.id || doc(collection(db, 'courses')).id;
         
         const finalCourseData: Omit<Course, 'id' | 'documents'> = {
@@ -166,7 +168,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
 
         const batch = writeBatch(db);
         const courseRef = doc(db, "courses", courseId);
-        // On first save, we create the doc with empty documents array
+        
         batch.set(courseRef, {
             ...finalCourseData,
             documents: currentCourse?.documents || []
@@ -176,19 +178,22 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
         const log: Omit<ActivityLog, 'id'> = {
             actorId: adminUser.uid,
             actorName: `${adminUser.lastName} ${adminUser.firstName}`,
-            action: currentCourse ? 'course_updated' : 'course_created',
+            action: isNewCourse ? 'course_created' : 'course_updated',
             entityType: 'course',
             entityId: courseId,
             timestamp: new Date().toISOString(),
-            details: `${currentCourse ? 'A mis à jour le cours' : 'A créé le cours'}: "${finalCourseData.name}"`,
+            details: `${isNewCourse ? 'A créé le cours' : 'A mis à jour le cours'}: "${finalCourseData.name}"`,
         };
         batch.set(logRef, log);
         
         await batch.commit();
 
-        const savedCourse = { id: courseId, ...finalCourseData, documents: currentCourse?.documents || [] };
-        setCurrentCourse(savedCourse); // This is the crucial fix
-        toast({ title: currentCourse ? "Cours mis à jour" : "Cours créé", description: "Les informations du cours ont été enregistrées. Vous pouvez maintenant ajouter des documents."});
+        if (isNewCourse) {
+            const savedCourse: Course = { id: courseId, ...finalCourseData, documents: [] };
+            setCurrentCourse(savedCourse);
+        }
+
+        toast({ title: isNewCourse ? "Cours créé" : "Cours mis à jour", description: "Vous pouvez maintenant ajouter des documents."});
         
     } catch (error) {
         console.error("Error saving course data:", error);
@@ -201,7 +206,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file || !currentCourse || !adminUser) {
-        if (!currentCourse) toast({variant: "destructive", description: "Veuillez d'abord enregistrer les informations du cours."})
+        toast({variant: "destructive", description: "Impossible de téléverser. Le cours n'est pas sauvegardé."})
         return;
       };
 
