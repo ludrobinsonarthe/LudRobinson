@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -123,36 +124,42 @@ export default function CashFlowPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Solde Actuel</CardTitle>
-                        <Scale className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
-                        <p className="text-xs text-muted-foreground">Balance des entrées et sorties</p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total des Entrées</CardTitle>
-                        <ArrowUpCircle className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
-                        <p className="text-xs text-muted-foreground">Total des fonds reçus</p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total des Sorties</CardTitle>
-                        <ArrowDownCircle className="h-4 w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(totalExpense)}</div>
-                        <p className="text-xs text-muted-foreground">Total des dépenses effectuées</p>
-                    </CardContent>
-                </Card>
+                 <Link href="/dashboard/cash-flow">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Solde Actuel</CardTitle>
+                            <Scale className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
+                            <p className="text-xs text-muted-foreground">Balance des entrées et sorties</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+                 <Link href="/dashboard/cash-flow">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total des Entrées</CardTitle>
+                            <ArrowUpCircle className="h-4 w-4 text-green-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
+                            <p className="text-xs text-muted-foreground">Total des fonds reçus</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+                 <Link href="/dashboard/cash-flow">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total des Sorties</CardTitle>
+                            <ArrowDownCircle className="h-4 w-4 text-red-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(totalExpense)}</div>
+                            <p className="text-xs text-muted-foreground">Total des dépenses effectuées</p>
+                        </CardContent>
+                    </Card>
+                </Link>
             </div>
 
             <Card>
