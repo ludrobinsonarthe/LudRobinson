@@ -141,12 +141,10 @@ export default function CourseManagementPage() {
                 courseId = selectedCourse.id;
                 const courseRef = doc(db, "courses", courseId);
                 batch.set(courseRef, courseData, { merge: true });
-                toast({ title: "Cours mis à jour", description: "Les informations du cours ont été mises à jour."});
             } else {
                 const newCourseRef = doc(collection(db, "courses"));
                 courseId = newCourseRef.id;
                 batch.set(newCourseRef, courseData);
-                toast({ title: "Cours ajouté", description: "Le nouveau cours a été créé."});
             }
             
             if (user) {
@@ -163,6 +161,8 @@ export default function CourseManagementPage() {
             }
             
             await batch.commit();
+
+            toast({ title: selectedCourse ? "Cours mis à jour" : "Cours ajouté", description: "Les informations du cours ont été enregistrées."});
 
         } catch(error) {
             console.error("Error saving course: ", error);

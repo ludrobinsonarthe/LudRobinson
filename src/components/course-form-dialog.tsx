@@ -159,7 +159,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     setIsSubmitting(true);
     const { newDocumentFile, ...courseData} = data;
     
-    let newDocumentUrl: string | null = null;
+    let allDocs = courseData.documents || [];
+
     if (newDocumentFile && newDocumentFile.name) {
         toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
         const courseId = course?.id || `course_${Date.now()}`;
@@ -168,7 +169,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         
         try {
             await uploadBytes(fileRef, newDocumentFile);
-            newDocumentUrl = await getDownloadURL(fileRef);
+            const newDocumentUrl = await getDownloadURL(fileRef);
+            allDocs.push(newDocumentUrl);
             toast({ title: "Fichier téléversé", description: "Le nouveau document du cours a été ajouté." });
         } catch (error) {
             console.error("Error uploading document:", error);
@@ -186,12 +188,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
         cycle: courseData.cycle,
         credit: courseData.credit,
         schedule: courseData.schedule,
-        documents: courseData.documents || []
+        documents: allDocs,
     };
-
-    if (newDocumentUrl) {
-      finalCourseData.documents?.push(newDocumentUrl);
-    }
 
     if (courseData.fieldId === 'common_core' || !courseData.fieldId) {
         finalCourseData.sectorId = courseData.sectorId;
@@ -203,7 +201,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     
     onSave(finalCourseData);
     setIsSubmitting(false);
-    setIsOpen(false);
   };
 
   const removeDocument = async (docUrl: string, index: number) => {
