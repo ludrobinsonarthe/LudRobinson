@@ -109,7 +109,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
 
   useEffect(() => {
     if (isOpen) {
-        setCurrentCourse(initialCourse); // Set the current course state when dialog opens
+        setCurrentCourse(initialCourse);
         const courseToEdit = initialCourse;
         const courseSectorId = courseToEdit?.sectorId || fields.find(f => f.id === courseToEdit?.fieldId)?.sectorId || '';
         if (courseToEdit) {
@@ -169,10 +169,12 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
         const batch = writeBatch(db);
         const courseRef = doc(db, "courses", courseId);
         
-        batch.set(courseRef, {
+        const dataToSave = {
             ...finalCourseData,
             documents: currentCourse?.documents || []
-        }, { merge: true });
+        };
+        
+        batch.set(courseRef, dataToSave, { merge: true });
 
         const logRef = doc(collection(db, 'activityLogs'));
         const log: Omit<ActivityLog, 'id'> = {
