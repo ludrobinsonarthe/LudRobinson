@@ -89,15 +89,23 @@ export default function CashFlowPage() {
         }
     }
 
-    const getTransactionLink = (transaction: CashTransaction): string => {
-        if (!transaction.relatedDocId) return '';
-        if (transaction.category === 'tuition') {
-          return `/dashboard/tuition-management?studentId=${transaction.relatedDocId}`;
+    const getTransactionLink = (transaction: CashTransaction): string | null => {
+        if (!transaction.relatedDocId) return null;
+        
+        const studentIdMatch = transaction.relatedDocId.match(/student-([a-zA-Z0-9]+)/);
+        if (studentIdMatch && studentIdMatch[1]) {
+            return `/dashboard/tuition-management?studentId=${studentIdMatch[1]}`;
         }
-        if (transaction.category === 'salary') {
-          return `/dashboard/salary-management?userId=${transaction.relatedDocId}`;
+        
+        if (transaction.category === 'tuition' && transaction.relatedDocId) {
+             const studentId = payments.find(p => p.id === transaction.relatedDocId)?.studentId;
+             if(studentId) return `/dashboard/tuition-management?studentId=${studentId}`;
         }
-        return '';
+        if (transaction.category === 'salary' && transaction.relatedDocId) {
+            const userId = teacherSalaries.find(s => s.id === transaction.relatedDocId)?.teacherId;
+            if(userId) return `/dashboard/salary-management?userId=${userId}`;
+        }
+        return null;
       };
       
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
@@ -211,7 +219,13 @@ export default function CashFlowPage() {
                                     <TableCell>{format(new Date(t.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
                                     <TableCell><Badge variant={typeVariant[t.type]}>{typeTranslation[t.type]}</Badge></TableCell>
                                     <TableCell><Badge variant="outline">{categoryTranslation[t.category]}</Badge></TableCell>
-                                    <TableCell className='font-medium'>{t.description}</TableCell>
+                                    <TableCell className='font-medium'>
+                                        {link ? (
+                                            <Link href={link} className="hover:underline text-primary">{t.description}</Link>
+                                        ) : (
+                                            t.description
+                                        )}
+                                    </TableCell>
                                     <TableCell className={cn(`text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`)}>
                                         {t.type === 'expense' && '- '}{formatCurrency(t.amount, t.currency)}
                                     </TableCell>
