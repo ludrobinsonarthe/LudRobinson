@@ -326,6 +326,7 @@ export default function CourseManagementPage() {
                 sectors={sectors}
                 fields={fields}
             />
+            
             {selectedCourse && (
                  <UserDeleteDialog
                     isOpen={isDeleteOpen}

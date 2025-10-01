@@ -176,6 +176,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             await uploadBytes(fileRef, newDocumentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
+            toast({ title: "Téléversement réussi", description: "Le document est prêt à être sauvegardé avec le cours." });
         }
         
         const finalCourseData: Partial<Course> = {
