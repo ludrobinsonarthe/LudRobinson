@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -110,7 +110,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
   useEffect(() => {
     setCurrentCourse(initialCourse);
     if (isOpen) {
-        const courseToEdit = initialCourse || currentCourse;
+        const courseToEdit = initialCourse;
         const courseSectorId = courseToEdit?.sectorId || fields.find(f => f.id === courseToEdit?.fieldId)?.sectorId || '';
         if (courseToEdit) {
           form.reset({
@@ -152,7 +152,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
     try {
         const courseId = currentCourse?.id || doc(collection(db, 'courses')).id;
         
-        const finalCourseData: Omit<Course, 'id'> = {
+        const finalCourseData: Omit<Course, 'id' | 'documents'> = {
             name: data.name,
             description: data.description || "",
             teacherId: data.teacherId,
@@ -160,14 +160,17 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
             cycle: data.cycle,
             credit: data.credit,
             schedule: data.schedule || [],
-            documents: currentCourse?.documents || [],
-            fieldId: (data.fieldId === 'common_core' || !data.fieldId) ? undefined : data.fieldId,
-            sectorId: (data.fieldId === 'common_core' || !data.fieldId) ? data.sectorId : undefined,
+            fieldId: (data.fieldId === 'common_core' || !data.fieldId) ? "" : data.fieldId,
+            sectorId: (data.fieldId === 'common_core' || !data.fieldId) ? data.sectorId : "",
         };
 
         const batch = writeBatch(db);
         const courseRef = doc(db, "courses", courseId);
-        batch.set(courseRef, finalCourseData, { merge: true });
+        // On first save, we create the doc with empty documents array
+        batch.set(courseRef, {
+            ...finalCourseData,
+            documents: currentCourse?.documents || []
+        }, { merge: true });
 
         const logRef = doc(collection(db, 'activityLogs'));
         const log: Omit<ActivityLog, 'id'> = {
@@ -183,7 +186,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
         
         await batch.commit();
 
-        const savedCourse = { id: courseId, ...finalCourseData };
+        const savedCourse = { id: courseId, ...finalCourseData, documents: currentCourse?.documents || [] };
         setCurrentCourse(savedCourse); // This is the crucial fix
         toast({ title: currentCourse ? "Cours mis à jour" : "Cours créé", description: "Les informations du cours ont été enregistrées. Vous pouvez maintenant ajouter des documents."});
         
