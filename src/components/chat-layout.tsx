@@ -31,9 +31,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import EmojiPicker, { Theme as EmojiTheme } from "emoji-picker-react";
 import { useTheme } from "next-themes";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, writeBatch, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-
+import { Badge } from "./ui/badge";
 
 interface ChatLayoutProps {
   messages: Message[];
@@ -55,7 +55,7 @@ export default function ChatLayout({
   const [messageContent, setMessageContent] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
-
+  const previousMessagesRef = React.useRef<Message[]>([]);
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -69,6 +69,40 @@ export default function ChatLayout({
     const parts = `${lastName} ${firstName}`.split(' ');
     return `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase();
   }
+  
+  // Detect and notify for new messages
+  React.useEffect(() => {
+    if (!currentUser || messages.length === 0 || previousMessagesRef.current.length === 0) {
+      previousMessagesRef.current = messages;
+      return;
+    }
+
+    const previousMessageIds = new Set(previousMessagesRef.current.map(m => m.id));
+    const newMessages = messages.filter(m => !previousMessageIds.has(m.id));
+
+    if (newMessages.length > 0) {
+      newMessages.forEach(msg => {
+        if (msg.senderId !== currentUser.uid && msg.receiverId === currentUser.uid) {
+           const sender = allUsers.find(u => u.uid === msg.senderId);
+           if (sender) {
+                // Don't show notification if conversation is already open
+                if (selectedConversation !== msg.senderId) {
+                    toast({
+                        title: `Nouveau message de ${sender.lastName}`,
+                        description: msg.content,
+                    });
+                     // Play notification sound
+                    const audio = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjQwLjEwMQAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAAABoR2VuZXL//////////////////8AAAACAsgGgYCo//GgYCo/8f/9f/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//A/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//A/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//A/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//H/9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//9//x=>/vAAAD+0AAAAAAAAP/7CgEAAACAB/gLAAABhxpCAAAABhxpBwYAAACZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm-///9G/wH4AAAABAAAADuUAAA/8BAA==');
+                    audio.play();
+                }
+           }
+        }
+      });
+    }
+    
+    previousMessagesRef.current = messages;
+
+  }, [messages, currentUser, allUsers, toast, selectedConversation]);
 
   const conversations = React.useMemo(() => {
     if (!currentUser || !isMounted) return [];
@@ -96,7 +130,10 @@ export default function ChatLayout({
         const lastMessage = messages
             .filter(m => (m.senderId === partnerId && m.receiverId === currentUser.uid) || (m.senderId === currentUser.uid && m.receiverId === partnerId))
             .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-        return { partner, lastMessage };
+        
+        const unreadCount = messages.filter(m => m.senderId === partnerId && m.receiverId === currentUser.uid && !m.isRead).length;
+
+        return { partner, lastMessage, unreadCount };
     }).filter(c => c.partner).sort((a, b) => new Date(b.lastMessage?.createdAt || 0).getTime() - new Date(a.lastMessage?.createdAt || 0).getTime());
   }, [messages, currentUser, allUsers, isMounted]);
 
@@ -105,7 +142,7 @@ export default function ChatLayout({
         setSelectedConversation(conversations[0].partner?.uid || null);
     }
   }, [conversations, selectedConversation]);
-
+  
   const selectedMessages = React.useMemo(() => {
     if (!currentUser || !selectedConversation) return [];
     return messages.filter(
@@ -122,7 +159,20 @@ export default function ChatLayout({
               behavior: 'smooth'
           })
       }
-  }, [selectedMessages]);
+      // Mark messages as read when a conversation is opened
+      if (selectedConversation && currentUser) {
+        const unreadMessages = messages.filter(m => m.senderId === selectedConversation && m.receiverId === currentUser.uid && !m.isRead);
+        if (unreadMessages.length > 0) {
+            const batch = writeBatch(db);
+            unreadMessages.forEach(msg => {
+                const msgRef = doc(db, 'private_messages', msg.id);
+                batch.update(msgRef, { isRead: true });
+            });
+            batch.commit().catch(console.error);
+        }
+      }
+
+  }, [selectedMessages, selectedConversation, currentUser, messages]);
 
   const selectedUser = allUsers.find(u => u.uid === selectedConversation);
 
@@ -148,6 +198,7 @@ export default function ChatLayout({
           receiverId: selectedConversation,
           content: messageContent,
           type: 'private',
+          isRead: false,
       };
 
       try {
@@ -193,7 +244,7 @@ export default function ChatLayout({
           <Separator />
           <ScrollArea className="flex-1">
             <div className="flex flex-col gap-2 p-4">
-              {conversations.map(({ partner, lastMessage }) => partner && (
+              {conversations.map(({ partner, lastMessage, unreadCount }) => partner && (
                 <button
                   key={partner.uid}
                   className={cn(
@@ -212,12 +263,17 @@ export default function ChatLayout({
                     />
                     <AvatarFallback>{getInitials(partner.firstName, partner.lastName)}</AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 text-left">
+                  <div className="flex-1 text-left overflow-hidden">
                     <div className="font-semibold">{`${partner.lastName} ${partner.firstName}`}</div>
-                    <p className={cn("text-xs truncate", selectedConversation === partner.uid ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                    <p className={cn("text-xs truncate", selectedConversation === partner.uid ? "text-primary-foreground/80" : "text-muted-foreground", unreadCount > 0 && "font-bold text-foreground")}>
                       {lastMessage?.content || "Aucun message"}
                     </p>
                   </div>
+                  {unreadCount > 0 && (
+                    <Badge className={cn("flex items-center justify-center h-5 w-5 rounded-full p-0", selectedConversation === partner.uid ? "bg-primary-foreground text-primary" : "bg-primary text-primary-foreground")}>
+                      {unreadCount}
+                    </Badge>
+                  )}
                 </button>
               ))}
             </div>

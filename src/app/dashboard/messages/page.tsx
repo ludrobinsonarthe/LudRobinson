@@ -46,6 +46,7 @@ export default function MessagesPage() {
     const messagePayload = {
       ...newMessageData,
       createdAt: new Date().toISOString(),
+      isRead: false,
     };
     
     addDoc(collection(db, "private_messages"), messagePayload)

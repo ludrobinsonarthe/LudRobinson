@@ -1,4 +1,5 @@
 
+
 "use client"
 import Link from "next/link";
 import { usePathname, redirect, useRouter } from "next/navigation";
@@ -56,6 +57,7 @@ import {
   QrCode,
   History,
   Library,
+  Menu,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect, useState } from "react";
@@ -74,7 +76,7 @@ function AppLogo() {
     return <div className="flex items-center gap-2.5 h-10" />;
   }
   return (
-    <Link href="/" className="flex items-center gap-2.5">
+    <Link href="/dashboard" className="flex items-center gap-2.5">
        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-card text-card-foreground shrink-0">
          <Image src={settings?.logoUrl || "/logo.png"} alt="ISGI Logo" width={40} height={40} className="object-contain" unoptimized />
        </div>
