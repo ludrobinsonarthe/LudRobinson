@@ -54,6 +54,7 @@ import {
   Archive,
   QrCode,
   History,
+  Library,
 } from "lucide-react";
 import DashboardHeader from "@/components/dashboard-header";
 import React, { useEffect, useState } from "react";
@@ -110,7 +111,8 @@ function MainSidebar() {
   ];
 
   const studentMenuItems = [
-    { href: "/dashboard/courses", label: "Cours", icon: BookOpen },
+    { href: "/dashboard/courses", label: "Mes Cours", icon: BookOpen },
+    { href: "/dashboard/all-courses", label: "Explorer les cours", icon: Library },
     { href: "/dashboard/grades", label: "Notes", icon: ClipboardList },
     { href: "/dashboard/schedule", label: "Emploi du temps", icon: CalendarDays },
     { href: "/dashboard/promotion", label: "Ma Promotion", icon: Users },
@@ -191,6 +193,11 @@ function MainSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/courses')} tooltip={"Mes Cours Assignés"}>
                 <Link href={'/dashboard/courses'}><BookOpen/><span>Mes Cours Assignés</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/all-courses')} tooltip={"Explorer les cours"}>
+                <Link href={'/dashboard/all-courses'}><Library/><span>Explorer les cours</span></Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
