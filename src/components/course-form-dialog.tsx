@@ -52,6 +52,8 @@ const courseFormSchema = z.object({
   fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
   documents: z.array(z.string()).optional(),
+  newDocumentFile: z.any().optional(), // We'll handle file validation manually
+  schedule: z.array(scheduleSchema).optional(),
 }).refine(data => data.sectorId || data.fieldId, {
     message: "Vous devez sélectionner un secteur ou une filière.",
     path: ["fieldId"],
@@ -79,7 +81,6 @@ const cycles: { value: Cycle, label: string }[] = [
 export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, sectors, fields }: CourseFormDialogProps) {
   const { settings, user: adminUser } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
   const { toast } = useToast();
 
   const form = useForm<CourseFormValues>({
@@ -112,7 +113,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
 
   useEffect(() => {
     if (isOpen) {
-        setDocumentFile(null); // Reset file on open
         const courseSectorId = course?.sectorId || fields.find(f => f.id === course?.fieldId)?.sectorId || '';
         if (course) {
           form.reset({
@@ -126,6 +126,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             credit: course.credit,
             documents: course.documents || [],
             schedule: course.schedule || [],
+            newDocumentFile: null,
           });
         } else {
           form.reset({
@@ -139,6 +140,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             credit: 0,
             documents: [],
             schedule: [],
+            newDocumentFile: null,
           });
         }
     }
@@ -165,17 +167,17 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
     
     try {
         const courseId = course?.id || doc(collection(db, 'courses')).id;
+        const newDocumentFile = data.newDocumentFile?.[0]; // react-hook-form returns a FileList
         let allDocs = [...(form.getValues('documents') || [])];
 
-        if (documentFile) {
+        if (newDocumentFile instanceof File) {
             toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
-            const filePath = `courses/${courseId}/${Date.now()}-${documentFile.name.replace(/\s/g, '_')}`;
+            const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
             const fileRef = ref(storage, filePath);
             
-            await uploadBytes(fileRef, documentFile);
+            await uploadBytes(fileRef, newDocumentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
-            toast({ title: "Téléversement réussi", description: "Le document est prêt à être sauvegardé." });
         }
         
         const finalCourseData: Omit<Course, 'id'> = {
@@ -271,7 +273,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                  <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem>
                     <FormLabel>Description</FormLabel>
-                    <FormControl><Textarea placeholder="Brève description du cours..." {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="Brève description du cours..." {...field} value={field.value || ''} /></FormControl>
                     <FormMessage />
                     </FormItem>
                 )}/>
@@ -279,7 +281,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                 <FormField control={form.control} name="teacherId" render={({ field }) => (
                     <FormItem>
                     <FormLabel>Professeur</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner un professeur..." /></SelectTrigger></FormControl>
                         <SelectContent>
                             {teachers.map(teacher => (
@@ -294,7 +296,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                 <div className="grid grid-cols-2 gap-4">
                      <FormField control={form.control} name="level" render={({ field }) => (
                         <FormItem><FormLabel>Niveau</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Niveau..." /></SelectTrigger></FormControl>
                             <SelectContent>{(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}</SelectContent>
                         </Select>
@@ -302,7 +304,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                     )}/>
                      <FormField control={form.control} name="cycle" render={({ field }) => (
                         <FormItem><FormLabel>Cycle</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Cycle..." /></SelectTrigger></FormControl>
                             <SelectContent>{cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
@@ -322,7 +324,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="sectorId" render={({ field }) => (
                         <FormItem><FormLabel>Secteur</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Secteur..." /></SelectTrigger></FormControl>
                             <SelectContent>{sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                         </Select>
@@ -360,17 +362,19 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                              </Button>
                         </div>
                      ))}
-                     <FormItem>
-                         <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
-                        <FormControl>
-                            <Input 
-                                type="file" 
-                                accept=".pdf"
-                                onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
-                            />
-                        </FormControl>
-                         <FormMessage />
-                    </FormItem>
+                     <FormField control={form.control} name="newDocumentFile" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
+                            <FormControl>
+                                <Input 
+                                    type="file" 
+                                    accept=".pdf"
+                                    onChange={(e) => field.onChange(e.target.files)}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                     )}/>
                  </div>
 
                 <Separator />
@@ -382,7 +386,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                             <div key={field.id} className="grid grid-cols-5 gap-2 items-end p-3 border rounded-md relative">
                                 <FormField control={form.control} name={`schedule.${index}.day`} render={({ field }) => (
                                     <FormItem><FormLabel>Jour</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
                                             <SelectContent>{daysOfWeek.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                                         </Select>
