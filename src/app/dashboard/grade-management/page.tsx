@@ -53,13 +53,11 @@ function GradeManagementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
-    const { allUsers: users, loading: usersLoading, settings, allCourses = [], user, fields } = useUser();
+    const { allUsers, loading: usersLoading, settings, allCourses, user, fields, grades } = useUser();
     const { toast } = useToast();
 
     const [course, setCourse] = useState<Course | null>(null);
     const [students, setStudents] = useState<User[]>([]);
-    const [grades, setGrades] = useState<Grade[]>([]);
-    const [loadingData, setLoadingData] = useState(true);
     
     // States for the new evaluation dialog
     const [isEvalDialogOpen, setIsEvalDialogOpen] = useState(false);
@@ -78,21 +76,6 @@ function GradeManagementContent() {
 
 
     useEffect(() => {
-        if (user?.role !== 'admin' && user?.role !== 'teacher') {
-            setLoadingData(false);
-            return;
-        }
-
-        setLoadingData(true);
-        const qGrades = query(collection(db, "grades"));
-        const unsubGrades = onSnapshot(qGrades, (snapshot) => {
-            setGrades(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Grade)));
-            setLoadingData(false);
-        }, (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `grades`, operation: 'list'}));
-            setLoadingData(false);
-        });
-        
         if (courseId) {
             const courseData = allCourses.find(c => c.id === courseId);
             setCourse(courseData || null);
@@ -100,30 +83,32 @@ function GradeManagementContent() {
         } else {
             setCourse(null);
         }
-        return () => { unsubGrades(); };
     }, [courseId, allCourses, user]);
 
     useEffect(() => {
         if (course) {
             let courseStudents: User[] = [];
-            if (course.fieldId) { // Course for a specific field
-                courseStudents = users.filter(user =>
-                    user.role === 'student' &&
-                    user.student?.fieldId === course.fieldId &&
-                    user.student?.level === course.level
+            const studentFieldId = course.fieldId;
+            const studentSectorId = course.sectorId || (studentFieldId ? fieldsById[studentFieldId]?.sectorId : null);
+
+            if (studentFieldId) { // Course for a specific field
+                courseStudents = allUsers.filter(u =>
+                    u.role === 'student' &&
+                    u.student?.fieldId === studentFieldId &&
+                    u.student?.level === course.level
                 );
-            } else if (course.sectorId) { // Common core course for a sector
-                courseStudents = users.filter(u =>
+            } else if (studentSectorId) { // Common core course for a sector
+                courseStudents = allUsers.filter(u =>
                     u.role === 'student' &&
                     u.student?.level === course.level &&
-                    u.student?.sectorId === course.sectorId
+                    fieldsById[u.student?.fieldId || '']?.sectorId === studentSectorId
                 );
             }
             setStudents(courseStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || '')));
         } else {
             setStudents([]);
         }
-    }, [course, users, fields]);
+    }, [course, allUsers, fieldsById]);
     
     const evaluationColumns: EvaluationColumn[] = useMemo(() => {
         if (!course) return [];
@@ -209,19 +194,22 @@ function GradeManagementContent() {
             toast({ variant: "destructive", title: "Erreur", description: "Cours introuvable." });
             return;
         }
-    
+
         let targetStudents: User[] = [];
-        if (targetCourse.fieldId) { // Course for a specific field
-            targetStudents = users.filter(u =>
+        const studentFieldId = targetCourse.fieldId;
+        const studentSectorId = targetCourse.sectorId || (studentFieldId ? fieldsById[studentFieldId]?.sectorId : null);
+
+        if (studentFieldId) { // Course for a specific field
+            targetStudents = allUsers.filter(u =>
                 u.role === 'student' &&
                 u.student?.level === targetCourse.level &&
-                u.student?.fieldId === targetCourse.fieldId
+                u.student?.fieldId === studentFieldId
             );
-        } else if (targetCourse.sectorId) { // Common core course
-             targetStudents = users.filter(u =>
+        } else if (studentSectorId) { // Common core course
+             targetStudents = allUsers.filter(u =>
                 u.role === 'student' &&
                 u.student?.level === targetCourse.level &&
-                u.student?.sectorId === targetCourse.sectorId
+                fieldsById[u.student?.fieldId || '']?.sectorId === studentSectorId
             );
         }
     
@@ -277,8 +265,6 @@ function GradeManagementContent() {
     const handleScoreChange = (gradeId: string, newScore: string) => {
         const scoreValue = parseFloat(newScore);
         if (isNaN(scoreValue)) return;
-
-        setGrades(currentGrades => currentGrades.map(g => g.id === gradeId ? { ...g, score: scoreValue } : g));
         
         if (debounceTimeout.current) {
             clearTimeout(debounceTimeout.current);
@@ -345,7 +331,7 @@ function GradeManagementContent() {
         )
     }
 
-    if (usersLoading || loadingData) {
+    if (usersLoading) {
         return (
             <Card>
                 <CardHeader>
@@ -569,6 +555,3 @@ export default function GradeManagementPage() {
         </Suspense>
     );
 }
-
-
-    

@@ -50,22 +50,14 @@ type StructureFormValues = z.infer<typeof structureFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors, user: adminUser } = useUser();
+    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors, user: adminUser, allUsers } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [fieldToDelete, setFieldToDelete] = useState<Field | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [students, setStudents] = useState<User[]>([]);
     
-    useEffect(() => {
-        const q = collection(db, 'users');
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const allUsers = snapshot.docs.map(doc => doc.data() as User);
-            setStudents(allUsers.filter(u => u.role === 'student'));
-        });
-        return () => unsubscribe();
-    }, []);
+    const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
 
     const studentCountByField = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -140,13 +132,7 @@ export default function AdminManagementPage() {
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
             
-            const settingsRef = doc(db, "settings", "system");
-            await updateDoc(settingsRef, { logoUrl: downloadURL });
-            
-            if(settings) {
-                setSettings({...settings, logoUrl: downloadURL});
-            }
-            settingsForm.setValue("logoUrl", downloadURL, { shouldDirty: true });
+            await updateDoc(doc(db, "settings", "system"), { logoUrl: downloadURL });
             
             toast({ title: "Logo mis à jour", description: "Le nouveau logo a été enregistré et mis à jour sur la plateforme." });
         } catch (error) {
@@ -172,9 +158,7 @@ export default function AdminManagementPage() {
         try {
             const { logoUrl, ...restOfData } = data;
             await setDoc(doc(db, "settings", "system"), restOfData, { merge: true });
-            if(settings) {
-                 setSettings({...settings, ...restOfData});
-            }
+            
             toast({
                 title: "Paramètres enregistrés",
                 description: "Les paramètres globaux ont été mis à jour.",
@@ -257,10 +241,6 @@ export default function AdminManagementPage() {
     
             await batch.commit();
     
-            const fieldIndex = fieldFields.findIndex(f => f.id === fieldToDelete.id);
-            if (fieldIndex > -1) {
-                removeField(fieldIndex);
-            }
             toast({ title: 'Filière supprimée' });
         } catch (error) {
             console.error('Error deleting field:', error);

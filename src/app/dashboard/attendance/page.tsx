@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
@@ -34,7 +35,7 @@ const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().pad
 
 
 function StudentAttendanceContent() {
-    const { user, allUsers: users, loading: usersLoading, settings, allCourses, fields, sectors, attendances } = useUser();
+    const { user, allUsers, loading: usersLoading, settings, allCourses, fields, sectors, attendances } = useUser();
     const { toast } = useToast();
 
     // Filters state
@@ -46,7 +47,7 @@ function StudentAttendanceContent() {
     const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [isReportOpen, setIsReportOpen] = useState(false);
 
-    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
 
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
@@ -75,8 +76,15 @@ function StudentAttendanceContent() {
     
     const studentSchedule = useMemo(() => {
         if (!selectedStudent || !selectedStudent.student) return null;
-        return allCourses.filter(c => c.fieldId === selectedStudent.student!.fieldId && c.level === selectedStudent.student!.level);
-    }, [selectedStudent, allCourses]);
+        const studentFieldId = selectedStudent.student.fieldId;
+        const studentSectorId = selectedStudent.student.sectorId || fields.find(f => f.id === studentFieldId)?.sectorId;
+        return allCourses.filter(c => 
+            c.level === selectedStudent.student!.level && (
+                c.fieldId === studentFieldId || // Specific course for field
+                (!c.fieldId && c.sectorId === studentSectorId) // Common core for sector
+            )
+        );
+    }, [selectedStudent, allCourses, fields]);
 
     const scheduleGrid = useMemo(() => {
         const grid: { [key: string]: { [key: string]: Course | null } } = {};
@@ -122,14 +130,12 @@ function StudentAttendanceContent() {
                 studentAttendances.push({ studentId: selectedStudent.uid, status: newStatus });
                 await updateDoc(attendanceRef, { studentAttendances, updatedAt: new Date().toISOString() });
             } else {
-                const batch = writeBatch(db);
                 const newAttendance: Attendance = {
                     id: attendanceId, date: dateStr, courseId: course.id, teacherId: course.teacherId,
                     teacherStatus: 'present', studentAttendances: [{ studentId: selectedStudent.uid, status: newStatus }],
-                    validatedBy: 'system', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+                    validatedBy: user.uid, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
                 };
-                batch.set(attendanceRef, newAttendance);
-                await batch.commit();
+                await setDoc(attendanceRef, newAttendance);
             }
             toast({ title: 'Présence mise à jour', duration: 1500 });
         } catch (error) {
@@ -153,24 +159,27 @@ function StudentAttendanceContent() {
 
         weekDays.forEach(day => {
             studentSchedule.forEach(course => {
-                if (course.schedule?.some(s => s.day === format(day, 'EEEE', { locale: fr }))) {
-                    const status = getStudentAttendanceForSlot(course, day);
-                    details.push({ date: day, courseName: course.name, status });
-                    if (status === 'present') present++;
-                    else if (status === 'absent') absent++;
-                    else if (status === 'justified') justified++;
+                const dayName = format(day, 'EEEE', { locale: fr });
+                if (course.schedule?.some(s => s.day === dayName)) {
+                     course.schedule.filter(s => s.day === dayName).forEach(scheduleSlot => {
+                        const status = getStudentAttendanceForSlot(course, day);
+                        details.push({ date: day, courseName: `${course.name} (${scheduleSlot.start}-${scheduleSlot.end})`, status });
+                        if (status === 'present') present++;
+                        else if (status === 'absent') absent++;
+                        else if (status === 'justified') justified++;
+                    });
                 }
             });
         });
         
         return { summary: { present, absent, justified }, details };
-    }, [selectedStudent, studentSchedule, weekDays, attendances]);
+    }, [selectedStudent, studentSchedule, weekDays, attendances, getStudentAttendanceForSlot]);
 
     if (selectedStudent) {
         return (
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center flex-wrap gap-4">
                         <div className="flex items-center gap-4">
                             <Button variant="outline" size="icon" onClick={() => setSelectedStudent(null)}><ArrowLeft className="h-4 w-4"/></Button>
                             <div>
@@ -309,8 +318,8 @@ function StudentAttendanceContent() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Étudiant</TableHead>
-                            <TableHead>Niveau</TableHead>
-                            <TableHead>Filière</TableHead>
+                            <TableHead className="hidden md:table-cell">Niveau</TableHead>
+                            <TableHead className="hidden lg:table-cell">Filière</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -327,8 +336,8 @@ function StudentAttendanceContent() {
                                         <div className="font-medium">{student.lastName} {student.firstName}</div>
                                     </div>
                                 </TableCell>
-                                <TableCell>{student.student?.level}</TableCell>
-                                <TableCell>{fields.find(f => f.id === student.student?.fieldId)?.name || 'N/A'}</TableCell>
+                                <TableCell className="hidden md:table-cell">{student.student?.level}</TableCell>
+                                <TableCell className="hidden lg:table-cell">{fields.find(f => f.id === student.student?.fieldId)?.name || 'N/A'}</TableCell>
                             </TableRow>
                         )) : (
                             <TableRow><TableCell colSpan={3} className="text-center h-24">Aucun étudiant trouvé pour les filtres sélectionnés.</TableCell></TableRow>
@@ -351,7 +360,6 @@ function TeacherAttendanceContent() {
 
     useEffect(() => {
         setLoadingData(true);
-        // Data is already being loaded by the parent or hook, just handle local loading state
         const timer = setTimeout(() => setLoadingData(false), 300);
         return () => clearTimeout(timer);
     }, []);
@@ -368,24 +376,21 @@ function TeacherAttendanceContent() {
 
         try {
             const docSnap = await getDoc(attendanceRef);
-            let updatedData: Partial<Attendance>;
-
             if (docSnap.exists()) {
-                updatedData = { teacherStatus: newStatus, updatedAt: new Date().toISOString() };
-                await updateDoc(attendanceRef, updatedData);
+                await updateDoc(attendanceRef, { teacherStatus: newStatus, updatedAt: new Date().toISOString() });
             } else {
-                 updatedData = {
-                    teacherStatus: newStatus,
-                    updatedAt: new Date().toISOString(),
+                 const newAttendance: Attendance = {
                     id: attendanceId,
                     date: dateStr,
                     courseId: course.id,
                     teacherId: teacherId,
+                    teacherStatus: newStatus,
                     studentAttendances: [], 
                     validatedBy: currentUser.uid,
                     createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
                 };
-                await setDoc(attendanceRef, updatedData);
+                await setDoc(attendanceRef, newAttendance);
             }
             
             toast({ title: 'Présence du professeur mise à jour', duration: 2000 });
@@ -431,7 +436,7 @@ function TeacherAttendanceContent() {
         return (
              <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center flex-wrap gap-4">
                          <div className="flex items-center gap-4">
                             <Button variant="outline" size="icon" onClick={() => setSelectedTeacher(null)}><ArrowLeft className="h-4 w-4"/></Button>
                             <div>
@@ -537,7 +542,7 @@ function TeacherAttendanceContent() {
             </CardHeader>
             <CardContent>
                 <Table>
-                    <TableHeader><TableRow><TableHead>Professeur</TableHead><TableHead>Spécialité</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Professeur</TableHead><TableHead className="hidden sm:table-cell">Spécialité</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {usersLoading ? (
                              Array.from({length: 5}).map((_, i) => <TableRow key={i}><TableCell colSpan={2}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
@@ -552,7 +557,7 @@ function TeacherAttendanceContent() {
                                         <div className="font-medium">{teacher.lastName} {teacher.firstName}</div>
                                     </div>
                                 </TableCell>
-                                <TableCell>{teacher.teacher?.specialty || 'N/A'}</TableCell>
+                                <TableCell className="hidden sm:table-cell">{teacher.teacher?.specialty || 'N/A'}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>

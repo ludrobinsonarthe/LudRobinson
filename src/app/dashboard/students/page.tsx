@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -43,16 +44,8 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser } = useUser();
-    const [allUsers, setUsers] = useState<User[]>([]);
-    const [allCourses, setAllCourses] = useState<Course[]>([]);
-    const [payments, setPayments] = useState<Payment[]>([]);
-    const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
-    const [settings, setSettings] = useState<any>(null);
-    const [fields, setFields] = useState<Field[]>([]);
-    const [sectors, setSectors] = useState<Sector[]>([]);
-    const [loadingData, setLoadingData] = useState(true);
-
+    const { user: adminUser, allUsers, loading, settings, fields, sectors, allCourses, feeStructures, payments } = useUser();
+    
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
@@ -66,23 +59,6 @@ export default function StudentsPage() {
     const [fieldFilter, setFieldFilter] = useState("all");
     const [genderFilter, setGenderFilter] = useState("all");
     const [nationalityFilter, setNationalityFilter] = useState("all");
-
-    useEffect(() => {
-        setLoadingData(true);
-        const unsubs: (()=>void)[] = [];
-        unsubs.push(onSnapshot(collection(db, 'users'), snap => setUsers(snap.docs.map(d => d.data() as User))));
-        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setAllCourses(snap.docs.map(d => d.data() as Course))));
-        unsubs.push(onSnapshot(collection(db, 'payments'), snap => setPayments(snap.docs.map(d => d.data() as Payment))));
-        unsubs.push(onSnapshot(collection(db, 'feeStructures'), snap => setFeeStructures(snap.docs.map(d => d.data() as FeeStructure))));
-        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()} as Field)))));
-        unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()} as Sector)))));
-        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data())));
-        
-        const timer = setTimeout(() => setLoadingData(false), 500);
-        unsubs.push(() => clearTimeout(timer));
-
-        return () => unsubs.forEach(unsub => unsub());
-    }, []);
 
     const studentsFromUsers = useMemo(() => {
         return (allUsers || [])
@@ -530,8 +506,6 @@ export default function StudentsPage() {
             fileInputRef.current.value = "";
         }
     };
-    
-    const loading = loadingData;
 
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);

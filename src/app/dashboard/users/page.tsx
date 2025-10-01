@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect }from "react";
@@ -55,10 +56,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { user: adminUser } = useUser();
-    const [allUsers, setUsers] = useState<User[]>([]);
-    const [roles, setRoles] = useState<AdminRole[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { user: adminUser, allUsers, loading, roles } = useUser();
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -70,18 +68,6 @@ export default function UsersPage() {
     // Filters
     const [nameFilter, setNameFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
-
-    useEffect(() => {
-        setLoading(true);
-        const unsubs: (()=>void)[] = [];
-        unsubs.push(onSnapshot(collection(db, 'users'), snap => setUsers(snap.docs.map(d => d.data() as User))));
-        unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => ({id: d.id, ...d.data()} as AdminRole)))));
-        
-        const timer = setTimeout(() => setLoading(false), 500);
-        unsubs.push(() => clearTimeout(timer));
-
-        return () => unsubs.forEach(unsub => unsub());
-    }, []);
     
     const employees = useMemo(() => {
         return allUsers.filter(user => user.role === 'admin' || user.role === 'teacher');
@@ -261,8 +247,6 @@ export default function UsersPage() {
         try {
             await updateDoc(userDocRef, { status: newStatus });
             
-            setUsers(currentUsers => currentUsers.map(u => u.uid === userToUpdate.uid ? { ...u, status: newStatus } : u));
-            
             toast({
               title: 'Statut mis à jour',
               description: `Le compte de ${userToUpdate.lastName} est maintenant ${newStatus === 'active' ? 'actif' : 'suspendu'}.`,
@@ -319,7 +303,7 @@ export default function UsersPage() {
                             className="max-w-sm"
                         />
                         <Select value={roleFilter} onValueChange={setRoleFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full sm:w-[180px]">
                                 <SelectValue placeholder="Filtrer par rôle" />
                             </SelectTrigger>
                             <SelectContent>

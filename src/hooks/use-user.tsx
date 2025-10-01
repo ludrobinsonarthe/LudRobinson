@@ -3,7 +3,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, FeeStructure } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, FeeStructure, Course, Grade, Payment, Attendance } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, doc, FirestoreError } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -23,7 +23,10 @@ type UserContextType = {
   sectors: Sector[];
   fields: Field[];
   allUsers: User[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  allCourses: Course[];
+  grades: Grade[];
+  payments: Payment[];
+  attendances: Attendance[];
   feeStructures: FeeStructure[];
 };
 
@@ -47,11 +50,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Minimal global data
-  const [allUsers, setUsers] = useState<User[]>([]);
+  // All global data
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [attendances, setAttendances] = useState<Attendance[]>([]);
 
 
   useEffect(() => {
@@ -67,10 +74,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setCurrentUser(docSnap.data() as User);
-        // User profile is found, now we can proceed to load other data.
       } else {
-        // This might be too early if the user document is still being created.
-        // Let's add a small delay to see if it appears.
         setTimeout(() => {
           if (!docSnap.exists()) {
              toast({
@@ -102,7 +106,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const unsubscribe = onSnapshot(q, 
             (snapshot) => setter(snapshot.docs.map(d => ({...d.data(), id: d.id}))),
             (error: FirestoreError) => {
-                // We only emit the error if it's a permission issue. Other errors are logged.
                 if (error.code === 'permission-denied') {
                      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
                 } else {
@@ -117,8 +120,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setupSubscription('adminRoles', setRoles);
     setupSubscription('sectors', setSectors);
     setupSubscription('fields', setFields);
-    setupSubscription('users', setUsers);
+    setupSubscription('users', setAllUsers);
     setupSubscription('feeStructures', setFeeStructures);
+    setupSubscription('courses', setAllCourses);
+    setupSubscription('grades', setGrades);
+    setupSubscription('payments', setPayments);
+    setupSubscription('attendances', setAttendances);
     
     const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
@@ -132,15 +139,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
     
-    // Mark loading as false only after all initial subscriptions are set up
-    const initialLoad = Promise.all(unsubs.map(unsub => new Promise(resolve => {
-        const tempUnsub = onSnapshot(query(collection(db, unsub.toString())), () => {
-            tempUnsub();
-            resolve(true);
-        }, resolve);
-    })));
-
-    initialLoad.finally(() => setLoading(false));
+    const timer = setTimeout(() => setLoading(false), 800);
+    unsubs.push(() => clearTimeout(timer));
 
     return () => unsubs.forEach(unsub => unsub());
 
@@ -180,7 +180,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       sectors,
       fields,
       allUsers,
-      setUsers,
+      allCourses,
+      grades,
+      payments,
+      attendances,
       feeStructures,
   };
 

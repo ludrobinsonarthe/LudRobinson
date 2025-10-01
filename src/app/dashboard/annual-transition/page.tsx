@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser } from '@/hooks/use-user';
-import { User, Grade, Course } from '@/lib/types';
+import { User, Grade, Course, Field } from '@/lib/types';
 import { ArrowRight, CheckCircle, GraduationCap, Loader2, Users, Repeat, FileDown, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
@@ -46,7 +46,7 @@ type ListType = 'promus' | 'diplômés' | 'redoublants' | 'sans_notes';
 
 
 export default function AnnualTransitionPage() {
-    const { allUsers: users, loading, settings, setUsers, allCourses, grades, fields } = useUser();
+    const { allUsers: users, loading, settings, allCourses, grades, fields } = useUser();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isListDialogOpen, setIsListDialogOpen] = useState(false);
     const [listToShow, setListToShow] = useState<StudentWithAverage[]>([]);
@@ -55,7 +55,7 @@ export default function AnnualTransitionPage() {
     const router = useRouter();
 
     const activeStudents = useMemo(() => users.filter(u => u.role === 'student' && u.status === 'active'), [users]);
-    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, any>), [fields]);
+    const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
 
     const getOverallAverage = (studentId: string, studentCourses: Course[]): { average: number, hasGrades: boolean } => {
         const studentGrades = grades.filter(g => g.studentId === studentId);
@@ -124,7 +124,8 @@ export default function AnnualTransitionPage() {
         activeStudents.forEach(student => {
             if (student.student && student.student.level) {
                 const studentFieldId = student.student.fieldId;
-                const studentSectorId = student.student.sectorId || fieldsById[studentFieldId || '']?.sectorId;
+                const studentField = studentFieldId ? fieldsById[studentFieldId] : null;
+                const studentSectorId = student.student.sectorId || studentField?.sectorId;
     
                 const studentCourses = allCourses.filter(c =>
                     c.level === student.student!.level && (
@@ -202,14 +203,6 @@ export default function AnnualTransitionPage() {
 
         try {
             await batch.commit();
-
-            // Manually update the local user state to reflect changes immediately
-            setUsers(currentUsers => {
-                const updatedUsersMap = new Map(currentUsers.map(u => [u.uid, u]));
-                studentsToPromote.forEach(u => updatedUsersMap.set(u.uid, { ...u, student: { ...u.student!, level: getNextLevel(u.student!.level!)! } }));
-                studentsToGraduate.forEach(u => updatedUsersMap.set(u.uid, { ...u, status: 'graduated' }));
-                return Array.from(updatedUsersMap.values());
-            });
 
             toast({
                 title: "Transition réussie !",

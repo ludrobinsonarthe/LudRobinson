@@ -73,7 +73,7 @@ function SalaryManagementContent() {
     }, [user]);
 
     const teachersAndAdmins = useMemo(() => {
-      const all = users.filter(u => u.role === 'teacher' || u.role === 'admin');
+      const all = users.filter(u => u.role === 'teacher' || (u.role === 'admin' && u.admin?.baseSalary));
       return all.filter((user, index, self) => 
         index === self.findIndex(u => u.uid === user.uid)
       );
@@ -197,13 +197,17 @@ function SalaryManagementContent() {
         const batch = writeBatch(db);
     
         try {
+            let salaryDocId = salary.id;
             // Update or Create Salary Document
             if (isTeacher && salary.id) {
                 const salaryRef = doc(db, 'teacherSalaries', salary.id);
                 batch.update(salaryRef, { status, paidAt: new Date().toISOString(), paidBy: user.uid });
             } else if (!isTeacher) {
                 // For admins, create a persistent salary record when paid
-                const adminSalaryRecord: Omit<TeacherSalary, 'id'> = {
+                const newSalaryRef = doc(collection(db, 'teacherSalaries'));
+                salaryDocId = newSalaryRef.id;
+                const adminSalaryRecord: TeacherSalary = {
+                    id: salaryDocId,
                     teacherId: salary.userId,
                     month: salary.month,
                     year: salary.year,
@@ -216,9 +220,7 @@ function SalaryManagementContent() {
                     createdAt: salary.createdAt,
                     currency: salary.currency,
                 };
-                const newSalaryRef = doc(collection(db, 'teacherSalaries'));
                 batch.set(newSalaryRef, adminSalaryRecord);
-                salary.id = newSalaryRef.id; // Update ID for cash transaction link
             }
     
             // Create Cash Transaction for both
@@ -231,7 +233,7 @@ function SalaryManagementContent() {
                 description: `Paie ${salary.month} - ${getUserName(salary.userId)}`,
                 date: new Date().toISOString(),
                 createdBy: user.uid,
-                relatedDocId: salary.id,
+                relatedDocId: salaryDocId,
             });
     
             await batch.commit();
