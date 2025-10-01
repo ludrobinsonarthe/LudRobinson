@@ -1,4 +1,5 @@
 
+
 "use client"
 import Link from "next/link";
 import { usePathname, redirect, useRouter } from "next/navigation";
@@ -300,10 +301,6 @@ function MainSidebar() {
                     {/* This is part of DashboardHeader now */}
                 </div>
             </SheetTrigger>
-            <SheetHeader>
-                <SheetTitle className="sr-only">Menu principal</SheetTitle>
-                <SheetDescription className="sr-only">Menu de navigation principal pour mobile</SheetDescription>
-            </SheetHeader>
             <SheetContent side="left" className="p-0 w-[280px] flex flex-col">
                 <SidebarHeader>
                     <AppLogo />

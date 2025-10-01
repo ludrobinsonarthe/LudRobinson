@@ -34,7 +34,7 @@ const timeSlots = Array.from({ length: 11 }, (_, i) => `${(8 + i).toString().pad
 
 
 function StudentAttendanceContent() {
-    const { user } = useUser();
+    const { user, hasPermission } = useUser();
     const { toast } = useToast();
 
     const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -71,6 +71,7 @@ function StudentAttendanceContent() {
     }, []);
 
     const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
+    const fieldsById = useMemo(() => fields.reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
 
     const availableFields = useMemo(() => {
         if (selectedSectorId === 'all') return fields;
@@ -85,7 +86,7 @@ function StudentAttendanceContent() {
 
     const filteredStudents = useMemo(() => {
         return students.filter(s => {
-            const studentField = s.student?.fieldId ? fields.find(f => f.id === s.student!.fieldId) : null;
+            const studentField = s.student?.fieldId ? fieldsById[s.student!.fieldId] : null;
             const studentSector = studentField ? sectors.find(sec => sec.id === studentField.sectorId) : null;
             return (
                 (nameFilter === '' || `${s.lastName} ${s.firstName}`.toLowerCase().includes(nameFilter.toLowerCase())) &&
@@ -94,20 +95,21 @@ function StudentAttendanceContent() {
                 (selectedFieldId === 'all' || s.student?.fieldId === selectedFieldId)
             );
         }).sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''));
-    }, [students, nameFilter, selectedLevel, selectedSectorId, selectedFieldId, fields, sectors]);
+    }, [students, nameFilter, selectedLevel, selectedSectorId, selectedFieldId, fieldsById, sectors]);
     
     
     const studentSchedule = useMemo(() => {
         if (!selectedStudent || !selectedStudent.student) return null;
         const studentFieldId = selectedStudent.student.fieldId;
-        const studentSectorId = fields.find(f => f.id === studentFieldId)?.sectorId;
+        const studentSectorId = fieldsById[studentFieldId || '']?.sectorId;
+
         return allCourses.filter(c => 
             c.level === selectedStudent.student!.level && (
                 c.fieldId === studentFieldId || // Specific course for field
                 (!c.fieldId && c.sectorId === studentSectorId) // Common core for sector
             )
         );
-    }, [selectedStudent, allCourses, fields]);
+    }, [selectedStudent, allCourses, fieldsById]);
 
     const scheduleGrid = useMemo(() => {
         const grid: { [key: string]: { [key: string]: Course | null } } = {};
@@ -136,7 +138,7 @@ function StudentAttendanceContent() {
     }
     
     const handleStudentStatusChange = async (course: Course, day: Date, newStatus: StudentAttendanceStatus) => {
-        if (!selectedStudent || user?.role !== 'admin') {
+        if (!selectedStudent || !hasPermission('manage_attendance')) {
             toast({ variant: 'destructive', title: 'Action non autorisée', description: "Vous n'avez pas les droits pour modifier la présence." });
             return;
         }
@@ -156,7 +158,7 @@ function StudentAttendanceContent() {
                 const newAttendance: Attendance = {
                     id: attendanceId, date: dateStr, courseId: course.id, teacherId: course.teacherId,
                     teacherStatus: 'present', studentAttendances: [{ studentId: selectedStudent.uid, status: newStatus }],
-                    validatedBy: user.uid, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+                    validatedBy: user!.uid, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
                 };
                 await setDoc(attendanceRef, newAttendance);
             }
@@ -277,8 +279,8 @@ function StudentAttendanceContent() {
                                             return (
                                             <TableCell key={day.toISOString()} className="p-1 align-top border-r">
                                                  <Popover>
-                                                    <PopoverTrigger asChild disabled={user?.role !== 'admin'}>
-                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", user?.role === 'admin' && 'cursor-pointer', statusInfo?.className.replace('bg-green-500 hover:bg-green-600 text-white', 'bg-green-100 text-green-800').replace('bg-red-500 hover:bg-red-600 text-white', 'bg-red-100 text-red-800').replace('bg-gray-400 hover:bg-gray-500 text-white', 'bg-gray-100 text-gray-800'))}>
+                                                    <PopoverTrigger asChild disabled={!hasPermission('manage_attendance')}>
+                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", hasPermission('manage_attendance') && 'cursor-pointer', statusInfo?.className.replace('bg-green-500 hover:bg-green-600 text-white', 'bg-green-100 text-green-800').replace('bg-red-500 hover:bg-red-600 text-white', 'bg-red-100 text-red-800').replace('bg-gray-400 hover:bg-gray-500 text-white', 'bg-gray-100 text-gray-800'))}>
                                                             <p className="font-bold truncate">{course.name}</p>
                                                             <p>{statusInfo?.label}</p>
                                                         </div>
@@ -360,7 +362,7 @@ function StudentAttendanceContent() {
                                     </div>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell">{student.student?.level}</TableCell>
-                                <TableCell className="hidden lg:table-cell">{fields.find(f => f.id === student.student?.fieldId)?.name || 'N/A'}</TableCell>
+                                <TableCell className="hidden lg:table-cell">{fieldsById[student.student?.fieldId || '']?.name || 'N/A'}</TableCell>
                             </TableRow>
                         )) : (
                             <TableRow><TableCell colSpan={3} className="text-center h-24">Aucun étudiant trouvé pour les filtres sélectionnés.</TableCell></TableRow>
@@ -373,7 +375,7 @@ function StudentAttendanceContent() {
 }
 
 function TeacherAttendanceContent() {
-    const { user: currentUser } = useUser();
+    const { user: currentUser, hasPermission } = useUser();
     const [users, setUsers] = useState<User[]>([]);
     const [allCourses, setAllCourses] = useState<Course[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
@@ -400,7 +402,7 @@ function TeacherAttendanceContent() {
     const teachers = useMemo(() => users.filter(u => u.role === 'teacher').sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')), [users]);
 
     const handleTeacherStatusChange = async (teacherId: string, course: Course, day: Date, newStatus: 'present' | 'absent') => {
-        if (!currentUser || currentUser.role !== 'admin') {
+        if (!currentUser || !hasPermission('manage_attendance')) {
             toast({ variant: 'destructive', title: 'Action non autorisée', description: "Vous n'avez pas les droits pour modifier la présence." });
             return;
         }
@@ -543,8 +545,8 @@ function TeacherAttendanceContent() {
                                             return (
                                             <TableCell key={day.toISOString()} className="p-1 align-top border-r">
                                                  <Popover>
-                                                    <PopoverTrigger asChild disabled={currentUser?.role !== 'admin'}>
-                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", currentUser?.role === 'admin' && 'cursor-pointer', statusInfo.className)}>
+                                                    <PopoverTrigger asChild disabled={!hasPermission('manage_attendance')}>
+                                                        <div className={cn("w-full h-full p-2 rounded-lg text-xs", hasPermission('manage_attendance') && 'cursor-pointer', statusInfo.className)}>
                                                             <p className="font-bold truncate">{course.name}</p>
                                                             <p>{statusInfo.label}</p>
                                                         </div>

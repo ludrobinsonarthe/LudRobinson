@@ -56,7 +56,7 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { user: adminUser, roles } = useUser();
+    const { user: adminUser, roles, hasPermission } = useUser();
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -72,13 +72,17 @@ export default function UsersPage() {
     const [roleFilter, setRoleFilter] = useState('all');
     
     useEffect(() => {
+        if (!hasPermission('manage_users')) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         const unsub = onSnapshot(collection(db, 'users'), snapshot => {
             setAllUsers(snapshot.docs.map(doc => doc.data() as User));
             setLoading(false);
         });
         return () => unsub();
-    }, []);
+    }, [hasPermission]);
 
     const employees = useMemo(() => {
         return allUsers.filter(user => user.role === 'admin' || user.role === 'teacher');
@@ -280,6 +284,19 @@ export default function UsersPage() {
         }
     }
 
+    if (!hasPermission('manage_users')) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-destructive">Accès Refusé</CardTitle>
+                    <CardDescription>
+                        Vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        )
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start flex-wrap gap-4">
@@ -403,7 +420,7 @@ export default function UsersPage() {
                                                     <Edit className="mr-2 h-4 w-4" />
                                                     Modifier
                                             </DropdownMenuItem>
-                                             {user.role === 'teacher' && (
+                                             {user.role === 'teacher' && hasPermission('manage_salaries') && (
                                                 <DropdownMenuItem asChild>
                                                     <Link href={`/dashboard/salary-management?userId=${user.uid}`}>
                                                         <Banknote className="mr-2 h-4 w-4" />

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -13,12 +14,12 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Course, Field, Sector, Cycle, ActivityLog, User } from "@/lib/types";
+import { Course, Field, Sector, Cycle, ActivityLog, User, Grade } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc, writeBatch, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { user } = useUser();
+    const { user, hasPermission } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [settings, setSettings] = useState<any>(null);
@@ -52,7 +53,7 @@ export default function CourseManagementPage() {
     const [cycleFilter, setCycleFilter] = useState("all");
     
     useEffect(() => {
-        if (user?.role !== 'admin' && user?.role !== 'teacher') {
+        if (!hasPermission('manage_course')) {
             setLoading(false);
             return;
         }
@@ -68,7 +69,7 @@ export default function CourseManagementPage() {
         unsubs.push(() => clearTimeout(timer));
 
         return () => unsubs.forEach(unsub => unsub());
-    }, [user]);
+    }, [user, hasPermission]);
 
     const teachers = useMemo(() => allUsers.filter(u => u.role === 'teacher'), [allUsers]);
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
@@ -132,9 +133,18 @@ export default function CourseManagementPage() {
         
         const batch = writeBatch(db);
         try {
+            // 1. Delete course document
             const courseRef = doc(db, "courses", selectedCourse.id)
             batch.delete(courseRef);
+
+            // 2. Query and delete all related grades
+            const gradesQuery = query(collection(db, "grades"), where("courseId", "==", selectedCourse.id));
+            const gradesSnapshot = await getDocs(gradesQuery);
+            gradesSnapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
             
+            // 3. Log the action
             const logRef = doc(collection(db, 'activityLogs'));
             const log: Omit<ActivityLog, 'id'> = {
                 actorId: user.uid,
@@ -143,12 +153,12 @@ export default function CourseManagementPage() {
                 entityType: 'course',
                 entityId: selectedCourse.id,
                 timestamp: new Date().toISOString(),
-                details: `A supprimé le cours: "${selectedCourse.name}"`,
+                details: `A supprimé le cours: "${selectedCourse.name}" et ${gradesSnapshot.size} notes associées.`,
             };
             batch.set(logRef, log);
             
             await batch.commit();
-            toast({ title: "Cours supprimé" });
+            toast({ title: "Cours et notes associées supprimés" });
         } catch (error) {
             console.error("Error deleting course: ", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le cours." });
@@ -158,7 +168,7 @@ export default function CourseManagementPage() {
         }
     }
 
-    if (user?.role !== 'admin' && user?.role !== 'teacher') {
+    if (!hasPermission('manage_course')) {
         return (
              <Card>
                 <CardHeader>
@@ -283,12 +293,14 @@ export default function CourseManagementPage() {
                                                         Modifier
                                                     </Link>
                                                </DropdownMenuItem>
-                                               <DropdownMenuItem asChild>
-                                                    <Link href={`/dashboard/grade-management?courseId=${course.id}`}>
-                                                        <ClipboardList className="mr-2 h-4 w-4" />
-                                                        Gérer les notes
-                                                    </Link>
-                                                </DropdownMenuItem>
+                                               {hasPermission('manage_grades') && (
+                                                <DropdownMenuItem asChild>
+                                                        <Link href={`/dashboard/grade-management?courseId=${course.id}`}>
+                                                            <ClipboardList className="mr-2 h-4 w-4" />
+                                                            Gérer les notes
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                               )}
                                                <DropdownMenuItem onClick={() => handleDelete(course)} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Supprimer
@@ -317,6 +329,7 @@ export default function CourseManagementPage() {
                     onConfirm={confirmDelete}
                     item={{id: selectedCourse.id, name: selectedCourse.name}}
                     title="Supprimer ce cours ?"
+                    description={`Le cours "${selectedCourse.name}" et toutes les notes associées seront définitivement supprimés. Cette action est irréversible.`}
                 />
             )}
         </div>
