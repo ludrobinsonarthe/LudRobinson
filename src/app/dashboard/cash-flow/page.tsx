@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CashTransaction } from "@/lib/types";
+import { CashTransaction, Payment, TeacherSalary } from "@/lib/types";
 import { MoreHorizontal, PlusCircle, ArrowUpCircle, ArrowDownCircle, Scale, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
@@ -33,6 +33,8 @@ import Link from 'next/link';
 export default function CashFlowPage() {
     const { settings } = useUser();
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [teacherSalaries, setTeacherSalaries] = useState<TeacherSalary[]>([]);
     const [loading, setLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -43,12 +45,27 @@ export default function CashFlowPage() {
 
     useEffect(() => {
         setLoading(true);
-        const unsub = onSnapshot(collection(db, 'cashTransactions'), snapshot => {
+        const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashTransaction));
             setTransactions(data.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
             setLoading(false);
         });
-        return () => unsub();
+
+        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
+            setPayments(data);
+        });
+
+        const unsubSalaries = onSnapshot(collection(db, 'teacherSalaries'), snapshot => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeacherSalary));
+            setTeacherSalaries(data);
+        });
+
+        return () => {
+            unsubTransactions();
+            unsubPayments();
+            unsubSalaries();
+        };
     }, []);
 
     const { totalIncome, totalExpense, balance } = useMemo(() => {
