@@ -116,35 +116,35 @@ export default function AnnualTransitionPage() {
         const studentsToRepeat: StudentWithAverage[] = [];
         const studentsToGraduate: StudentWithAverage[] = [];
         const studentsWithNoGrades: StudentWithAverage[] = [];
-
+    
         if (!allCourses || !grades) {
             return { studentsToPromote, studentsToRepeat, studentsToGraduate, studentsWithNoGrades };
         }
-
+    
         activeStudents.forEach(student => {
-             if (student.student && student.student.fieldId && student.student.level) {
-                const field = fieldsById[student.student.fieldId];
-                const sectorId = field?.sectorId;
-
-                const studentCourses = allCourses.filter(c => 
+            if (student.student && student.student.level) {
+                const studentFieldId = student.student.fieldId;
+                const studentSectorId = student.student.sectorId || fieldsById[studentFieldId || '']?.sectorId;
+    
+                const studentCourses = allCourses.filter(c =>
                     c.level === student.student!.level && (
                         // Course is specific to the student's field
-                        c.fieldId === student.student!.fieldId || 
+                        (c.fieldId && c.fieldId === studentFieldId) ||
                         // Course is a common core for the student's sector
-                        (c.sectorId === sectorId && !c.fieldId)
+                        (c.sectorId && !c.fieldId && c.sectorId === studentSectorId)
                     )
                 );
-
+    
                 const { average, hasGrades } = getOverallAverage(student.uid, studentCourses);
                 const studentWithAvg = { ...student, average, hasGrades };
-
-                if (!hasGrades) {
+    
+                if (!hasGrades && studentCourses.length > 0) {
                     studentsWithNoGrades.push(studentWithAvg);
                     return;
                 }
-
+    
                 if (average >= PASSING_GRADE) {
-                    const nextLevel = getNextLevel(student.student.level);
+                    const nextLevel = getNextLevel(student.student.level!);
                     if (nextLevel) {
                         studentsToPromote.push(studentWithAvg);
                     } else {
@@ -157,7 +157,7 @@ export default function AnnualTransitionPage() {
         });
         
         return { studentsToPromote, studentsToRepeat, studentsToGraduate, studentsWithNoGrades };
-
+    
     }, [activeStudents, allCourses, grades, settings, fieldsById]);
 
 

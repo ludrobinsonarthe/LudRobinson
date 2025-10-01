@@ -113,12 +113,10 @@ function GradeManagementContent() {
                     user.student?.level === course.level
                 );
             } else if (course.sectorId) { // Common core course for a sector
-                 const sectorFields = fields.filter(f => f.sectorId === course.sectorId).map(f => f.id);
-                 courseStudents = users.filter(user =>
-                    user.role === 'student' &&
-                    user.student?.level === course.level &&
-                    user.student?.fieldId &&
-                    sectorFields.includes(user.student.fieldId)
+                courseStudents = users.filter(u =>
+                    u.role === 'student' &&
+                    u.student?.level === course.level &&
+                    u.student?.sectorId === course.sectorId
                 );
             }
             setStudents(courseStudents.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || '')));
@@ -220,12 +218,10 @@ function GradeManagementContent() {
                 u.student?.fieldId === targetCourse.fieldId
             );
         } else if (targetCourse.sectorId) { // Common core course
-             const sectorFields = fields.filter(f => f.sectorId === targetCourse.sectorId).map(f => f.id);
              targetStudents = users.filter(u =>
                 u.role === 'student' &&
                 u.student?.level === targetCourse.level &&
-                u.student?.fieldId &&
-                sectorFields.includes(u.student.fieldId)
+                u.student?.sectorId === targetCourse.sectorId
             );
         }
     

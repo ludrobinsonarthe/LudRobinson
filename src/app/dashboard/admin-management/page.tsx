@@ -224,7 +224,7 @@ export default function AdminManagementPage() {
         });
     }
 
-    const handleDeleteField = async (index: number) => {
+    const handleDeleteField = (index: number) => {
         const field = structureForm.getValues().fields[index];
         if (field.id.startsWith("field_")) {
             removeField(index);
@@ -235,14 +235,14 @@ export default function AdminManagementPage() {
     };
     
     const confirmDeleteField = async () => {
-        if(!fieldToDelete || !adminUser) return;
-        
+        if (!fieldToDelete || !adminUser) return;
+    
         const batch = writeBatch(db);
-        
+    
         try {
             const fieldRef = doc(db, 'fields', fieldToDelete.id);
             batch.delete(fieldRef);
-
+    
             const logRef = doc(collection(db, 'activityLogs'));
             const log: Omit<ActivityLog, 'id'> = {
                 actorId: adminUser.uid,
@@ -251,12 +251,12 @@ export default function AdminManagementPage() {
                 entityType: 'field',
                 entityId: fieldToDelete.id,
                 timestamp: new Date().toISOString(),
-                details: `A supprimé la filière: "${fieldToDelete.name}"`,
+                details: `A supprimé la filière : "${fieldToDelete.name}"`,
             };
             batch.set(logRef, log);
-
+    
             await batch.commit();
-            
+    
             const fieldIndex = fieldFields.findIndex(f => f.id === fieldToDelete.id);
             if (fieldIndex > -1) {
                 removeField(fieldIndex);

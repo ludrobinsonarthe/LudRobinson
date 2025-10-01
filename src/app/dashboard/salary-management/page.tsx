@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 
 function SalaryManagementContent() {
-    const { allUsers: users, loading: usersLoading, settings, user } = useUser();
+    const { allUsers: users, loading: usersLoading, settings, user } from useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const userIdFilter = searchParams.get('userId');
@@ -89,7 +89,6 @@ function SalaryManagementContent() {
     const unifiedSalaries = useMemo((): UnifiedSalary[] => {
         const allSalaries: UnifiedSalary[] = [];
         
-        // Process teacher salaries
         teacherSalaries.forEach(ts => {
             const user = usersById[ts.teacherId];
             if (user) {
@@ -103,23 +102,17 @@ function SalaryManagementContent() {
             }
         });
 
-        // This part seems to generate admin salaries on the fly, which is not ideal.
-        // It's better to create admin salary records just like teacher salaries.
-        // For now, let's keep it but be aware of its limitations.
         const currentMonthStr = format(new Date(), 'MMMM', { locale: fr });
         const currentYearStr = format(new Date(), 'yyyy');
         
         users.filter(u => u.role === 'admin' && u.admin?.baseSalary).forEach(admin => {
-             // Check if a paid salary for this admin for this month already exists in cashTransactions
-             const paidSalaryTransaction = allSalaries.find(s => 
-                s.userRole === 'admin' &&
+             const salaryAlreadyExists = allSalaries.some(s => 
                 s.userId === admin.uid &&
                 s.month.toLowerCase() === currentMonthStr.toLowerCase() &&
-                s.year === currentYearStr &&
-                s.status === 'paid'
+                s.year === currentYearStr
              );
 
-             if (!paidSalaryTransaction) {
+             if (!salaryAlreadyExists) {
                  allSalaries.push({
                     id: `admin-${admin.uid}-${currentYearStr}-${currentMonthStr}`,
                     userId: admin.uid,
@@ -199,18 +192,36 @@ function SalaryManagementContent() {
     
     const handleUpdateStatus = async (salary: UnifiedSalary, status: 'paid') => {
         if (!user) return;
-        
+    
         const isTeacher = salary.userRole === 'teacher';
-        const salaryRef = isTeacher ? doc(db, 'teacherSalaries', salary.id) : null;
-        
+        const batch = writeBatch(db);
+    
         try {
-            const batch = writeBatch(db);
-
-            if (salaryRef) { // Update teacher salary doc
+            // Update or Create Salary Document
+            if (isTeacher && salary.id) {
+                const salaryRef = doc(db, 'teacherSalaries', salary.id);
                 batch.update(salaryRef, { status, paidAt: new Date().toISOString(), paidBy: user.uid });
+            } else if (!isTeacher) {
+                // For admins, create a persistent salary record when paid
+                const adminSalaryRecord: Omit<TeacherSalary, 'id'> = {
+                    teacherId: salary.userId,
+                    month: salary.month,
+                    year: salary.year,
+                    hourlyRate: 0, 
+                    hoursWorked: 0,
+                    totalSalary: salary.totalSalary,
+                    status: 'paid',
+                    paidAt: new Date().toISOString(),
+                    paidBy: user.uid,
+                    createdAt: salary.createdAt,
+                    currency: salary.currency,
+                };
+                const newSalaryRef = doc(collection(db, 'teacherSalaries'));
+                batch.set(newSalaryRef, adminSalaryRecord);
+                salary.id = newSalaryRef.id; // Update ID for cash transaction link
             }
-
-            // Create cash transaction for both teachers and admins
+    
+            // Create Cash Transaction for both
             const transactionRef = doc(collection(db, 'cashTransactions'));
             batch.set(transactionRef, {
                 type: 'expense',
@@ -220,28 +231,9 @@ function SalaryManagementContent() {
                 description: `Paie ${salary.month} - ${getUserName(salary.userId)}`,
                 date: new Date().toISOString(),
                 createdBy: user.uid,
-                relatedDocId: salary.id, // Store original salary ID
+                relatedDocId: salary.id,
             });
-            
-             // Create a "paid" salary record for admin to prevent re-generation
-            if (!isTeacher) {
-                const adminSalaryRef = doc(collection(db, 'teacherSalaries'));
-                const adminSalaryRecord: Omit<TeacherSalary, 'id'> = {
-                    teacherId: salary.userId,
-                    month: salary.month,
-                    year: salary.year,
-                    hourlyRate: 0,
-                    hoursWorked: 0,
-                    totalSalary: salary.totalSalary,
-                    status: 'paid',
-                    paidAt: new Date().toISOString(),
-                    paidBy: user.uid,
-                    createdAt: salary.createdAt,
-                    currency: salary.currency,
-                };
-                batch.set(adminSalaryRef, adminSalaryRecord);
-            }
-
+    
             await batch.commit();
             toast({ title: "Statut mis à jour", description: `Le salaire a été marqué comme payé.` });
         } catch (error) {
