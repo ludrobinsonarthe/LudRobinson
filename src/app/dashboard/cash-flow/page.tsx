@@ -88,34 +88,18 @@ export default function CashFlowPage() {
             }
         }
     }
-    
-    const handleRowClick = async (transaction: CashTransaction) => {
-        if (!transaction.relatedDocId) return;
 
-        let path = '';
-        let docRef;
-
+    const getTransactionLink = (transaction: CashTransaction): string => {
+        if (!transaction.relatedDocId) return '';
         if (transaction.category === 'tuition') {
-            docRef = doc(db, 'payments', transaction.relatedDocId);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                path = `/dashboard/tuition-management?studentId=${docSnap.data().studentId}`;
-            }
-        } else if (transaction.category === 'salary') {
-            docRef = doc(db, 'teacherSalaries', transaction.relatedDocId);
-            const docSnap = await getDoc(docRef);
-             if (docSnap.exists()) {
-                path = `/dashboard/salary-management?userId=${docSnap.data().teacherId}`;
-            }
+          return `/dashboard/tuition-management?studentId=${transaction.relatedDocId}`;
         }
-
-        if (path) {
-            router.push(path);
-        } else {
-            toast({ variant: 'destructive', title: 'Document lié introuvable' });
+        if (transaction.category === 'salary') {
+          return `/dashboard/salary-management?userId=${transaction.relatedDocId}`;
         }
-    };
-
+        return '';
+      };
+      
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
     }
@@ -210,7 +194,7 @@ export default function CashFlowPage() {
                                 <TableHead>Catégorie</TableHead>
                                 <TableHead>Description</TableHead>
                                 <TableHead className="text-right">Montant</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="w-[50px] text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -220,8 +204,10 @@ export default function CashFlowPage() {
                                         Chargement...
                                     </TableCell>
                                 </TableRow>
-                            ) : transactions.length > 0 ? transactions.map(t => (
-                                <TableRow key={t.id} onClick={() => handleRowClick(t)} className={cn(t.relatedDocId && 'cursor-pointer')}>
+                            ) : transactions.length > 0 ? transactions.map(t => {
+                                const link = getTransactionLink(t);
+                                return (
+                                <TableRow key={t.id}>
                                     <TableCell>{format(new Date(t.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
                                     <TableCell><Badge variant={typeVariant[t.type]}>{typeTranslation[t.type]}</Badge></TableCell>
                                     <TableCell><Badge variant="outline">{categoryTranslation[t.category]}</Badge></TableCell>
@@ -232,7 +218,7 @@ export default function CashFlowPage() {
                                     <TableCell className="text-right">
                                        <DropdownMenu>
                                            <DropdownMenuTrigger asChild>
-                                               <Button variant="ghost" size="icon" disabled={!!t.relatedDocId} onClick={(e) => e.stopPropagation()}>
+                                               <Button variant="ghost" size="icon" disabled={!!t.relatedDocId}>
                                                    <MoreHorizontal className="h-4 w-4" />
                                                </Button>
                                            </DropdownMenuTrigger>
@@ -245,7 +231,7 @@ export default function CashFlowPage() {
                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
-                            )) : (
+                            )}) : (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-24 text-center">
                                         Aucune transaction trouvée.
