@@ -98,9 +98,11 @@ export default function CashFlowPage() {
         }
 
         const batch = writeBatch(db);
+        
+        // 1. Reference to the document to delete
         const transactionRef = doc(db, 'cashTransactions', selectedTransaction.id);
-        batch.delete(transactionRef);
-
+        
+        // 2. Reference for the new activity log document
         const logRef = doc(collection(db, 'activityLogs'));
         const log: Omit<ActivityLog, 'id'> = {
             actorId: adminUser.uid,
@@ -111,12 +113,20 @@ export default function CashFlowPage() {
             timestamp: new Date().toISOString(),
             details: `A supprimé la transaction manuelle : "${selectedTransaction.description}" de ${formatCurrency(selectedTransaction.amount, selectedTransaction.currency)}`,
         };
-        batch.set(logRef, log);
+
+        // 3. Add operations to the batch
+        batch.delete(transactionRef); // This will delete the document from Firestore
+        batch.set(logRef, log); // This will create a new document in activityLogs
         
         try {
+            // 4. Commit the batch: both operations succeed or both fail
             await batch.commit();
+
+            // 5. Update UI immediately for a responsive feel
             setTransactions(prev => prev.filter(t => t.id !== selectedTransaction.id));
-            toast({ title: "Transaction supprimée" });
+            
+            toast({ title: "Transaction supprimée", description: "L'opération a été retirée de la caisse et archivée dans l'historique." });
+
         } catch (error) {
             console.error("Error deleting transaction: ", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer la transaction." });
@@ -129,17 +139,12 @@ export default function CashFlowPage() {
     const getTransactionLink = (transaction: CashTransaction): string | null => {
         if (!transaction.relatedDocId) return null;
         
-        const studentIdMatch = transaction.relatedDocId.match(/student-([a-zA-Z0-9]+)/);
-        if (studentIdMatch && studentIdMatch[1]) {
-            return `/dashboard/tuition-management?studentId=${studentIdMatch[1]}`;
-        }
-        
-        if (transaction.category === 'tuition' && transaction.relatedDocId) {
+        if (transaction.category === 'tuition') {
              const studentId = payments.find(p => p.id === transaction.relatedDocId)?.studentId;
              if(studentId) return `/dashboard/tuition-management?studentId=${studentId}`;
         }
-        if (transaction.category === 'salary' && transaction.relatedDocId) {
-            const userId = teacherSalaries.find(s => s.id === transaction.relatedDocId)?.teacherId;
+        if (transaction.category === 'salary') {
+            const userId = teacherSalaries.find(s => s.id === transaction.relatedDocId)?.userId;
             if(userId) return `/dashboard/salary-management?userId=${userId}`;
         }
         return null;
