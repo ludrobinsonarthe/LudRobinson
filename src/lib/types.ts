@@ -70,23 +70,6 @@ export interface User {
   }
 }
 
-export interface Program {
-  id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  responsible: string; // teacher_uid
-}
-
-export interface StudentClass {
-  id: string;
-  name: string;
-  academicYear: string;
-  students: string[]; // student_uids
-  createdAt: string;
-  fieldId: string;
-}
-
 export interface Sector {
   id: string;
   name: string;

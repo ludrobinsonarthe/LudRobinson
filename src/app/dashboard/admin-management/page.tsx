@@ -23,6 +23,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const settingsFormSchema = z.object({
@@ -50,12 +51,24 @@ type StructureFormValues = z.infer<typeof structureFormSchema>;
 
 export default function AdminManagementPage() {
     const { toast } = useToast();
-    const { settings, loading: loadingSettings, setSettings, fields: initialFields, sectors: initialSectors, user: adminUser, allUsers } = useUser();
+    const { settings, loading: loadingSettings, setSettings, user: adminUser } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [fieldToDelete, setFieldToDelete] = useState<Field | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [initialFields, setInitialFields] = useState<Field[]>([]);
+    const [initialSectors, setInitialSectors] = useState<Sector[]>([]);
+
+    useEffect(() => {
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setInitialFields(snap.docs.map(d => ({id: d.id, ...d.data()}) as Field))));
+        unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setInitialSectors(snap.docs.map(d => ({id: d.id, ...d.data()}) as Sector))));
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
     
     const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
 
@@ -418,9 +431,13 @@ export default function AdminManagementPage() {
                                     </Button>
                                 </div>
                                 <Separator />
+                                <TooltipProvider>
                                 <div>
                                     <h4 className="font-medium mb-2 text-sm">Filières de Formation</h4>
-                                     {fieldFields.map((field, index) => (
+                                     {fieldFields.map((field, index) => {
+                                         const studentCount = studentCountByField[field.id] || 0;
+                                         const isDeletable = studentCount === 0;
+                                         return (
                                         <div key={field.formId} className="flex items-center gap-2 mb-2">
                                             <FormField
                                                 control={structureForm.control}
@@ -432,7 +449,7 @@ export default function AdminManagementPage() {
                                                                 <Input {...formField} placeholder="Nom de la filière (ex: Génie Logiciel)" />
                                                                 <Badge variant="secondary" className="whitespace-nowrap">
                                                                     <Users className="w-3 h-3 mr-1.5" />
-                                                                    {studentCountByField[field.id] || 0}
+                                                                    {studentCount}
                                                                 </Badge>
                                                             </div>
                                                         </FormControl>
@@ -466,15 +483,28 @@ export default function AdminManagementPage() {
                                                     <Input type="hidden" {...field} />
                                                 )}
                                             />
-                                            <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteField(index)}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span tabIndex={0}>
+                                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleDeleteField(index)} disabled={!isDeletable}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </span>
+                                                </TooltipTrigger>
+                                                {!isDeletable && (
+                                                    <TooltipContent>
+                                                        <p>Impossible de supprimer : {studentCount} étudiant(s) sont dans cette filière.</p>
+                                                    </TooltipContent>
+                                                )}
+                                            </Tooltip>
                                         </div>
-                                    ))}
+                                         )
+                                     })}
                                     <Button type="button" variant="outline" size="sm" onClick={addNewField}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Ajouter une filière
                                     </Button>
                                 </div>
+                                </TooltipProvider>
                             </CardContent>
                         </Card>
                          <div className="flex justify-end pt-4">

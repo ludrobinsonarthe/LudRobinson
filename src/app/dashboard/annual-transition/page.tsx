@@ -110,8 +110,7 @@ export default function AnnualTransitionPage() {
                     nc = drScore20;
                 }
 
-                const examScore20 = getScoreOutOf20(exam);
-
+                const examScore20 = exam ? getScoreOutOf20(exam) : 0;
                 const finalCourseAverage = (nc * 0.4) + (examScore20 * 0.6);
                 
                 totalWeightedAverage += finalCourseAverage * (course.credit || 1);
