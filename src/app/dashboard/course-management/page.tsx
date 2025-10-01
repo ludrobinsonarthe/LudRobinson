@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -22,7 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import UserDeleteDialog from "@/components/user-delete-dialog";
-import CourseFormDialog from "@/components/course-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +35,6 @@ export default function CourseManagementPage() {
     const { allUsers: users, settings, loading, fields, sectors, user } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
-    const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const { toast } = useToast();
@@ -114,16 +111,6 @@ export default function CourseManagementPage() {
         });
     }, [courses, nameFilter, levelFilter, sectorFilter, fieldFilter, cycleFilter, fieldsById]);
 
-    const handleAdd = () => {
-        setSelectedCourse(null);
-        setIsFormOpen(true);
-    }
-
-    const handleEdit = (course: Course) => {
-        setSelectedCourse(course);
-        setIsFormOpen(true);
-    }
-
     const handleDelete = (course: Course) => {
         setSelectedCourse(course);
         setIsDeleteOpen(true);
@@ -191,9 +178,11 @@ export default function CourseManagementPage() {
                             Voir l'emploi du temps
                         </Link>
                     </Button>
-                    <Button onClick={handleAdd}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Ajouter un cours
+                    <Button asChild>
+                        <Link href="/dashboard/course-management/new">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Ajouter un cours
+                        </Link>
                     </Button>
                 </div>
             </div>
@@ -287,9 +276,11 @@ export default function CourseManagementPage() {
                                                </Button>
                                            </DropdownMenuTrigger>
                                            <DropdownMenuContent align="end">
-                                               <DropdownMenuItem onClick={() => handleEdit(course)}>
-                                                    <Edit className="mr-2 h-4 w-4" />
-                                                    Modifier
+                                               <DropdownMenuItem asChild>
+                                                    <Link href={`/dashboard/course-management/${course.id}`}>
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Modifier
+                                                    </Link>
                                                </DropdownMenuItem>
                                                <DropdownMenuItem asChild>
                                                     <Link href={`/dashboard/grade-management?courseId=${course.id}`}>
@@ -317,15 +308,6 @@ export default function CourseManagementPage() {
                     </Table>
                 </CardContent>
             </Card>
-
-            <CourseFormDialog 
-                isOpen={isFormOpen}
-                setIsOpen={setIsFormOpen}
-                course={selectedCourse}
-                teachers={teachers}
-                sectors={sectors}
-                fields={fields}
-            />
             
             {selectedCourse && (
                  <UserDeleteDialog
