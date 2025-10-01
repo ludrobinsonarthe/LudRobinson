@@ -157,50 +157,50 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
 
   const onSubmit = async (data: CourseFormValues) => {
     setIsSubmitting(true);
-    const { newDocumentFile, ...courseData} = data;
-    
-    let allDocs = courseData.documents || [];
+    const { newDocumentFile, ...courseData } = data;
 
-    if (newDocumentFile && newDocumentFile.name) {
-        toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
-        const courseId = course?.id || `course_${Date.now()}`;
-        const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
-        const fileRef = ref(storage, filePath);
-        
-        try {
+    try {
+        let allDocs = courseData.documents || [];
+
+        if (newDocumentFile && newDocumentFile.name) {
+            toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
+            const courseId = course?.id || `course_${Date.now()}`;
+            const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
+            const fileRef = ref(storage, filePath);
+            
             await uploadBytes(fileRef, newDocumentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
             toast({ title: "Fichier téléversé", description: "Le nouveau document du cours a été ajouté." });
-        } catch (error) {
-            console.error("Error uploading document:", error);
-            toast({ variant: "destructive", title: "Erreur de téléversement", description: "Impossible d'enregistrer le fichier du cours." });
-            setIsSubmitting(false);
-            return;
         }
-    }
-    
-    const finalCourseData: Partial<Course> = {
-        name: courseData.name,
-        description: courseData.description,
-        teacherId: courseData.teacherId,
-        level: courseData.level,
-        cycle: courseData.cycle,
-        credit: courseData.credit,
-        schedule: courseData.schedule,
-        documents: allDocs,
-    };
+        
+        const finalCourseData: Partial<Course> = {
+            name: courseData.name,
+            description: courseData.description,
+            teacherId: courseData.teacherId,
+            level: courseData.level,
+            cycle: courseData.cycle,
+            credit: courseData.credit,
+            schedule: courseData.schedule,
+            documents: allDocs,
+        };
 
-    if (courseData.fieldId === 'common_core' || !courseData.fieldId) {
-        finalCourseData.sectorId = courseData.sectorId;
-        finalCourseData.fieldId = undefined;
-    } else {
-        finalCourseData.fieldId = courseData.fieldId;
-        finalCourseData.sectorId = undefined;
+        if (courseData.fieldId === 'common_core' || !courseData.fieldId) {
+            finalCourseData.sectorId = courseData.sectorId;
+            finalCourseData.fieldId = undefined;
+        } else {
+            finalCourseData.fieldId = courseData.fieldId;
+            finalCourseData.sectorId = undefined;
+        }
+        
+        onSave(finalCourseData);
+        
+    } catch (error) {
+        console.error("Error during form submission:", error);
+        toast({ variant: "destructive", title: "Erreur de soumission", description: "Une erreur s'est produite." });
+    } finally {
+        setIsSubmitting(false);
     }
-    
-    onSave(finalCourseData);
-    setIsSubmitting(false);
   };
 
   const removeDocument = async (docUrl: string, index: number) => {
@@ -416,3 +416,5 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     </Dialog>
   );
 }
+
+    
