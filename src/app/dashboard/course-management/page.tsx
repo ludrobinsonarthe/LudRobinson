@@ -32,7 +32,7 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { allUsers: users, settings, loading, fields, sectors, user } = useUser();
+    const { allUsers, settings, loading: settingsLoading, fields, sectors, user } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -59,7 +59,7 @@ export default function CourseManagementPage() {
         return () => unsub();
     }, [user]);
 
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const teachers = useMemo(() => allUsers.filter(u => u.role === 'teacher'), [allUsers]);
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
     const sectorsById = useMemo(() => (sectors || []).reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
@@ -147,7 +147,7 @@ export default function CourseManagementPage() {
         }
     }
 
-    const pageIsLoading = loading || loadingCourses;
+    const pageIsLoading = settingsLoading || loadingCourses;
 
     if (user?.role !== 'admin' && user?.role !== 'teacher') {
         return (

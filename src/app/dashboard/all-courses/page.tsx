@@ -12,13 +12,15 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Course, Field, Sector, Cycle } from "@/lib/types";
+import { Course, Field, Sector, Cycle, User } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from 'next/link';
 import { Badge } from "@/components/ui/badge";
+import { collection, onSnapshot, query } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
@@ -27,7 +29,9 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function AllCoursesPage() {
-    const { allUsers: users, settings, loading, fields, sectors, allCourses } = useUser();
+    const { settings, loading: settingsLoading, fields, sectors, allUsers } = useUser();
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
+    const [loadingCourses, setLoadingCourses] = useState(true);
     
     // Filters state
     const [nameFilter, setNameFilter] = useState("");
@@ -35,8 +39,18 @@ export default function AllCoursesPage() {
     const [sectorFilter, setSectorFilter] = useState("all");
     const [fieldFilter, setFieldFilter] = useState("all");
     const [cycleFilter, setCycleFilter] = useState("all");
+
+    useEffect(() => {
+        setLoadingCourses(true);
+        const q = query(collection(db, 'courses'));
+        const unsub = onSnapshot(q, (snapshot) => {
+            setAllCourses(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course)));
+            setLoadingCourses(false);
+        });
+        return () => unsub();
+    }, []);
     
-    const teachers = useMemo(() => users.filter(u => u.role === 'teacher'), [users]);
+    const teachers = useMemo(() => allUsers.filter(u => u.role === 'teacher'), [allUsers]);
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({...acc, [f.id]: f}), {} as Record<string, Field>), [fields]);
     const sectorsById = useMemo(() => (sectors || []).reduce((acc, s) => ({...acc, [s.id]: s}), {} as Record<string, Sector>), [sectors]);
 
@@ -87,6 +101,8 @@ export default function AllCoursesPage() {
             );
         });
     }, [allCourses, nameFilter, levelFilter, sectorFilter, fieldFilter, cycleFilter, fieldsById]);
+
+    const loading = settingsLoading || loadingCourses;
 
     return (
         <div className="space-y-6">

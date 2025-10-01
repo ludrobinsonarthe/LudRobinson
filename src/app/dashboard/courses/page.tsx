@@ -14,22 +14,22 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import Link from 'next/link';
 
 export default function CoursesPage() {
-    const { user: currentUser, allUsers: users, allCourses, loading, fields } = useUser();
+    const { user: currentUser, allUsers, fields, loading: userLoading } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [pageLoading, setPageLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
     const children = useMemo(() => {
-        if (currentUser?.role !== 'parent' || !users) return [];
-        return users.filter(u => currentUser.parent?.childrenUids.includes(u.uid));
-    }, [currentUser, users]);
+        if (currentUser?.role !== 'parent' || !allUsers) return [];
+        return allUsers.filter(u => currentUser.parent?.childrenUids.includes(u.uid));
+    }, [currentUser, allUsers]);
 
     const userToView = useMemo(() => {
-        if (!users) return null;
+        if (!allUsers) return null;
         if (currentUser?.role === 'student' || currentUser?.role === 'teacher') return currentUser;
-        if (currentUser?.role === 'parent') return users.find(u => u.uid === selectedChildId);
+        if (currentUser?.role === 'parent') return allUsers.find(u => u.uid === selectedChildId);
         return null;
-    }, [currentUser, users, selectedChildId]);
+    }, [currentUser, allUsers, selectedChildId]);
     
     useEffect(() => {
         if (currentUser?.role === 'parent' && children.length > 0 && !selectedChildId) {
@@ -37,7 +37,7 @@ export default function CoursesPage() {
         }
     }, [currentUser, children, selectedChildId]);
 
-    const teachers = useMemo(() => (users || []).filter(u => u.role === 'teacher'), [users]);
+    const teachers = useMemo(() => (allUsers || []).filter(u => u.role === 'teacher'), [allUsers]);
 
     const getTeacherName = (teacherId?: string) => {
         if (!teacherId) return "N/A";
@@ -46,7 +46,7 @@ export default function CoursesPage() {
     }
 
     useEffect(() => {
-        if (loading) return;
+        if (userLoading) return;
 
         if (!userToView) {
             setPageLoading(false);
@@ -55,19 +55,27 @@ export default function CoursesPage() {
         }
 
         setPageLoading(true);
-        let userCourses: Course[] = [];
-        if (userToView.role === 'student' && userToView.student) {
-            const studentField = fields.find(f => f.id === userToView.student!.fieldId);
-            const studentSectorId = userToView.student.sectorId || studentField?.sectorId;
-            userCourses = allCourses.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || (!c.fieldId && c.sectorId === studentSectorId)));
-        } else if (userToView.role === 'teacher') {
-            userCourses = allCourses.filter(c => c.teacherId === userToView.uid);
-        }
+        const q = query(collection(db, "courses"));
         
-        setCourses(userCourses);
-        setPageLoading(false);
+        const unsub = onSnapshot(q, (snapshot) => {
+            const allCoursesData = snapshot.docs.map(doc => doc.data() as Course);
+            let userCourses: Course[] = [];
+
+            if (userToView.role === 'student' && userToView.student) {
+                const studentField = fields.find(f => f.id === userToView.student!.fieldId);
+                const studentSectorId = userToView.student.sectorId || studentField?.sectorId;
+                userCourses = allCoursesData.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || (!c.fieldId && c.sectorId === studentSectorId)));
+            } else if (userToView.role === 'teacher') {
+                userCourses = allCoursesData.filter(c => c.teacherId === userToView.uid);
+            }
+            
+            setCourses(userCourses);
+            setPageLoading(false);
+        });
+
+        return () => unsub();
         
-    }, [userToView, allCourses, loading, fields]);
+    }, [userToView, userLoading, fields]);
 
     const handleChildChange = (studentId: string) => {
         setSelectedChildId(studentId);
@@ -91,6 +99,8 @@ export default function CoursesPage() {
                 return "Pas de cours à afficher.";
         }
     }
+
+    const isLoading = userLoading || pageLoading;
 
 
     return (
@@ -139,7 +149,7 @@ export default function CoursesPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   {pageLoading ? (
+                   {isLoading ? (
                         <div className="flex items-center justify-center h-48">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>

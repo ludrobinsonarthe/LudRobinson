@@ -3,7 +3,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { User, AdminRole, AdminPermission, Settings, Sector, Field, Course, Grade, Attendance, Payment, TeacherSalary, CashTransaction, OfficialDocument, StaffAttendance, FeeStructure } from '@/lib/types';
+import type { User, AdminRole, AdminPermission, Settings, Sector, Field, FeeStructure } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, doc, FirestoreError } from 'firebase/firestore';
 import { adminPermissions } from '@/lib/types';
@@ -22,14 +22,6 @@ type UserContextType = {
   hasPermission: (permission: AdminPermission) => boolean;
   sectors: Sector[];
   fields: Field[];
-  allCourses: Course[];
-  grades: Grade[];
-  attendances: Attendance[];
-  staffAttendances: StaffAttendance[];
-  payments: Payment[];
-  teacherSalaries: TeacherSalary[];
-  cashTransactions: CashTransaction[];
-  officialDocuments: OfficialDocument[];
   allUsers: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   feeStructures: FeeStructure[];
@@ -55,18 +47,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // All data collections
+  // Minimal global data
   const [allUsers, setUsers] = useState<User[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
-  const [allCourses, setCourses] = useState<Course[]>([]);
-  const [grades, setGrades] = useState<Grade[]>([]);
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
-  const [staffAttendances, setStaffAttendances] = useState<StaffAttendance[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [teacherSalaries, setTeacherSalaries] = useState<TeacherSalary[]>([]);
-  const [cashTransactions, setCashTransactions] = useState<CashTransaction[]>([]);
-  const [officialDocuments, setOfficialDocuments] = useState<OfficialDocument[]>([]);
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
 
 
@@ -109,12 +93,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [authUser, authLoading, signOut, toast]);
 
   useEffect(() => {
-    if (!currentUser) {
-        // Don't set loading to false here immediately, wait for user profile.
-        // setLoading(false);
-        return;
-    };
-
     setLoading(true);
     
     const unsubs: (() => void)[] = [];
@@ -139,7 +117,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setupSubscription('adminRoles', setRoles);
     setupSubscription('sectors', setSectors);
     setupSubscription('fields', setFields);
-    setupSubscription('courses', setCourses);
     setupSubscription('users', setUsers);
     setupSubscription('feeStructures', setFeeStructures);
     
@@ -155,27 +132,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
     
-    // For admins, load everything. For others, data is fetched inside specific pages.
-    if (currentUser.role === 'admin') {
-      setupSubscription('grades', setGrades);
-      setupSubscription('attendances', setAttendances);
-      setupSubscription('staffAttendances', setStaffAttendances);
-      setupSubscription('payments', setPayments);
-      setupSubscription('teacherSalaries', setTeacherSalaries);
-      setupSubscription('cashTransactions', setCashTransactions);
-      setupSubscription('officialDocuments', setOfficialDocuments);
-    }
-    
     // Mark loading as false only after all initial subscriptions are set up
-    Promise.all(unsubs).then(() => {
-        setLoading(false);
-    }).catch(() => {
-        setLoading(false);
-    });
-    
+    const initialLoad = Promise.all(unsubs.map(unsub => new Promise(resolve => {
+        const tempUnsub = onSnapshot(query(collection(db, unsub.toString())), () => {
+            tempUnsub();
+            resolve(true);
+        }, resolve);
+    })));
+
+    initialLoad.finally(() => setLoading(false));
+
     return () => unsubs.forEach(unsub => unsub());
 
-  }, [currentUser]);
+  }, []);
   
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
@@ -210,14 +179,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setSettings: handleSetSettings,
       sectors,
       fields,
-      allCourses,
-      grades,
-      attendances,
-      staffAttendances,
-      payments,
-      teacherSalaries,
-      cashTransactions,
-      officialDocuments,
       allUsers,
       setUsers,
       feeStructures,

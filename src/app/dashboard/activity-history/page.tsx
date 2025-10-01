@@ -25,7 +25,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { imageToDataUrl } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -40,7 +39,7 @@ const getInitials = (name: string = '') => {
 
 
 export default function ActivityHistoryPage() {
-    const { allUsers, settings } = useUser();
+    const { allUsers } = useUser();
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');

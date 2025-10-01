@@ -7,7 +7,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useUser } from '@/hooks/use-user';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Course, CashTransaction, Payment, Field, User } from '@/lib/types';
 import { Users, GraduationCap, UserCog, Wallet, BookOpen, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
@@ -24,8 +24,7 @@ const FinancialMonthlyOverviewChart = dynamic(
 
 
 export default function ReportingPage() {
-    const { settings, loading: userLoading } = useUser();
-    const [users, setUsers] = useState<User[]>([]);
+    const { loading: userLoading, allUsers } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -33,7 +32,6 @@ export default function ReportingPage() {
 
     useEffect(() => {
         setLoadingData(true);
-        const unsubUsers = onSnapshot(collection(db, 'users'), snapshot => setUsers(snapshot.docs.map(doc => doc.data() as User)));
         const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
         const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction)));
         const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
@@ -42,7 +40,6 @@ export default function ReportingPage() {
         const timer = setTimeout(() => setLoadingData(false), 300);
         
         return () => {
-            unsubUsers();
             unsubCourses();
             unsubTransactions();
             unsubPayments();
@@ -50,12 +47,12 @@ export default function ReportingPage() {
         }
     }, []);
 
-    const students = useMemo(() => users.filter(u => u.role === 'student'), [users]);
+    const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
     
     const stats = useMemo(() => {
         const studentCount = students.length;
-        const teacherCount = users.filter(u => u.role === 'teacher').length;
-        const adminCount = users.filter(u => u.role === 'admin').length;
+        const teacherCount = allUsers.filter(u => u.role === 'teacher').length;
+        const adminCount = allUsers.filter(u => u.role === 'admin').length;
         const courseCount = courses.length;
 
         let totalIncome = 0;
@@ -67,7 +64,7 @@ export default function ReportingPage() {
         const balance = totalIncome - totalExpense;
 
         return { studentCount, teacherCount, adminCount, courseCount, totalIncome, totalExpense, balance };
-    }, [users, courses, transactions, students]);
+    }, [allUsers, courses, transactions, students]);
     
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF' }).format(amount);
@@ -203,7 +200,7 @@ export default function ReportingPage() {
                             <Skeleton className="h-4 w-full" />
                         </CardHeader>
                     ) : (
-                        <PendingPaymentsCard payments={payments} users={users} />
+                        <PendingPaymentsCard payments={payments} users={allUsers} />
                     )}
                 </Card>
                 <Card className="lg:col-span-3">
