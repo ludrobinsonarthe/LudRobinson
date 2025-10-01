@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -184,7 +183,8 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course: initialCou
         
         await batch.commit();
 
-        setCurrentCourse({ id: courseId, ...finalCourseData });
+        const savedCourse = { id: courseId, ...finalCourseData };
+        setCurrentCourse(savedCourse); // This is the crucial fix
         toast({ title: currentCourse ? "Cours mis à jour" : "Cours créé", description: "Les informations du cours ont été enregistrées. Vous pouvez maintenant ajouter des documents."});
         
     } catch (error) {
