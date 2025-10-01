@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import {
   Table,
   TableBody,
@@ -10,17 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Course, Field, Sector, Cycle, User } from "@/lib/types";
-import { useUser } from "@/hooks/use-user";
+import { Course, Field, Sector, Cycle, User, Settings } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import Link from 'next/link';
 import { Badge } from "@/components/ui/badge";
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { collection, onSnapshot, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 const cycles: { value: Cycle, label: string }[] = [
     { value: 'local', label: 'Cycle Local' },
@@ -28,13 +27,16 @@ const cycles: { value: Cycle, label: string }[] = [
     { value: 'entrepreneur', label: 'Cycle Entrepreneur' },
 ];
 
-export default function AllCoursesPage() {
+function AllCoursesContent() {
     const [allCourses, setAllCourses] = useState<Course[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
-    const [settings, setSettings] = useState<any>(null);
+    const [settings, setSettings] = useState<Settings | null>(null);
     const [fields, setFields] = useState<Field[]>([]);
     const [sectors, setSectors] = useState<Sector[]>([]);
     const [loading, setLoading] = useState(true);
+    
+    const searchParams = useSearchParams();
+    const courseIdFilter = searchParams.get('courseId');
     
     // Filters state
     const [nameFilter, setNameFilter] = useState("");
@@ -50,7 +52,7 @@ export default function AllCoursesPage() {
         unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
         unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()} as Field)))));
         unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()} as Sector)))));
-        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data())));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data() as Settings)));
         
         const timer = setTimeout(() => setLoading(false), 500);
         unsubs.push(() => clearTimeout(timer));
@@ -215,4 +217,12 @@ export default function AllCoursesPage() {
             </Card>
         </div>
     );
+}
+
+export default function AllCoursesPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+            <AllCoursesContent />
+        </Suspense>
+    )
 }

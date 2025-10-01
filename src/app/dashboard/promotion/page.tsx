@@ -105,7 +105,7 @@ export default function PromotionPage() {
                 </CardHeader>
                 <CardContent>
                     {classmates.length > 0 ? (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
                             {classmates.map(classmate => (
                                 <Card key={classmate.uid} className="p-4">
                                     <div className="flex flex-col items-center gap-3 text-center">

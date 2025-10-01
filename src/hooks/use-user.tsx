@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -17,17 +16,8 @@ type UserContextType = {
   loading: boolean;
   roles: AdminRole[];
   settings: Settings | null;
-  setSettings: (settings: Settings) => void;
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
-  sectors: Sector[];
-  fields: Field[];
-  allUsers: User[];
-  allCourses: Course[];
-  grades: Grade[];
-  payments: Payment[];
-  attendances: Attendance[];
-  feeStructures: FeeStructure[];
 };
 
 const defaultSettings: Settings = {
@@ -49,17 +39,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // All global data
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [fields, setFields] = useState<Field[]>([]);
-  const [sectors, setSectors] = useState<Sector[]>([]);
-  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [grades, setGrades] = useState<Grade[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
-
 
   useEffect(() => {
     if (authLoading) return;
@@ -76,14 +55,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(docSnap.data() as User);
       } else {
         setTimeout(() => {
-          if (!docSnap.exists()) {
-             toast({
+            toast({
               variant: "destructive",
               title: "Profil non trouvé",
               description: "Votre compte n'est pas dans la base de données de l'école. Déconnexion.",
             });
             signOut();
-          }
         }, 2000);
       }
     }, (error) => {
@@ -116,16 +93,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         unsubs.push(unsubscribe);
     };
     
-    // Always load these small, essential collections for all users
+    // Load only small, essential collections globally
     setupSubscription('adminRoles', setRoles);
-    setupSubscription('sectors', setSectors);
-    setupSubscription('fields', setFields);
-    setupSubscription('users', setAllUsers);
-    setupSubscription('feeStructures', setFeeStructures);
-    setupSubscription('courses', setAllCourses);
-    setupSubscription('grades', setGrades);
-    setupSubscription('payments', setPayments);
-    setupSubscription('attendances', setAttendances);
     
     const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
         (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
@@ -139,12 +108,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     );
     unsubs.push(settingsUnsub);
     
-    const timer = setTimeout(() => setLoading(false), 800);
-    unsubs.push(() => clearTimeout(timer));
+    // Once we have the current user, we can stop loading
+    if (currentUser) {
+        setLoading(false);
+    }
 
+    // Still need to clean up subscriptions
     return () => unsubs.forEach(unsub => unsub());
 
-  }, []);
+  }, [currentUser]); // Depend on currentUser to know when to stop loading
   
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
@@ -164,10 +136,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = (permission: AdminPermission) => {
       return userPermissions.includes(permission);
   }
-
-  const handleSetSettings = (newSettings: Settings) => {
-    setSettings(newSettings);
-  };
   
   const value: UserContextType = { 
       user: currentUser, 
@@ -176,15 +144,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       userPermissions,
       hasPermission,
       settings,
-      setSettings: handleSetSettings,
-      sectors,
-      fields,
-      allUsers,
-      allCourses,
-      grades,
-      payments,
-      attendances,
-      feeStructures,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

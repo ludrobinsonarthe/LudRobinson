@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Banknote, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusVariant: { [key: string]: "default" | "secondary" } = {
     paid: "default",
@@ -86,8 +87,14 @@ export default function MySalaryPage() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-48">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-6">
+                <Skeleton className="h-10 w-1/2" />
+                <Card>
+                    <CardHeader><Skeleton className="h-8 w-3/4" /></CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-48 w-full" />
+                    </CardContent>
+                </Card>
             </div>
         );
     }

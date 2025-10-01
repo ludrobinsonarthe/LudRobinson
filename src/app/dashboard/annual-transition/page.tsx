@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser } from '@/hooks/use-user';
-import { User, Grade, Course, Field } from '@/lib/types';
+import { User, Grade, Course, Field, Settings } from '@/lib/types';
 import { ArrowRight, CheckCircle, GraduationCap, Loader2, Users, Repeat, FileDown, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
@@ -35,9 +35,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from '@/lib/firebase';
-import { writeBatch, doc } from 'firebase/firestore';
+import { writeBatch, doc, collection, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const PASSING_GRADE = 10;
 
@@ -46,7 +47,14 @@ type ListType = 'promus' | 'diplômés' | 'redoublants' | 'sans_notes';
 
 
 export default function AnnualTransitionPage() {
-    const { allUsers: users, loading, settings, allCourses, grades, fields } = useUser();
+    const { user } = useUser();
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
+    const [grades, setGrades] = useState<Grade[]>([]);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [settings, setSettings] = useState<Settings | null>(null);
+    const [loading, setLoading] = useState(true);
+
     const [isProcessing, setIsProcessing] = useState(false);
     const [isListDialogOpen, setIsListDialogOpen] = useState(false);
     const [listToShow, setListToShow] = useState<StudentWithAverage[]>([]);
@@ -54,7 +62,22 @@ export default function AnnualTransitionPage() {
     const { toast } = useToast();
     const router = useRouter();
 
-    const activeStudents = useMemo(() => users.filter(u => u.role === 'student' && u.status === 'active'), [users]);
+    useEffect(() => {
+        setLoading(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setAllCourses(snap.docs.map(d => ({id: d.id, ...d.data()}) as Course))));
+        unsubs.push(onSnapshot(collection(db, 'grades'), snap => setGrades(snap.docs.map(d => ({id: d.id, ...d.data()}) as Grade))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()}) as Field))));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data() as Settings)));
+        
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
+
+    const activeStudents = useMemo(() => allUsers.filter(u => u.role === 'student' && u.status === 'active'), [allUsers]);
     const fieldsById = useMemo(() => (fields || []).reduce((acc, f) => ({ ...acc, [f.id]: f }), {} as Record<string, Field>), [fields]);
 
     const getOverallAverage = (studentId: string, studentCourses: Course[]): { average: number, hasGrades: boolean } => {
@@ -225,8 +248,20 @@ export default function AnnualTransitionPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-6">
+                <Skeleton className="h-10 w-1/2" />
+                <Card>
+                    <CardHeader><Skeleton className="h-8 w-3/4" /></CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <Skeleton className="h-32 w-full" />
+                            <Skeleton className="h-32 w-full" />
+                            <Skeleton className="h-32 w-full" />
+                            <Skeleton className="h-32 w-full" />
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card><CardHeader><Skeleton className="h-8 w-1/4" /></CardHeader></Card>
             </div>
         );
     }
