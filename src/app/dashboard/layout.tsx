@@ -210,9 +210,22 @@ function MainSidebar() {
                 <Link href={'/dashboard/schedule'}><CalendarDays/><span>Mon Emploi du Temps</span></Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/my-salary')} tooltip={"Mes Salaires"}>
+                <Link href={'/dashboard/my-salary'}><Banknote/><span>Mes Salaires</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </>
         )}
 
+        {showAdminMenu && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/my-salary')} tooltip={"Mes Salaires"}>
+                <Link href={'/dashboard/my-salary'}><Banknote/><span>Mes Salaires</span></Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+        )}
+        
         {showAdminMenu && adminMenuGroups.map(group => (
         <SidebarGroup key={group.group}>
             <SidebarGroupLabel>{group.group}</SidebarGroupLabel>
