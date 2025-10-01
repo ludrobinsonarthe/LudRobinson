@@ -32,7 +32,7 @@ import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
-import { doc, collection, writeBatch, setDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch } from 'firebase/firestore';
 
 
 const scheduleSchema = z.object({
@@ -52,7 +52,7 @@ const courseFormSchema = z.object({
   fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
   documents: z.array(z.string()).optional(),
-  newDocumentFile: z.any().optional(), // We'll handle file validation manually
+  newDocumentFile: z.custom<FileList>().optional(),
   schedule: z.array(scheduleSchema).optional(),
 }).refine(data => data.sectorId || data.fieldId, {
     message: "Vous devez sélectionner un secteur ou une filière.",
@@ -126,7 +126,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             credit: course.credit,
             documents: course.documents || [],
             schedule: course.schedule || [],
-            newDocumentFile: null,
+            newDocumentFile: undefined,
           });
         } else {
           form.reset({
@@ -140,7 +140,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             credit: 0,
             documents: [],
             schedule: [],
-            newDocumentFile: null,
+            newDocumentFile: undefined,
           });
         }
     }
@@ -158,16 +158,16 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
    }, [selectedSector, form, fields]);
 
   const onSubmit = async (data: CourseFormValues) => {
-    setIsSubmitting(true);
     if (!adminUser) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté.'});
-        setIsSubmitting(false);
         return;
     }
+
+    setIsSubmitting(true);
     
     try {
         const courseId = course?.id || doc(collection(db, 'courses')).id;
-        const newDocumentFile = data.newDocumentFile?.[0]; // react-hook-form returns a FileList
+        const newDocumentFile = data.newDocumentFile?.[0];
         let allDocs = [...(form.getValues('documents') || [])];
 
         if (newDocumentFile instanceof File) {
@@ -178,6 +178,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             await uploadBytes(fileRef, newDocumentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
+            toast({ title: "Téléversement réussi", description: "Le document a été ajouté." });
         }
         
         const finalCourseData: Omit<Course, 'id'> = {
@@ -362,19 +363,24 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                              </Button>
                         </div>
                      ))}
-                     <FormField control={form.control} name="newDocumentFile" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
-                            <FormControl>
-                                <Input 
-                                    type="file" 
-                                    accept=".pdf"
-                                    onChange={(e) => field.onChange(e.target.files)}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                     )}/>
+                     <FormField
+                        control={form.control}
+                        name="newDocumentFile"
+                        render={({ field: { onChange, ...field } }) => (
+                            <FormItem>
+                                <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
+                                <FormControl>
+                                    <Input 
+                                        type="file" 
+                                        accept=".pdf"
+                                        onChange={(e) => onChange(e.target.files)}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                  </div>
 
                 <Separator />
