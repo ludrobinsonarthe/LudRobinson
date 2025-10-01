@@ -117,8 +117,6 @@ export default function CashFlowPage() {
         
         try {
             await batch.commit();
-
-            setTransactions(prev => prev.filter(t => t.id !== selectedTransaction.id));
             
             toast({ title: "Transaction supprimée", description: "L'opération a été retirée de la caisse et archivée dans l'historique." });
 
@@ -185,7 +183,7 @@ export default function CashFlowPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                 <Card className="hover:bg-muted/50 transition-colors">
+                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Solde Actuel</CardTitle>
                         <Scale className="h-4 w-4 text-muted-foreground" />
@@ -195,7 +193,7 @@ export default function CashFlowPage() {
                         <p className="text-xs text-muted-foreground">Balance des entrées et sorties</p>
                     </CardContent>
                 </Card>
-                 <Card className="hover:bg-muted/50 transition-colors">
+                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total des Entrées</CardTitle>
                         <ArrowUpCircle className="h-4 w-4 text-green-500" />
@@ -205,7 +203,7 @@ export default function CashFlowPage() {
                         <p className="text-xs text-muted-foreground">Total des fonds reçus</p>
                     </CardContent>
                 </Card>
-                 <Card className="hover:bg-muted/50 transition-colors">
+                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total des Sorties</CardTitle>
                         <ArrowDownCircle className="h-4 w-4 text-red-500" />
