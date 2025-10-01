@@ -12,12 +12,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CoursesPage() {
-    const { user: currentUser, allUsers, fields, loading: userLoading } = useUser();
+    const { user: currentUser } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
-    const [pageLoading, setPageLoading] = useState(true);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [fields, setFields] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setLoading(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => ({id: d.id, ...d.data()} as Course)))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()})))));
+
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
 
     const children = useMemo(() => {
         if (currentUser?.role !== 'parent' || !allUsers) return [];
@@ -37,6 +53,19 @@ export default function CoursesPage() {
         }
     }, [currentUser, children, selectedChildId]);
 
+    const userCourses = useMemo(() => {
+        if (!userToView || courses.length === 0) return [];
+        
+        if (userToView.role === 'student' && userToView.student) {
+            const studentField = fields.find(f => f.id === userToView.student!.fieldId);
+            const studentSectorId = userToView.student.sectorId || studentField?.sectorId;
+            return courses.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || (!c.fieldId && c.sectorId === studentSectorId)));
+        } else if (userToView.role === 'teacher') {
+            return courses.filter(c => c.teacherId === userToView.uid);
+        }
+        return [];
+    }, [userToView, courses, fields]);
+
     const teachers = useMemo(() => (allUsers || []).filter(u => u.role === 'teacher'), [allUsers]);
 
     const getTeacherName = (teacherId?: string) => {
@@ -44,38 +73,6 @@ export default function CoursesPage() {
         const teacher = teachers.find(t => t.uid === teacherId);
         return teacher ? `${teacher.lastName} ${teacher.firstName}` : "Inconnu";
     }
-
-    useEffect(() => {
-        if (userLoading) return;
-
-        if (!userToView) {
-            setPageLoading(false);
-            setCourses([]);
-            return;
-        }
-
-        setPageLoading(true);
-        const q = query(collection(db, "courses"));
-        
-        const unsub = onSnapshot(q, (snapshot) => {
-            const allCoursesData = snapshot.docs.map(doc => doc.data() as Course);
-            let userCourses: Course[] = [];
-
-            if (userToView.role === 'student' && userToView.student) {
-                const studentField = fields.find(f => f.id === userToView.student!.fieldId);
-                const studentSectorId = userToView.student.sectorId || studentField?.sectorId;
-                userCourses = allCoursesData.filter(c => c.level === userToView.student!.level && (c.fieldId === userToView.student!.fieldId || (!c.fieldId && c.sectorId === studentSectorId)));
-            } else if (userToView.role === 'teacher') {
-                userCourses = allCoursesData.filter(c => c.teacherId === userToView.uid);
-            }
-            
-            setCourses(userCourses);
-            setPageLoading(false);
-        });
-
-        return () => unsub();
-        
-    }, [userToView, userLoading, fields]);
 
     const handleChildChange = (studentId: string) => {
         setSelectedChildId(studentId);
@@ -100,9 +97,6 @@ export default function CoursesPage() {
         }
     }
 
-    const isLoading = userLoading || pageLoading;
-
-
     return (
         <div className="space-y-6">
             <div>
@@ -123,7 +117,7 @@ export default function CoursesPage() {
                     <CardContent>
                        {children.length > 0 ? (
                             <Select onValueChange={handleChildChange} value={selectedChildId || ""}>
-                                <SelectTrigger className="w-[280px]">
+                                <SelectTrigger className="w-full sm:w-[280px]">
                                     <SelectValue placeholder="Sélectionner un enfant..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -149,13 +143,18 @@ export default function CoursesPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   {isLoading ? (
-                        <div className="flex items-center justify-center h-48">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                   {loading ? (
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {Array.from({length:3}).map((_, i) => (
+                                <Card key={i}>
+                                    <CardHeader><Skeleton className="h-6 w-3/4"/></CardHeader>
+                                    <CardContent><Skeleton className="h-10 w-full"/></CardContent>
+                                </Card>
+                            ))}
                         </div>
-                   ) : courses.length > 0 ? (
+                   ) : userCourses.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {courses.map(course => (
+                        {userCourses.map(course => (
                             <Card key={course.id} className="flex flex-col">
                                 <CardHeader>
                                     <div className="flex items-start justify-between">

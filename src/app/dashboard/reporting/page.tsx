@@ -1,12 +1,10 @@
 
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useUser } from '@/hooks/use-user';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Course, CashTransaction, Payment, Field, User } from '@/lib/types';
@@ -24,27 +22,24 @@ const FinancialMonthlyOverviewChart = dynamic(
 
 
 export default function ReportingPage() {
-    const { loading: userLoading, allUsers } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
-    const [loadingData, setLoadingData] = useState(true);
+    const [allUsers, setUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setLoadingData(true);
-        const unsubCourses = onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course)));
-        const unsubTransactions = onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction)));
-        const unsubPayments = onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment)));
-
-        // Ensures a minimum loading time for better UX with skeletons
-        const timer = setTimeout(() => setLoadingData(false), 300);
+        setLoading(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'courses'), snapshot => setCourses(snapshot.docs.map(doc => doc.data() as Course))));
+        unsubs.push(onSnapshot(collection(db, 'cashTransactions'), snapshot => setTransactions(snapshot.docs.map(doc => doc.data() as CashTransaction))));
+        unsubs.push(onSnapshot(collection(db, 'payments'), snapshot => setPayments(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Payment))));
+        unsubs.push(onSnapshot(collection(db, 'users'), snapshot => setUsers(snapshot.docs.map(doc => doc.data() as User))));
         
-        return () => {
-            unsubCourses();
-            unsubTransactions();
-            unsubPayments();
-            clearTimeout(timer);
-        }
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+        
+        return () => unsubs.forEach(unsub => unsub());
     }, []);
 
     const students = useMemo(() => allUsers.filter(u => u.role === 'student'), [allUsers]);
@@ -69,8 +64,6 @@ export default function ReportingPage() {
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF' }).format(amount);
     }
-
-    const loading = userLoading || loadingData;
 
     return (
         <div className="space-y-6">

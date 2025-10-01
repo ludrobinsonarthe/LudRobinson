@@ -26,7 +26,7 @@ const allMonths = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juill
 
 
 export default function MySalaryPage() {
-    const { user: currentUser, loading: userLoading } = useUser();
+    const { user: currentUser } = useUser();
     const [salaries, setSalaries] = useState<UnifiedSalary[]>([]);
     const [loading, setLoading] = useState(true);
     
@@ -83,10 +83,8 @@ export default function MySalaryPage() {
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
     }
-    
-    const isLoading = userLoading || loading;
 
-    if (isLoading) {
+    if (loading) {
         return (
             <div className="flex justify-center items-center h-48">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -125,9 +123,9 @@ export default function MySalaryPage() {
                                 Liste de toutes les fiches de paie générées par l'administration.
                             </CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Filtrer par mois" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -138,7 +136,7 @@ export default function MySalaryPage() {
                                 </SelectContent>
                             </Select>
                              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Filtrer par année" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -153,13 +151,14 @@ export default function MySalaryPage() {
                 </CardHeader>
                 <CardContent>
                     {filteredSalaries.length > 0 ? (
+                        <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Mois / Année</TableHead>
                                     <TableHead>Montant</TableHead>
-                                    <TableHead>Statut</TableHead>
-                                    <TableHead>Date de paiement</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Statut</TableHead>
+                                    <TableHead className="hidden md:table-cell">Date de paiement</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -167,12 +166,13 @@ export default function MySalaryPage() {
                                     <TableRow key={salary.id}>
                                         <TableCell className='font-medium'>{salary.month} {salary.year}</TableCell>
                                         <TableCell className='font-semibold'>{formatCurrency(salary.totalSalary, salary.currency)}</TableCell>
-                                        <TableCell><Badge variant={statusVariant[salary.status]}>{statusTranslation[salary.status]}</Badge></TableCell>
-                                        <TableCell>{salary.paidAt ? format(new Date(salary.paidAt), 'd MMMM yyyy', { locale: fr }) : '-'}</TableCell>
+                                        <TableCell className="hidden sm:table-cell"><Badge variant={statusVariant[salary.status]}>{statusTranslation[salary.status]}</Badge></TableCell>
+                                        <TableCell className="hidden md:table-cell">{salary.paidAt ? format(new Date(salary.paidAt), 'd MMMM yyyy', { locale: fr }) : '-'}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
+                        </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center h-[300px]">
                             <Banknote className="mx-auto h-12 w-12 text-muted-foreground" />

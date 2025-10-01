@@ -73,7 +73,14 @@ type FeeManagementFormValues = z.infer<typeof feeManagementFormSchema>;
 export default function FeeManagementPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { settings } = useUser();
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'system'), (doc) => {
+        if(doc.exists()) setSettings(doc.data());
+    });
+    return () => unsub();
+  }, []);
 
   const form = useForm<FeeManagementFormValues>({
     resolver: zodResolver(feeManagementFormSchema),
@@ -167,7 +174,7 @@ export default function FeeManagementPage() {
           ) : (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <div className="border rounded-lg">
+                <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -207,7 +214,7 @@ export default function FeeManagementPage() {
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {(settings?.levels || []).map((l) => (<SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>))}
+                                  {(settings?.levels || []).map((l: any) => (<SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>))}
                                 </SelectContent>
                               </Select>
                             )}
@@ -248,7 +255,7 @@ export default function FeeManagementPage() {
                 </Table>
                 </div>
                 
-                <div className="flex justify-between items-center pt-4">
+                <div className="flex justify-between items-center pt-4 flex-wrap gap-4">
                     <Button type="button" variant="outline" onClick={addNewFeeStructure}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Ajouter une ligne

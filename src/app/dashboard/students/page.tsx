@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc, deleteDoc, updateDoc, collection, writeBatch, getDoc, serverTimestamp, getDocs, query, onSnapshot, addDoc, where } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -42,8 +43,16 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser, allUsers, loading: loadingUsers, setUsers, settings, fields, sectors, allCourses, grades, payments, feeStructures } = useUser();
+    const { user: adminUser } = useUser();
+    const [allUsers, setUsers] = useState<User[]>([]);
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+    const [settings, setSettings] = useState<any>(null);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [sectors, setSectors] = useState<Sector[]>([]);
     const [loadingData, setLoadingData] = useState(true);
+
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
@@ -57,10 +66,23 @@ export default function StudentsPage() {
     const [fieldFilter, setFieldFilter] = useState("all");
     const [genderFilter, setGenderFilter] = useState("all");
     const [nationalityFilter, setNationalityFilter] = useState("all");
-    
+
     useEffect(() => {
-        setLoadingData(loadingUsers);
-    }, [loadingUsers]);
+        setLoadingData(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setAllCourses(snap.docs.map(d => d.data() as Course))));
+        unsubs.push(onSnapshot(collection(db, 'payments'), snap => setPayments(snap.docs.map(d => d.data() as Payment))));
+        unsubs.push(onSnapshot(collection(db, 'feeStructures'), snap => setFeeStructures(snap.docs.map(d => d.data() as FeeStructure))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()} as Field)))));
+        unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()} as Sector)))));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data())));
+        
+        const timer = setTimeout(() => setLoadingData(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
 
     const studentsFromUsers = useMemo(() => {
         return (allUsers || [])
@@ -433,7 +455,7 @@ export default function StudentsPage() {
                     const fieldId = (fields || []).find(f => f.name.toLowerCase() === studentRow['Filière']?.toLowerCase())?.id;
                     const studentLevel = studentRow['Niveau'];
 
-                    if (!fieldId || !studentLevel || !(settings?.levels || []).some(l => l.value === studentLevel)) {
+                    if (!fieldId || !studentLevel || !(settings?.levels || []).some((l: any) => l.value === studentLevel)) {
                         console.warn(`Skipping student due to invalid field or level: ${studentRow['Nom']}`);
                         continue;
                     }
@@ -509,7 +531,7 @@ export default function StudentsPage() {
         }
     };
     
-    const loading = loadingUsers || loadingData;
+    const loading = loadingData;
 
     const formatCurrency = (amount: number, currency: string = 'XAF') => {
         return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
@@ -517,7 +539,7 @@ export default function StudentsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-start gap-4">
+            <div className="flex justify-between items-start gap-4 flex-wrap">
                 <div>
                     <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Étudiants</h1>
                     <p className="text-muted-foreground">
@@ -553,7 +575,7 @@ export default function StudentsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <div className="flex flex-wrap items-center gap-4 mb-6">
+                     <div className="flex flex-wrap items-center gap-2 mb-6">
                         <Input 
                             placeholder="Rechercher par nom..."
                             value={nameFilter}
@@ -561,18 +583,14 @@ export default function StudentsPage() {
                             className="max-w-sm"
                         />
                         <Select value={levelFilter} onValueChange={setLevelFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par niveau" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par niveau" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
-                                {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                                {(settings?.levels || []).map((l: any) => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={genderFilter} onValueChange={setGenderFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par sexe" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par sexe" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les sexes</SelectItem>
                                 <SelectItem value="M">Masculin</SelectItem>
@@ -580,27 +598,21 @@ export default function StudentsPage() {
                             </SelectContent>
                         </Select>
                          <Select value={nationalityFilter} onValueChange={setNationalityFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par nationalité" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par nationalité" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Toutes les nationalités</SelectItem>
                                 {nationalities.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par secteur" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par secteur" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les secteurs</SelectItem>
                                 {(sectors || []).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
-                            <SelectTrigger className="w-[240px]">
-                                <SelectValue placeholder="Filtrer par filière" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[240px]"><SelectValue placeholder="Filtrer par filière" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Toutes les filières</SelectItem>
                                 {(availableFields || []).map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
@@ -619,11 +631,15 @@ export default function StudentsPage() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
-                                        Chargement...
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({length: 5}).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-10 w-48" /></TableCell>
+                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24" /></TableCell>
+                                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-32" /></TableCell>
+                                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-32" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
                             ) : filteredStudents.length > 0 ? filteredStudents.map(student => {
                                 const balance = studentBalances[student.uid] || 0;
                                 const studentCourses = getCoursesForStudent(student);
@@ -728,14 +744,14 @@ export default function StudentsPage() {
                 </CardContent>
             </Card>
 
-            <StudentFormDialog 
+            {isFormOpen && <StudentFormDialog 
                 isOpen={isFormOpen}
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
                 student={selectedStudent}
                 parents={parents}
                 students={studentsFromUsers}
-            />
+            />}
             {selectedStudent && <UserDeleteDialog
                 isOpen={isDeleteOpen}
                 setIsOpen={setIsDeleteOpen}

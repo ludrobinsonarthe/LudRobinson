@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { User as UserIcon, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { User } from '@/lib/types';
+import { User, Field } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
@@ -17,17 +18,19 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function PromotionPage() {
-    const { user: currentUser, fields, loading: userLoading } = useUser();
+    const { user: currentUser } = useUser();
     const [classmates, setClassmates] = useState<User[]>([]);
-    const [loadingClassmates, setLoadingClassmates] = useState(true);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!currentUser || currentUser.role !== 'student' || !currentUser.student || !currentUser.student.fieldId || !currentUser.student.level) {
-            setLoadingClassmates(false);
+            setLoading(false);
             return;
         }
         
-        setLoadingClassmates(true);
+        setLoading(true);
+
         const q = query(
             collection(db, 'users'),
             where('role', '==', 'student'),
@@ -35,13 +38,20 @@ export default function PromotionPage() {
             where('student.level', '==', currentUser.student.level)
         );
 
-        const unsub = onSnapshot(q, snapshot => {
+        const unsubUsers = onSnapshot(q, snapshot => {
             const users = snapshot.docs.map(doc => doc.data() as User);
             setClassmates(users.filter(u => u.uid !== currentUser.uid));
-            setLoadingClassmates(false);
+            setLoading(false);
+        });
+
+        const unsubFields = onSnapshot(collection(db, 'fields'), snapshot => {
+            setFields(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Field)));
         });
         
-        return () => unsub();
+        return () => {
+            unsubUsers();
+            unsubFields();
+        };
     }, [currentUser]);
 
     const currentField = useMemo(() => {
@@ -51,10 +61,18 @@ export default function PromotionPage() {
 
     const title = `Promotion ${currentUser?.student?.level || ''} - ${currentField?.name || ''}`;
 
-    const isLoading = userLoading || loadingClassmates;
-
-    if (isLoading) {
-        return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    if (loading) {
+        return (
+            <div className="space-y-6">
+                <Skeleton className="h-10 w-1/2"/>
+                <Card>
+                    <CardHeader><Skeleton className="h-8 w-1/3"/></CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {Array.from({length:8}).map((_,i) => <Skeleton key={i} className="h-48 w-full"/>)}
+                    </CardContent>
+                </Card>
+            </div>
+        );
     }
     
     if (currentUser?.role !== 'student') {

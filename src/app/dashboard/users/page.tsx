@@ -24,13 +24,14 @@ import UserFormDialog from "@/components/user-form-dialog";
 import UserDeleteDialog from "@/components/user-delete-dialog";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import { doc, setDoc, deleteDoc, addDoc, collection, query, where, getDocs, writeBatch, updateDoc } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, addDoc, collection, query, where, getDocs, writeBatch, updateDoc, onSnapshot } from "firebase/firestore";
 import { db, storage, auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { imageToDataUrl } from '@/lib/utils';
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 const statusVariant: { [key: string]: "default" | "secondary" | "destructive" } = {
@@ -54,7 +55,11 @@ const getInitials = (firstName: string = '', lastName: string = '') => {
 };
 
 export default function UsersPage() {
-    const { allUsers, loading, roles, settings, user: adminUser, setUsers } = useUser();
+    const { user: adminUser } = useUser();
+    const [allUsers, setUsers] = useState<User[]>([]);
+    const [roles, setRoles] = useState<AdminRole[]>([]);
+    const [loading, setLoading] = useState(true);
+
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -65,6 +70,18 @@ export default function UsersPage() {
     // Filters
     const [nameFilter, setNameFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+
+    useEffect(() => {
+        setLoading(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'adminRoles'), snap => setRoles(snap.docs.map(d => ({id: d.id, ...d.data()} as AdminRole)))));
+        
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
     
     const employees = useMemo(() => {
         return allUsers.filter(user => user.role === 'admin' || user.role === 'teacher');
@@ -264,7 +281,7 @@ export default function UsersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start flex-wrap gap-4">
                 <div>
                     <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion du Personnel</h1>
                     <p className="text-muted-foreground">
@@ -294,7 +311,7 @@ export default function UsersPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <div className="flex items-center gap-4 mb-4">
+                     <div className="flex items-center gap-4 mb-4 flex-wrap">
                         <Input
                             placeholder="Rechercher par nom..."
                             value={nameFilter}
@@ -325,11 +342,16 @@ export default function UsersPage() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
-                                        Chargement...
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({length: 5}).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-10 w-48" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-32" /></TableCell>
+                                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
+                                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
                             ) : filteredEmployees.length > 0 ? filteredEmployees.map(user => (
                                 <TableRow key={user.uid}>
                                     <TableCell className="font-medium">
@@ -409,14 +431,14 @@ export default function UsersPage() {
                 </CardContent>
             </Card>
 
-            <UserFormDialog 
+            {isFormOpen && <UserFormDialog 
                 isOpen={isFormOpen}
                 setIsOpen={setIsFormOpen}
                 onSave={handleSave}
                 user={selectedUser}
                 userType={userType}
                 adminRoles={roles}
-            />
+            />}
             <UserDeleteDialog
                 isOpen={isDeleteOpen}
                 setIsOpen={setIsDeleteOpen}

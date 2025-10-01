@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Course, Field, Sector, Cycle, ActivityLog } from "@/lib/types";
+import { Course, Field, Sector, Cycle, ActivityLog, User } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Trash2, Edit, ClipboardList, CalendarDays, Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
@@ -32,9 +32,14 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function CourseManagementPage() {
-    const { allUsers, settings, loading: settingsLoading, fields, sectors, user } = useUser();
+    const { user } = useUser();
     const [courses, setCourses] = useState<Course[]>([]);
-    const [loadingCourses, setLoadingCourses] = useState(true);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [settings, setSettings] = useState<any>(null);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [sectors, setSectors] = useState<Sector[]>([]);
+    const [loading, setLoading] = useState(true);
+
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const { toast } = useToast();
@@ -48,15 +53,21 @@ export default function CourseManagementPage() {
     
     useEffect(() => {
         if (user?.role !== 'admin' && user?.role !== 'teacher') {
-            setLoadingCourses(false);
+            setLoading(false);
             return;
         }
-        setLoadingCourses(true);
-        const unsub = onSnapshot(collection(db, 'courses'), snapshot => {
-            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course)));
-            setLoadingCourses(false);
-        });
-        return () => unsub();
+        setLoading(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setCourses(snap.docs.map(d => ({id: d.id, ...d.data()} as Course)))));
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()} as Field)))));
+        unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()} as Sector)))));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data())));
+        
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
     }, [user]);
 
     const teachers = useMemo(() => allUsers.filter(u => u.role === 'teacher'), [allUsers]);
@@ -147,8 +158,6 @@ export default function CourseManagementPage() {
         }
     }
 
-    const pageIsLoading = settingsLoading || loadingCourses;
-
     if (user?.role !== 'admin' && user?.role !== 'teacher') {
         return (
              <Card>
@@ -164,7 +173,7 @@ export default function CourseManagementPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start flex-wrap gap-4">
                  <div>
                     <h1 className="text-3xl font-bold font-headline tracking-tight">Gestion des Cours et Horaires</h1>
                     <p className="text-muted-foreground">
@@ -194,7 +203,7 @@ export default function CourseManagementPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <div className="flex flex-wrap items-center gap-4 mb-6">
+                     <div className="flex flex-wrap items-center gap-2 mb-6">
                         <Input 
                             placeholder="Rechercher par nom..."
                             value={nameFilter}
@@ -202,36 +211,28 @@ export default function CourseManagementPage() {
                             className="max-w-sm"
                         />
                         <Select value={levelFilter} onValueChange={setLevelFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par niveau" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par niveau" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
-                                {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                                {(settings?.levels || []).map((l: any) => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={cycleFilter} onValueChange={setCycleFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par cycle" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par cycle" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les cycles</SelectItem>
                                 {cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par secteur" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par secteur" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les secteurs</SelectItem>
                                 {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
-                            <SelectTrigger className="w-[240px]">
-                                <SelectValue placeholder="Filtrer par filière" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[240px]"><SelectValue placeholder="Filtrer par filière" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Toutes les filières</SelectItem>
                                 <SelectItem value="common_core">Tronc Commun</SelectItem>
@@ -243,19 +244,19 @@ export default function CourseManagementPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nom du cours</TableHead>
-                                <TableHead>Professeur</TableHead>
-                                <TableHead>Filière / Tronc Commun</TableHead>
+                                <TableHead className="hidden sm:table-cell">Professeur</TableHead>
+                                <TableHead className="hidden md:table-cell">Filière / Tronc Commun</TableHead>
                                 <TableHead>Crédit</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {pageIsLoading ? (
+                            {loading ? (
                                 Array.from({length: 5}).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-40" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                         <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                                     </TableRow>
@@ -265,8 +266,8 @@ export default function CourseManagementPage() {
                                 return (
                                 <TableRow key={course.id}>
                                     <TableCell className="font-medium">{course.name}</TableCell>
-                                    <TableCell>{getTeacherName(course.teacherId)}</TableCell>
-                                    <TableCell>{fieldName}</TableCell>
+                                    <TableCell className="hidden sm:table-cell">{getTeacherName(course.teacherId)}</TableCell>
+                                    <TableCell className="hidden md:table-cell">{fieldName}</TableCell>
                                     <TableCell>{course.credit}</TableCell>
                                     <TableCell className="text-right">
                                        <DropdownMenu>

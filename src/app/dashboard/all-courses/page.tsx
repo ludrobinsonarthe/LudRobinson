@@ -29,9 +29,12 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function AllCoursesPage() {
-    const { settings, loading: settingsLoading, fields, sectors, allUsers } = useUser();
     const [allCourses, setAllCourses] = useState<Course[]>([]);
-    const [loadingCourses, setLoadingCourses] = useState(true);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [settings, setSettings] = useState<any>(null);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [sectors, setSectors] = useState<Sector[]>([]);
+    const [loading, setLoading] = useState(true);
     
     // Filters state
     const [nameFilter, setNameFilter] = useState("");
@@ -41,13 +44,18 @@ export default function AllCoursesPage() {
     const [cycleFilter, setCycleFilter] = useState("all");
 
     useEffect(() => {
-        setLoadingCourses(true);
-        const q = query(collection(db, 'courses'));
-        const unsub = onSnapshot(q, (snapshot) => {
-            setAllCourses(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Course)));
-            setLoadingCourses(false);
-        });
-        return () => unsub();
+        setLoading(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'courses'), snap => setAllCourses(snap.docs.map(d => ({id: d.id, ...d.data()} as Course)))));
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setAllUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()} as Field)))));
+        unsubs.push(onSnapshot(collection(db, 'sectors'), snap => setSectors(snap.docs.map(d => ({id: d.id, ...d.data()} as Sector)))));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data())));
+        
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
     }, []);
     
     const teachers = useMemo(() => allUsers.filter(u => u.role === 'teacher'), [allUsers]);
@@ -102,8 +110,6 @@ export default function AllCoursesPage() {
         });
     }, [allCourses, nameFilter, levelFilter, sectorFilter, fieldFilter, cycleFilter, fieldsById]);
 
-    const loading = settingsLoading || loadingCourses;
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start">
@@ -122,7 +128,7 @@ export default function AllCoursesPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <div className="flex flex-wrap items-center gap-4 mb-6">
+                     <div className="flex flex-wrap items-center gap-2 mb-6">
                         <Input 
                             placeholder="Rechercher par nom..."
                             value={nameFilter}
@@ -130,36 +136,28 @@ export default function AllCoursesPage() {
                             className="max-w-sm"
                         />
                         <Select value={levelFilter} onValueChange={setLevelFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par niveau" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par niveau" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
-                                {(settings?.levels || []).map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                                {(settings?.levels || []).map((l: any) => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={cycleFilter} onValueChange={setCycleFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par cycle" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par cycle" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les cycles</SelectItem>
                                 {cycles.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>
                          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par secteur" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par secteur" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les secteurs</SelectItem>
                                 {sectors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={fieldFilter} onValueChange={setFieldFilter} disabled={sectorFilter === 'all'}>
-                            <SelectTrigger className="w-[240px]">
-                                <SelectValue placeholder="Filtrer par filière" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[240px]"><SelectValue placeholder="Filtrer par filière" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Toutes les filières</SelectItem>
                                 <SelectItem value="common_core">Tronc Commun</SelectItem>
@@ -171,8 +169,8 @@ export default function AllCoursesPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nom du cours</TableHead>
-                                <TableHead>Professeur</TableHead>
-                                <TableHead>Filière / Secteur</TableHead>
+                                <TableHead className="hidden sm:table-cell">Professeur</TableHead>
+                                <TableHead className="hidden md:table-cell">Filière / Secteur</TableHead>
                                 <TableHead>Niveau</TableHead>
                                 <TableHead>Crédit</TableHead>
                             </TableRow>
@@ -182,8 +180,8 @@ export default function AllCoursesPage() {
                                 Array.from({length: 5}).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-40" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                     </TableRow>
@@ -193,8 +191,8 @@ export default function AllCoursesPage() {
                                 return (
                                 <TableRow key={course.id}>
                                     <TableCell className="font-medium">{course.name}</TableCell>
-                                    <TableCell>{getTeacherName(course.teacherId)}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">{getTeacherName(course.teacherId)}</TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <div>
                                             <p className="font-medium">{fieldName}</p>
                                             <p className="text-xs text-muted-foreground">{sectorName}</p>

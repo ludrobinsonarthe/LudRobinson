@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Field, Sector } from "@/lib/types";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,19 +21,38 @@ import { useUser } from "@/hooks/use-user";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { collection, onSnapshot, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const getInitials = (firstName: string = '', lastName: string = '') => {
     return `${lastName[0] || ''}${firstName[0] || ''}`.toUpperCase();
 };
 
 export default function CertificatesPage() {
-    const { allUsers: users, loading: loadingUsers, settings, fields, sectors } = useUser();
+    const [users, setUsers] = useState<User[]>([]);
+    const [settings, setSettings] = useState<any>(null);
+    const [fields, setFields] = useState<Field[]>([]);
+    const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
     // Filters state
     const [nameFilter, setNameFilter] = useState("");
     const [levelFilter, setLevelFilter] = useState("all");
     const [fieldFilter, setFieldFilter] = useState("all");
+
+    useEffect(() => {
+        setLoading(true);
+        const unsubs: (()=>void)[] = [];
+        unsubs.push(onSnapshot(collection(db, 'users'), snap => setUsers(snap.docs.map(d => d.data() as User))));
+        unsubs.push(onSnapshot(collection(db, 'fields'), snap => setFields(snap.docs.map(d => ({id: d.id, ...d.data()} as Field)))));
+        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), snap => setSettings(snap.data())));
+        
+        const timer = setTimeout(() => setLoading(false), 500);
+        unsubs.push(() => clearTimeout(timer));
+
+        return () => unsubs.forEach(unsub => unsub());
+    }, []);
 
     const studentsFromUsers = useMemo(() => {
         if (!users) return [];
@@ -83,7 +102,7 @@ export default function CertificatesPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <div className="flex flex-wrap items-center gap-4 mb-6">
+                     <div className="flex flex-wrap items-center gap-2 mb-6">
                         <Input 
                             placeholder="Rechercher par nom..."
                             value={nameFilter}
@@ -91,18 +110,14 @@ export default function CertificatesPage() {
                             className="max-w-sm"
                         />
                         <Select value={levelFilter} onValueChange={setLevelFilter}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrer par niveau" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Filtrer par niveau" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tous les niveaux</SelectItem>
-                                {settings?.levels.map(l => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
+                                {settings?.levels.map((l: any) => <SelectItem key={l.value} value={l.value}>{l.value}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={fieldFilter} onValueChange={setFieldFilter}>
-                            <SelectTrigger className="w-[240px]">
-                                <SelectValue placeholder="Filtrer par filière" />
-                            </SelectTrigger>
+                            <SelectTrigger className="w-full sm:w-[240px]"><SelectValue placeholder="Filtrer par filière" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Toutes les filières</SelectItem>
                                 {fields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
@@ -119,12 +134,15 @@ export default function CertificatesPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loadingUsers ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
-                                        Chargement...
-                                    </TableCell>
-                                </TableRow>
+                            {loading ? (
+                                Array.from({length: 5}).map((_,i) => (
+                                    <TableRow key={i}>
+                                        <TableCell><Skeleton className="h-10 w-48"/></TableCell>
+                                        <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-32"/></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-36 ml-auto"/></TableCell>
+                                    </TableRow>
+                                ))
                             ) : filteredStudents.length > 0 ? filteredStudents.map(student => (
                                 <TableRow key={student.uid}>
                                     <TableCell className="font-medium">
