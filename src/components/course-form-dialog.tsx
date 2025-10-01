@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Course, User, Sector, Field, Cycle, ActivityLog } from "@/lib/types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Separator } from "./ui/separator";
 import { Loader2, PlusCircle, Trash2, File } from "lucide-react";
@@ -32,7 +32,7 @@ import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
-import { doc, collection, writeBatch } from 'firebase/firestore';
+import { doc, collection, writeBatch, setDoc } from 'firebase/firestore';
 
 
 const scheduleSchema = z.object({
@@ -52,7 +52,6 @@ const courseFormSchema = z.object({
   fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
   documents: z.array(z.string()).optional(),
-  newDocumentFile: z.custom<FileList>().optional(),
   schedule: z.array(scheduleSchema).optional(),
 }).refine(data => data.sectorId || data.fieldId, {
     message: "Vous devez sélectionner un secteur ou une filière.",
@@ -81,6 +80,8 @@ const cycles: { value: Cycle, label: string }[] = [
 export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, sectors, fields }: CourseFormDialogProps) {
   const { settings, user: adminUser } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const form = useForm<CourseFormValues>({
@@ -126,7 +127,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             credit: course.credit,
             documents: course.documents || [],
             schedule: course.schedule || [],
-            newDocumentFile: undefined,
           });
         } else {
           form.reset({
@@ -140,8 +140,11 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             credit: 0,
             documents: [],
             schedule: [],
-            newDocumentFile: undefined,
           });
+        }
+        setDocumentFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     }
   }, [course, isOpen, form, fields]);
@@ -157,25 +160,31 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
     }
    }, [selectedSector, form, fields]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setDocumentFile(file);
+    }
+  };
+
+
   const onSubmit = async (data: CourseFormValues) => {
     if (!adminUser) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté.'});
         return;
     }
-
     setIsSubmitting(true);
     
     try {
         const courseId = course?.id || doc(collection(db, 'courses')).id;
-        const newDocumentFile = data.newDocumentFile?.[0];
-        let allDocs = [...(form.getValues('documents') || [])];
+        let allDocs = [...(data.documents || [])];
 
-        if (newDocumentFile instanceof File) {
+        if (documentFile) {
             toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
-            const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
+            const filePath = `courses/${courseId}/${Date.now()}-${documentFile.name.replace(/\s/g, '_')}`;
             const fileRef = ref(storage, filePath);
             
-            await uploadBytes(fileRef, newDocumentFile);
+            await uploadBytes(fileRef, documentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
             toast({ title: "Téléversement réussi", description: "Le document a été ajouté." });
@@ -363,24 +372,18 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
                              </Button>
                         </div>
                      ))}
-                     <FormField
-                        control={form.control}
-                        name="newDocumentFile"
-                        render={({ field: { onChange, ...field } }) => (
-                            <FormItem>
-                                <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
-                                <FormControl>
-                                    <Input 
-                                        type="file" 
-                                        accept=".pdf"
-                                        onChange={(e) => onChange(e.target.files)}
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                     <FormItem>
+                        <FormLabel className="text-sm">Ajouter un nouveau document</FormLabel>
+                        <FormControl>
+                            <Input 
+                                type="file" 
+                                accept=".pdf"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
                  </div>
 
                 <Separator />
