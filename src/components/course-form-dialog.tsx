@@ -32,7 +32,7 @@ import { storage, db } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
-import { doc, collection, writeBatch, setDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch } from 'firebase/firestore';
 
 
 const scheduleSchema = z.object({
@@ -80,9 +80,11 @@ const cycles: { value: Cycle, label: string }[] = [
 export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, sectors, fields }: CourseFormDialogProps) {
   const { settings, user: adminUser } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  
+  // Dedicated state for the file to upload
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -142,6 +144,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             schedule: [],
           });
         }
+        // Reset file state when dialog opens
         setDocumentFile(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
@@ -173,11 +176,12 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté.'});
         return;
     }
+    
     setIsSubmitting(true);
     
     try {
         const courseId = course?.id || doc(collection(db, 'courses')).id;
-        let allDocs = [...(data.documents || [])];
+        let documentURLs = [...(data.documents || [])];
 
         if (documentFile) {
             toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
@@ -186,7 +190,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             
             await uploadBytes(fileRef, documentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
-            allDocs.push(newDocumentUrl);
+            documentURLs.push(newDocumentUrl);
             toast({ title: "Téléversement réussi", description: "Le document a été ajouté." });
         }
         
@@ -198,7 +202,7 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
             cycle: data.cycle,
             credit: data.credit,
             schedule: data.schedule || [],
-            documents: allDocs,
+            documents: documentURLs,
             fieldId: (data.fieldId === 'common_core' || !data.fieldId) ? undefined : data.fieldId,
             sectorId: (data.fieldId === 'common_core' || !data.fieldId) ? data.sectorId : undefined,
         };
@@ -443,3 +447,5 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
     </Dialog>
   );
 }
+
+    
