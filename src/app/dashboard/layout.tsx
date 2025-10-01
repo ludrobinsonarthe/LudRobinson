@@ -22,6 +22,7 @@ import {
   SheetTitle,
   SheetDescription,
   SheetTrigger,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
   Home,
@@ -279,39 +280,33 @@ function MainSidebar() {
 
 
   return (
-      <>
-      <Sidebar>
+    <Sidebar>
+        {/* Desktop Sidebar */}
         <SidebarHeader className="hidden md:flex">
-          <AppLogo />
+            <AppLogo />
         </SidebarHeader>
-        <SidebarContent>
-            <Sheet>
-                <SheetTrigger asChild>
-                    <div className="block md:hidden p-2">
-                        <AppLogo />
-                    </div>
-                </SheetTrigger>
-                <SheetContent side="left" className="p-0 w-[280px]">
-                    <SidebarHeader>
-                        <AppLogo />
-                    </SidebarHeader>
-                    <SidebarContent>
-                        {isMounted && commonMenuItems}
-                    </SidebarContent>
-                    <SidebarFooter>
-                        {commonFooter}
-                    </SidebarFooter>
-                </SheetContent>
-            </Sheet>
-            <div className="hidden md:block">
-                {isMounted && commonMenuItems}
-            </div>
+        <SidebarContent className="hidden md:flex">
+            {isMounted && commonMenuItems}
         </SidebarContent>
         <SidebarFooter className="hidden md:flex">
-          {commonFooter}
+            {commonFooter}
         </SidebarFooter>
-      </Sidebar>
-      </>
+
+        {/* Mobile Sheet */}
+        <Sheet>
+            <SheetContent side="left" className="p-0 w-[280px] flex flex-col">
+                <SidebarHeader>
+                    <AppLogo />
+                </SidebarHeader>
+                <SidebarContent>
+                    {isMounted && commonMenuItems}
+                </SidebarContent>
+                <SidebarFooter>
+                    {commonFooter}
+                </SidebarFooter>
+            </SheetContent>
+        </Sheet>
+    </Sidebar>
   );
 }
 
