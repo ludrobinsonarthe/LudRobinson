@@ -15,12 +15,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CashTransaction, Payment, TeacherSalary } from "@/lib/types";
+import { CashTransaction, Payment, TeacherSalary, ActivityLog } from "@/lib/types";
 import { MoreHorizontal, PlusCircle, ArrowUpCircle, ArrowDownCircle, Scale, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { collection, onSnapshot, doc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, deleteDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import CashTransactionFormDialog from '@/components/cash-transaction-form-dialog';
@@ -31,7 +31,7 @@ import Link from 'next/link';
 
 
 export default function CashFlowPage() {
-    const { settings } = useUser();
+    const { settings, user: adminUser } = useUser();
     const [transactions, setTransactions] = useState<CashTransaction[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [teacherSalaries, setTeacherSalaries] = useState<TeacherSalary[]>([]);
@@ -92,17 +92,37 @@ export default function CashFlowPage() {
     };
 
     const confirmDelete = async () => {
-        if(selectedTransaction) {
-            try {
-                await deleteDoc(doc(db, 'cashTransactions', selectedTransaction.id));
-                toast({ title: "Transaction supprimée" });
-            } catch (error) {
-                console.error("Error deleting transaction: ", error);
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer la transaction." });
-            } finally {
-                setIsDeleteOpen(false);
-                setSelectedTransaction(null);
-            }
+        if (!selectedTransaction || !adminUser) {
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Transaction ou utilisateur non trouvé.' });
+            return;
+        }
+
+        const batch = writeBatch(db);
+        const transactionRef = doc(db, 'cashTransactions', selectedTransaction.id);
+        batch.delete(transactionRef);
+
+        const logRef = doc(collection(db, 'activityLogs'));
+        const log: Omit<ActivityLog, 'id'> = {
+            actorId: adminUser.uid,
+            actorName: `${adminUser.lastName} ${adminUser.firstName}`,
+            action: 'transaction_deleted',
+            entityType: 'cashTransaction',
+            entityId: selectedTransaction.id,
+            timestamp: new Date().toISOString(),
+            details: `A supprimé la transaction manuelle : "${selectedTransaction.description}" de ${formatCurrency(selectedTransaction.amount, selectedTransaction.currency)}`,
+        };
+        batch.set(logRef, log);
+        
+        try {
+            await batch.commit();
+            setTransactions(prev => prev.filter(t => t.id !== selectedTransaction.id));
+            toast({ title: "Transaction supprimée" });
+        } catch (error) {
+            console.error("Error deleting transaction: ", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer la transaction." });
+        } finally {
+            setIsDeleteOpen(false);
+            setSelectedTransaction(null);
         }
     }
 
