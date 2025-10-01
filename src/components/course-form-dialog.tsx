@@ -162,18 +162,20 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
     try {
         let allDocs = courseData.documents || [];
 
+        // 1. Upload new document if it exists
         if (newDocumentFile && newDocumentFile.name) {
-            toast({ title: "Téléversement en cours...", description: "Veuillez patienter pendant l'envoi du fichier." });
-            const courseId = course?.id || `course_${Date.now()}`;
-            const filePath = `courses/${courseId}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
+            toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
+            const courseIdForPath = course?.id || `course_${Date.now()}`;
+            const filePath = `courses/${courseIdForPath}/${Date.now()}-${newDocumentFile.name.replace(/\s/g, '_')}`;
             const fileRef = ref(storage, filePath);
             
             await uploadBytes(fileRef, newDocumentFile);
             const newDocumentUrl = await getDownloadURL(fileRef);
             allDocs.push(newDocumentUrl);
-            toast({ title: "Fichier téléversé", description: "Le nouveau document du cours a été ajouté." });
+            toast({ title: "Fichier téléversé avec succès." });
         }
         
+        // 2. Prepare the final data object
         const finalCourseData: Partial<Course> = {
             name: courseData.name,
             description: courseData.description,
@@ -193,13 +195,15 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
             finalCourseData.sectorId = undefined;
         }
         
+        // 3. Call the save function with the complete data
         onSave(finalCourseData);
         
     } catch (error) {
         console.error("Error during form submission:", error);
-        toast({ variant: "destructive", title: "Erreur de soumission", description: "Une erreur s'est produite." });
+        toast({ variant: "destructive", title: "Erreur de soumission", description: "Vérifiez vos permissions d'écriture dans Firebase Storage." });
     } finally {
         setIsSubmitting(false);
+        // We let the parent component close the dialog after successful save.
     }
   };
 
@@ -417,4 +421,3 @@ export default function CourseFormDialog({ isOpen, setIsOpen, onSave, course, te
   );
 }
 
-    

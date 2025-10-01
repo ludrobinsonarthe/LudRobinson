@@ -1,11 +1,22 @@
 rules_version = '2';
 
+// Règles pour Firebase Storage
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow read/write access to all authenticated users
-    // THIS IS NOT A SECURE RULE. You should restrict access based on your app's needs.
+
+    // Autoriser la lecture publique de tous les fichiers
     match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read;
+    }
+
+    // Sécuriser les téléversements : seuls les utilisateurs authentifiés peuvent écrire
+    // dans des dossiers spécifiques.
+    match /avatars/{userId}/{fileName} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /courses/{courseId}/{fileName} {
+      allow write: if request.auth != null;
     }
   }
 }
