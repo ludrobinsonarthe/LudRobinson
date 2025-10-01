@@ -52,7 +52,6 @@ const courseFormSchema = z.object({
   fieldId: z.string().optional(),
   credit: z.coerce.number().min(0, "Le crédit est requis."),
   documents: z.array(z.string()).optional(),
-  schedule: z.array(scheduleSchema).optional(),
 }).refine(data => data.sectorId || data.fieldId, {
     message: "Vous devez sélectionner un secteur ou une filière.",
     path: ["fieldId"],
@@ -157,20 +156,20 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
    }, [selectedSector, form, fields]);
 
   const onSubmit = async (data: CourseFormValues) => {
+    setIsSubmitting(true);
     if (!adminUser) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté.'});
+        setIsSubmitting(false);
         return;
     }
     
-    setIsSubmitting(true);
-    
     try {
-        let allDocs = data.documents || [];
+        const courseId = course?.id || doc(collection(db, 'courses')).id;
+        let allDocs = [...(form.getValues('documents') || [])];
 
         if (documentFile) {
             toast({ title: "Téléversement en cours...", description: "Veuillez patienter." });
-            const courseIdForPath = course?.id || `new_course_${Date.now()}`;
-            const filePath = `courses/${courseIdForPath}/${Date.now()}-${documentFile.name.replace(/\s/g, '_')}`;
+            const filePath = `courses/${courseId}/${Date.now()}-${documentFile.name.replace(/\s/g, '_')}`;
             const fileRef = ref(storage, filePath);
             
             await uploadBytes(fileRef, documentFile);
@@ -193,7 +192,6 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
         };
 
         const batch = writeBatch(db);
-        const courseId = course?.id || doc(collection(db, 'courses')).id;
         const courseRef = doc(db, "courses", courseId);
         batch.set(courseRef, finalCourseData, { merge: true });
 
@@ -432,5 +430,3 @@ export default function CourseFormDialog({ isOpen, setIsOpen, course, teachers, 
     </Dialog>
   );
 }
-
-    
