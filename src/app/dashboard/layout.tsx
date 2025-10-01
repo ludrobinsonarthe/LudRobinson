@@ -1,5 +1,4 @@
 
-
 "use client"
 import Link from "next/link";
 import { usePathname, redirect, useRouter } from "next/navigation";
@@ -348,7 +347,7 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 function ProtectedContent({children}: {children: React.ReactNode}) {
     const { user, loading: userContextLoading } = useUser();
     
-    if (userContextLoading || !user) {
+    if (userContextLoading) {
          return (
             <div className="flex h-screen w-full items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />

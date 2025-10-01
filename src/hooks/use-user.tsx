@@ -18,6 +18,12 @@ type UserContextType = {
   settings: Settings | null;
   userPermissions: AdminPermission[];
   hasPermission: (permission: AdminPermission) => boolean;
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  allUsers: User[];
+  fields: Field[];
+  sectors: Sector[];
+  allCourses: Course[];
+  grades: Grade[];
 };
 
 const defaultSettings: Settings = {
@@ -33,22 +39,32 @@ const defaultSettings: Settings = {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { user: authUser, loading: authLoading, signOut } = useAuth();
+  const { user: authUser, signOut } = useAuth();
   const { toast } = useToast();
+  
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  
+  // Globally needed, small collections
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Data loaded on demand by pages, but stored globally in provider
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [fields, setFields] = useState<Field[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
 
+  // Effect for the user's own profile
   useEffect(() => {
-    if (authLoading) return;
-
     if (!authUser) {
       setCurrentUser(null);
-      setLoading(false);
+      setLoadingUser(false);
       return;
     }
 
+    setLoadingUser(true);
     const userDocRef = doc(db, 'users', authUser.uid);
     const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -63,61 +79,37 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             signOut();
         }, 2000);
       }
+      setLoadingUser(false);
     }, (error) => {
       if (error.code === 'permission-denied') {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userDocRef.path, operation: 'get' }));
       }
       signOut();
+      setLoadingUser(false);
     });
 
     return () => unsubscribeUser();
-  }, [authUser, authLoading, signOut, toast]);
-
+  }, [authUser, signOut, toast]);
+  
+  // Effect for globally needed small collections
   useEffect(() => {
-    setLoading(true);
-    
     const unsubs: (() => void)[] = [];
 
-    const setupSubscription = (collectionName: string, setter: React.Dispatch<React.SetStateAction<any[]>>) => {
-        const q = query(collection(db, collectionName));
-        const unsubscribe = onSnapshot(q, 
-            (snapshot) => setter(snapshot.docs.map(d => ({...d.data(), id: d.id}))),
-            (error: FirestoreError) => {
-                if (error.code === 'permission-denied') {
-                     errorEmitter.emit('permission-error', new FirestorePermissionError({ path: collectionName, operation: 'list' }));
-                } else {
-                    console.error(`Error on collection ${collectionName}:`, error);
-                }
-            }
-        );
-        unsubs.push(unsubscribe);
-    };
-    
-    // Load only small, essential collections globally
-    setupSubscription('adminRoles', setRoles);
-    
-    const settingsUnsub = onSnapshot(doc(db, 'settings', 'system'), 
-        (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
-        (error: FirestoreError) => {
-            if (error.code === 'permission-denied') {
-                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'settings/system', operation: 'get' }));
-            } else {
-                 console.error(`Error on settings doc:`, error);
-            }
-        }
+    const unsubRoles = onSnapshot(collection(db, 'adminRoles'), 
+        (snapshot) => setRoles(snapshot.docs.map(d => ({...d.data(), id: d.id} as AdminRole))),
+        (error) => console.error("Error fetching roles: ", error)
     );
-    unsubs.push(settingsUnsub);
+    unsubs.push(unsubRoles);
+
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'system'), 
+        (snap) => setSettings(snap.exists() ? snap.data() as Settings : defaultSettings),
+        (error) => console.error("Error fetching settings: ", error)
+    );
+    unsubs.push(unsubSettings);
     
-    // Once we have the current user, we can stop loading
-    if (currentUser) {
-        setLoading(false);
-    }
-
-    // Still need to clean up subscriptions
     return () => unsubs.forEach(unsub => unsub());
+  }, []);
 
-  }, [currentUser]); // Depend on currentUser to know when to stop loading
-  
   const userPermissions = useMemo((): AdminPermission[] => {
       if (currentUser?.role !== 'admin') return [];
       
@@ -139,11 +131,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   
   const value: UserContextType = { 
       user: currentUser, 
-      loading: loading || authLoading, // Combine auth and user loading states
+      loading: loadingUser,
       roles,
       userPermissions,
       hasPermission,
       settings,
+      setUsers: setAllUsers,
+      allUsers,
+      fields,
+      sectors,
+      allCourses,
+      grades
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

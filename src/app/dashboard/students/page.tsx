@@ -44,13 +44,9 @@ const cycles: { value: Cycle, label: string }[] = [
 ];
 
 export default function StudentsPage() {
-    const { user: adminUser } = useUser();
+    const { user: adminUser, settings, fields, sectors, allCourses } = useUser();
     
     const [allUsers, setAllUsers] = useState<User[]>([]);
-    const [settings, setSettings] = useState<any>(null);
-    const [fields, setFields] = useState<Field[]>([]);
-    const [sectors, setSectors] = useState<Sector[]>([]);
-    const [allCourses, setAllCourses] = useState<Course[]>([]);
     const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -73,10 +69,6 @@ export default function StudentsPage() {
         setLoading(true);
         const unsubs: (() => void)[] = [];
         unsubs.push(onSnapshot(collection(db, 'users'), s => setAllUsers(s.docs.map(d => d.data() as User))));
-        unsubs.push(onSnapshot(doc(db, 'settings', 'system'), s => setSettings(s.data())));
-        unsubs.push(onSnapshot(collection(db, 'fields'), s => setFields(s.docs.map(d => ({ id: d.id, ...d.data() }) as Field))));
-        unsubs.push(onSnapshot(collection(db, 'sectors'), s => setSectors(s.docs.map(d => ({ id: d.id, ...d.data() }) as Sector))));
-        unsubs.push(onSnapshot(collection(db, 'courses'), s => setAllCourses(s.docs.map(d => ({ id: d.id, ...d.data() }) as Course))));
         unsubs.push(onSnapshot(collection(db, 'feeStructures'), s => setFeeStructures(s.docs.map(d => d.data() as FeeStructure))));
         unsubs.push(onSnapshot(collection(db, 'payments'), s => setPayments(s.docs.map(d => d.data() as Payment))));
 
@@ -387,7 +379,7 @@ export default function StudentsPage() {
 
     const getExportData = () => {
         return filteredStudents.map(student => {
-            const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student!.parentUid) : null;
+            const parent = student.student?.parentUid ? parents.find(p => p.uid === student.student.parentUid) : null;
             return {
                 "Nom": student.lastName,
                 "Prénom": student.firstName,
