@@ -7,10 +7,11 @@ import { Course, User } from '@/lib/types';
 import { useUser } from '@/hooks/use-user';
 import { collection, query, where, getDocs, onSnapshot, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { BookOpenCheck, Download, Loader2, Files } from 'lucide-react';
+import { BookOpenCheck, Download, Loader2, Files, MoreHorizontal, ClipboardList, Edit } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
 
 export default function CoursesPage() {
     const { user: currentUser, allUsers: users, allCourses, loading, fields } = useUser();
@@ -149,7 +150,31 @@ export default function CoursesPage() {
                                 <CardHeader>
                                     <div className="flex items-start justify-between">
                                         <CardTitle className="text-xl">{course.name}</CardTitle>
-                                        <BookOpenCheck className="h-6 w-6 text-primary" />
+                                         {currentUser?.role === 'teacher' ? (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem asChild>
+                                                        <Link href={`/dashboard/grade-management?courseId=${course.id}`}>
+                                                            <ClipboardList className="mr-2 h-4 w-4" />
+                                                            Gérer les notes
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                        <Link href={`/dashboard/course-management/${course.id}`}>
+                                                            <Edit className="mr-2 h-4 w-4" />
+                                                            Modifier le cours
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        ) : (
+                                            <BookOpenCheck className="h-6 w-6 text-primary" />
+                                        )}
                                     </div>
                                     <CardDescription>
                                         {currentUser?.role !== 'teacher' && `Prof: ${getTeacherName(course.teacherId)}`}
