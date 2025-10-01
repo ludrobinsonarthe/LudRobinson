@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 
 function SalaryManagementContent() {
-    const { allUsers: users, loading: usersLoading, settings, user } from useUser();
+    const { allUsers: users, loading: usersLoading, settings, user } = useUser();
     const router = useRouter();
     const searchParams = useSearchParams();
     const userIdFilter = searchParams.get('userId');
@@ -299,7 +299,7 @@ function SalaryManagementContent() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start flex-wrap gap-4">
                  <div className="flex items-center gap-4">
                      {userIdFilter && (
                         <Button variant="outline" size="icon" onClick={() => router.back()}>
@@ -322,13 +322,13 @@ function SalaryManagementContent() {
             </div>
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center flex-wrap gap-4">
                         <div>
                             <CardTitle>Historique des fiches de paie</CardTitle>
                             <CardDescription>Liste de toutes les fiches de paie générées et leur statut.</CardDescription>
                         </div>
                         <Select value={userFilter} onValueChange={setUserFilter}>
-                            <SelectTrigger className="w-[280px]">
+                            <SelectTrigger className="w-full sm:w-[280px]">
                                 <SelectValue placeholder="Filtrer par employé..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -342,8 +342,8 @@ function SalaryManagementContent() {
                      <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Employé</TableHead>
-                                <TableHead>Rôle</TableHead>
+                                <TableHead className="w-[200px]">Employé</TableHead>
+                                <TableHead className="hidden sm:table-cell">Rôle</TableHead>
                                 <TableHead>Mois/Année</TableHead>
                                 <TableHead>Salaire Total</TableHead>
                                 <TableHead>Statut</TableHead>
@@ -355,7 +355,7 @@ function SalaryManagementContent() {
                                 Array.from({length: 5}).map((_,i) => (
                                     <TableRow key={i}>
                                         <TableCell><Skeleton className="h-5 w-32"/></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-24"/></TableCell>
+                                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-24"/></TableCell>
                                         <TableCell><Skeleton className="h-5 w-24"/></TableCell>
                                         <TableCell><Skeleton className="h-5 w-28"/></TableCell>
                                         <TableCell><Skeleton className="h-5 w-20"/></TableCell>
@@ -365,7 +365,7 @@ function SalaryManagementContent() {
                             ) : filteredSalaries.length > 0 ? filteredSalaries.map(salary => (
                                 <TableRow key={salary.id}>
                                     <TableCell className="font-medium">{salary.userName}</TableCell>
-                                    <TableCell><Badge variant="outline">{salary.userRole === 'teacher' ? 'Professeur' : 'Admin'}</Badge></TableCell>
+                                    <TableCell className="hidden sm:table-cell"><Badge variant="outline">{salary.userRole === 'teacher' ? 'Professeur' : 'Admin'}</Badge></TableCell>
                                     <TableCell>{salary.month} {salary.year}</TableCell>
                                     <TableCell className='font-semibold'>{formatCurrency(salary.totalSalary, salary.currency)}</TableCell>
                                     <TableCell>
