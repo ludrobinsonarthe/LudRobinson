@@ -89,7 +89,7 @@ export default function CashFlowPage() {
         }
     }
     
-    const handleRowClick = async (transaction: CashTransaction) => {
+    const handleCellClick = async (transaction: CashTransaction) => {
         if (!transaction.relatedDocId) return;
 
         let path = '';
@@ -221,16 +221,12 @@ export default function CashFlowPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : transactions.length > 0 ? transactions.map(t => (
-                                <TableRow 
-                                    key={t.id} 
-                                    onClick={() => handleRowClick(t)}
-                                    className={cn(t.relatedDocId && 'cursor-pointer')}
-                                >
-                                    <TableCell>{format(new Date(t.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
-                                    <TableCell><Badge variant={typeVariant[t.type]}>{typeTranslation[t.type]}</Badge></TableCell>
-                                    <TableCell><Badge variant="outline">{categoryTranslation[t.category]}</Badge></TableCell>
-                                    <TableCell className="font-medium">{t.description}</TableCell>
-                                    <TableCell className={`text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                <TableRow key={t.id}>
+                                    <TableCell onClick={() => handleCellClick(t)} className={cn(t.relatedDocId && 'cursor-pointer')}>{format(new Date(t.date), 'd MMMM yyyy', { locale: fr })}</TableCell>
+                                    <TableCell onClick={() => handleCellClick(t)} className={cn(t.relatedDocId && 'cursor-pointer')}><Badge variant={typeVariant[t.type]}>{typeTranslation[t.type]}</Badge></TableCell>
+                                    <TableCell onClick={() => handleCellClick(t)} className={cn(t.relatedDocId && 'cursor-pointer')}><Badge variant="outline">{categoryTranslation[t.category]}</Badge></TableCell>
+                                    <TableCell onClick={() => handleCellClick(t)} className={cn('font-medium', t.relatedDocId && 'cursor-pointer')}>{t.description}</TableCell>
+                                    <TableCell onClick={() => handleCellClick(t)} className={cn(`text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`, t.relatedDocId && 'cursor-pointer')}>
                                         {t.type === 'expense' && '- '}{formatCurrency(t.amount, t.currency)}
                                     </TableCell>
                                     <TableCell className="text-right">
